@@ -1,0 +1,8 @@
+yarn.lock
+.DS_STORE
+.vim/
+venv/
+credentials.txt
+host_files/localhost/nvim/autoload/plugged/
+host_files/localhost/nvim/viminfo
+node_modules/

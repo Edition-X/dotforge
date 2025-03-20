@@ -1,0 +1,86 @@
+########################
+##        Aliases     ##
+########################
+########################
+
+## SHORTCUTS ##
+alias zrc='source ~/.zshrc'
+alias wq='clear'
+alias mv='mv -v'
+alias cp='cp -rv'
+alias rm='rm -riv'
+########################
+
+## Vim ##
+alias vim='nvim'
+########################
+
+## fasd ##
+alias a='fasd -a'        # any
+alias s='fasd -si'       # show / search / select
+alias d='fasd -d'        # directory
+alias f='fasd -f'        # file
+alias sd='fasd -sid'     # interactive directory selection
+alias sf='fasd -sif'     # interactive file selection
+alias z='fasd_cd -d'     # cd, same functionality as j in autojump
+alias zz='fasd_cd -d -i' # cd with interactive selection
+alias v='f -e nvim'
+########################
+
+## Brew ##
+alias brew_update='brew -v update; brew upgrade --force-bottle; brew cleanup --prune -v; brew doctor -v'
+########################
+
+## Git ##
+alias g='git'
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gb='git branch'
+alias gba='git branch -a'
+alias gco='git checkout'
+alias gr='git remote -v'
+alias gp='git pull'
+alias gu='git push'
+#alias undopush='git push -f origin HEAD^:master'
+########################
+
+## CoreUtils ls ##
+alias ls='gls --color --group-directories-first'
+alias ll='gls -ltr --color --group-directories-first'
+alias lla='gls -ltrA --color --group-directories-first'
+alias lls='gls -lA --color --group-directories-first | grep "^l"'
+alias lld='gls -lA --color | grep "^d"'
+########################
+##       GUN SED      ##
+alias sed='gsed'
+
+## Terragrunt ##
+#alias tgg="terragrunt get -update"
+#alias tgp="terragrunt plan"
+#alias tga="terragrunt apply"
+#alias tgd="terragrunt destroy"
+#alias tgaa="terragrunt apply -auto-approve"
+#alias tgda="terragrunt destroy -auto-approve"
+
+## Terraform
+alias tfi="terraform init"
+alias tfp="terraform plan"
+alias tfa="terraform apply"
+alias tfaa="terraform apply -auto-approve"
+alias tfd="terraform destroy"
+alias tfda="terraform destroy -auto-approve"
+########################
+
+ # Kubectl ##
+alias k="kubectl"
+alias kc="kubectl create"
+alias kcf="kubectl create -f"
+alias ka="kubectl apply"
+alias kaf="kubectl apply -f"
+alias kgp="kubectl get pods"
+alias kgs="kubectl get services"
+alias kd="kubectl delete"
+alias kdf="kubectl delete -f"
+alias kcn="kubectl create ns"
+alias kdn="kubectl delete ns"

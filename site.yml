@@ -1,0 +1,181 @@
+---
+- name: MacBook Pro
+  hosts: localhost
+
+  tasks:
+    - name: Create needed directories in home directory
+      ansible.builtin.file:
+        state: directory
+        path: "{{ user_dir }}/{{ item }}"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0700'
+        modification_time: preserve
+        access_time: preserve
+      with_items:
+        - .ssh
+        - .config
+
+    - name: SSH - Private keys
+      ansible.builtin.copy:
+        src: "host_files/{{ inventory_hostname }}/{{ item }}"
+        dest: "{{ user_dir }}/.ssh/{{ item }}"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0600'
+      with_items:
+        - id_rsa
+        - id_ed25519
+
+    - name: SSH - Public keys
+      ansible.builtin.copy:
+        src: "host_files/{{ inventory_hostname }}/{{ item }}"
+        dest: "{{ user_dir }}/.ssh/{{ item }}"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+      with_items:
+        - id_rsa.pub
+        - id_ed25519.pub
+
+    - name: SSH - Config file
+      ansible.builtin.template:
+        src: "host_files/{{ inventory_hostname }}/config.j2"
+        dest: "{{ user_dir }}/.ssh/config"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+
+    - name: Ansible Vault - Password file
+      no_log: False
+      ansible.builtin.copy:
+        src: "host_files/{{ inventory_hostname }}/vault_pass.txt"
+        dest: "{{ user_dir }}/.vault_pass.txt"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0600'
+
+    - name: .aliases - Config file
+      ansible.builtin.copy:
+        src: "host_files/{{ inventory_hostname }}/aliases"
+        dest: "{{ user_dir }}/.aliases"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+
+    - name: pyrightconfig - Config file
+      ansible.builtin.copy:
+        src: "host_files/{{ inventory_hostname }}/pyrightconfig.json"
+        dest: "{{ user_dir }}/pyrightconfig.json"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+
+    - name: .env_vars - Config file
+      no_log: True
+      ansible.builtin.template:
+        src: "host_files/{{ inventory_hostname }}/env_vars.j2"
+        dest: "{{ user_dir }}/.env_vars"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0600'
+
+    - name: .zshrc - Config file
+      ansible.builtin.template:
+        src: "host_files/{{ inventory_hostname }}/zshrc.j2"
+        dest: "{{ user_dir }}/.zshrc"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+
+    - name: .functions - Config file
+      ansible.builtin.template:
+        src: "host_files/{{ inventory_hostname }}/functions.j2"
+        dest: "{{ user_dir }}/.functions"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+
+    - name: TMUX - Config file
+      ansible.builtin.copy:
+        src: "host_files/{{ inventory_hostname }}/{{ item }}"
+        dest: "{{ user_dir }}/.{{ item }}"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+      with_items:
+        - tmux.conf
+        - tmux.conf.local
+
+    - name: .nvim - Config file
+      ansible.builtin.file:
+        src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/nvim"
+        dest: "{{ user_dir }}/.config/nvim"
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        state: link
+      tags:
+        - dot
+
+    # - name: Source environment
+    #   ansible.builtin.shell: ". {{ user_dir }}/.zshrc"
+    #   tags:
+    #     - dot
+
+    # - name: Brew - Formulae
+    #   community.general.homebrew:
+    #     update_homebrew: yes
+    #     state: present
+    #     name:
+    #       - amazon-ecs-cli
+    #       - antigen
+    #       - awscli
+    #       - coreutils
+    #       - fasd
+    #       - git
+    #       - gnu-sed
+    #       - htop
+    #       - make
+    #       - neovim
+    #       - powerlevel9k
+    #       - shellcheck
+    #       - terraform
+    #       - tig
+    #       - tmux
+    #       - tree
+    #       - vagrant
+    #       - wget
+    #   tags:
+    #     - brew
+
+    # - name: Brew - Casks
+    #   community.general.homebrew_cask:
+    #     state: installed
+    #     accept_external_apps: True
+    #     sudo_password: "{{ unix_password }}"
+    #     name:
+    #       - adobe-acrobat-reader
+    #       - atom
+    #       - caffeine
+    #       - docker
+    #       - google-chrome
+    #       - iterm2
+    #       - lastpass
+    #       - microsoft-edge
+    #       - slack
+    #       - spectacle
+    #       - spotify
+    #       - vlc
+    #   tags:
+    #     - brew
+
+    # - name: Python - Packages
+    #   ansible.builtin.pip:
+    #     name: "{{ item }}"
+    #     executable: "{{ pip_executable }}"
+    #   with_items:
+    #     - ansible
+    #     - neovim
+    #     - ranger-fm
+    #     - yq
+    #     - jq

@@ -1,0 +1,4 @@
+---
+user_dir: "/Users/dkelly"
+osx_username: dkelly
+vault_pass: "{{ vault_vault_pass }}"
