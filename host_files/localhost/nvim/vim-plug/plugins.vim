@@ -37,18 +37,12 @@ call plug#begin('~/.config/nvim/autoload/plugged')
     Plug 'psliwka/vim-smoothie'
     " Cool Icons
     Plug 'ryanoasis/vim-devicons'
-    " Movement on steroids
-    Plug 'easymotion/vim-easymotion'
     " Buffer Bye
     Plug 'moll/vim-bbye'
-    " Swap windows
-    Plug 'wesQ3/vim-windowswap'
     " Zen mode
     Plug 'junegunn/goyo.vim'
     " Have the file system follow you around
     Plug 'airblade/vim-rooter'
-    " Subsitute and replace fast
-    Plug 'svermeulen/vim-subversive'
     " Indent visuals
     Plug 'Yggdroot/indentLine'
     Plug 'lukas-reineke/indent-blankline.nvim'
@@ -57,8 +51,6 @@ call plug#begin('~/.config/nvim/autoload/plugged')
     " tmux and vim working together for debugging purposes.
     Plug 'preservim/vimux'
     Plug 'voldikss/vim-floaterm'
-    " Nice MarkdownPreview
-    Plug 'ellisonleao/glow.nvim', {'branch': 'main'}
     " Telescope and its dependency
     Plug 'nvim-lua/plenary.nvim'
     Plug 'nvim-telescope/telescope.nvim'
