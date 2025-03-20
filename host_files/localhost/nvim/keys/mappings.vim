@@ -25,10 +25,6 @@ else
   inoremap <expr> <c-j> ("\<C-n>")
   inoremap <expr> <c-k> ("\<C-p>")
 
-  " I hate escape more than anything else
-  inoremap jk <Esc>
-  inoremap kj <Esc>
-
   " Easy CAPS
   " nnoremap <c-u> viwU<Esc>
 
