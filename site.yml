@@ -89,12 +89,12 @@
         mode: '0644'
 
     - name: .functions - Config file
-      ansible.builtin.template:
-        src: "host_files/{{ inventory_hostname }}/functions.j2"
+      ansible.builtin.file:
+        src: "host_files/{{ inventory_hostname }}/functions"
         dest: "{{ user_dir }}/.functions"
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
-        mode: '0644'
+        state: link
 
     - name: TMUX - Config file
       ansible.builtin.copy:

@@ -1,0 +1,172 @@
+# Create directory and cd into it
+function md() {
+  mkdir -p "$1" && cd "$1"
+}
+
+# Quickly view recent logs from a specific Docker container
+function dlogs() {
+  docker logs --tail=50 -f "$1"
+}
+
+# Quickly build and tag Docker images
+function dbuild() {
+  docker build -t "$1" .
+}
+
+# Quickly prune unused Docker resources
+function dclean() {
+  docker system prune -f
+}
+
+# Check current AWS CLI profile
+function awsprofile() {
+  aws configure list | grep profile
+}
+
+# Quickly deploy Terraform
+function tfdeploy() {
+  terraform init && terraform plan && terraform apply -auto-approve
+}
+
+# Quickly destroy Terraform-managed infrastructure
+function tfdestroy() {
+  terraform destroy -auto-approve
+}
+
+# Quickly SSH using predefined keys
+function sshkey() {
+  ssh -i ~/.ssh/"$1" "$2"
+}
+
+# Quickly list available Kubernetes contexts
+function kctxlist() {
+  kubectl config get-contexts
+}
+
+# Quickly check status of all pods in current namespace
+function kpods() {
+  kubectl get pods --watch
+}
+
+# Quickly display current network interfaces and IP addresses
+function myip() {
+  ifconfig | grep 'inet ' | grep -v 127.0.0.1
+}
+
+# Quickly update Homebrew and upgrade all installed packages
+function brewup() {
+  brew update && brew upgrade
+}
+
+# Clean Homebrew cache and outdated packages
+function brewclean() {
+  brew cleanup -s
+}
+# Quickly flush DNS cache
+function flushdns() {
+  dscacheutil -flushcache && sudo killall -HUP mDNSResponder
+}
+
+# Quickly edit hosts file
+function edithosts() {
+  sudo vim /etc/hosts
+}
+
+# Quickly check listening ports
+function ports() {
+  lsof -iTCP -sTCP:LISTEN -n -P
+}
+
+# Quickly check disk usage
+function diskspace() {
+  df -h
+}
+# Quickly check current timezone
+function timezone() {
+  sudo systemsetup -gettimezone
+}
+
+# Quickly display all installed fonts
+function fonts() {
+  system_profiler SPFontsDataType
+}
+
+# Quickly kill a process by name
+function killproc() {
+  pkill "$1"
+}
+
+# Quickly compress current directory
+function compressdir() {
+  tar -czvf "$1.tar.gz" .
+}
+
+# Quickly extract compressed files
+function extract() {
+  tar -xzvf "$1"
+}
+
+# Quickly check macOS system version
+function macversion() {
+  sw_vers
+}
+
+# Quickly view running processes
+function psgrep() {
+  ps aux | grep "$1"
+}
+
+# Quickly tail system log
+function syslog() {
+  tail -f /var/log/system.log
+}
+
+# Quickly view current git branch
+function gbranch() {
+  git branch --show-current
+}
+
+# Quickly stage and commit changes in git
+function gcom() {
+  git add . && git commit -m "$1"
+}
+
+# Quickly check memory usage
+function memusage() {
+  vm_stat | perl -ne '/page size of (\d+)/ and $size=$1; /Pages free:\s+(\d+)/ and printf("Free memory: %.2f GB\n", $1 * $size / 1048576)'
+}
+
+# Quickly view recent commits
+function glog() {
+  git log --oneline --decorate --graph -n 10
+}
+
+# Quickly search history
+function hsearch() {
+  history | grep "$1"
+}
+
+# Quickly check CPU usage
+function cpuusage() {
+  top -l 1 | grep "CPU usage"
+}
+
+# Quickly open system preferences
+function sysprefs() {
+  open /System/Applications/System\ Preferences.app
+}
+
+# Quickly open recent files in current directory
+function recentfiles() {
+  ls -lt | head
+}
+
+# Quickly show current directory size
+function dirsize() {
+  du -sh .
+}
+
+# Quickly check public IP address
+function publicip() {
+  curl ifconfig.me
+}
