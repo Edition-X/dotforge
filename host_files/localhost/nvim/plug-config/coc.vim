@@ -27,6 +27,11 @@
     \ 'coc-tabnine',
     \ 'coc-highlight',
     \ 'coc-go',
+    \ 'coc-python',
+    \ '@yaegassy/coc-ansible',
+    \ 'coc-git',
+    \ 'coc-yaml',
+    \ 'coc-docker',
     \ ]
 
 " Use tab for trigger completion with characters ahead and navigate.
