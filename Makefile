@@ -16,7 +16,11 @@ $(PYTHON_VIRTUAL_ENVIRONMENT): $(PYTHON_REQUIREMENTS_FILE)
 
 .PHONY: apply
 apply: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) $(RUN_ARGS))
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --skip-tags cleanup)
+
+.PHONY: delete
+delete: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags cleanup)
 
 .PHONY: check
 check: $(PYTHON_VIRTUAL_ENVIRONMENT)
