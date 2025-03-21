@@ -45,31 +45,39 @@
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
         mode: '0644'
+      tags:
+        - dot
 
     - name: Ansible Vault - Password file
       no_log: False
-      ansible.builtin.copy:
-        src: "host_files/{{ inventory_hostname }}/vault_pass.txt"
+      ansible.builtin.file:
+        src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/vault_pass.txt"
         dest: "{{ user_dir }}/.vault_pass.txt"
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
-        mode: '0600'
+        state: link
+      tags:
+        - dot
 
     - name: .aliases - Config file
-      ansible.builtin.copy:
-        src: "host_files/{{ inventory_hostname }}/aliases"
+      ansible.builtin.file:
+        src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/aliases"
         dest: "{{ user_dir }}/.aliases"
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
-        mode: '0644'
+        state: link
+      tags:
+        - dot
 
     - name: pyrightconfig - Config file
-      ansible.builtin.copy:
-        src: "host_files/{{ inventory_hostname }}/pyrightconfig.json"
+      ansible.builtin.file:
+        src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/pyrightconfig.json"
         dest: "{{ user_dir }}/pyrightconfig.json"
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
-        mode: '0644'
+        state: link
+      tags:
+        - dot
 
     - name: .env_vars - Config file
       no_log: True
@@ -79,6 +87,8 @@
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
         mode: '0600'
+      tags:
+        - dot
 
     - name: .zshrc - Config file
       ansible.builtin.template:
@@ -87,14 +97,18 @@
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
         mode: '0644'
+      tags:
+        - dot
 
     - name: .functions - Config file
       ansible.builtin.file:
-        src: "host_files/{{ inventory_hostname }}/functions"
+        src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/functions"
         dest: "{{ user_dir }}/.functions"
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
         state: link
+      tags:
+        - dot
 
     - name: TMUX - Config file
       ansible.builtin.copy:
@@ -106,6 +120,8 @@
       with_items:
         - tmux.conf
         - tmux.conf.local
+      tags:
+        - dot
 
     - name: .nvim - Config file
       ansible.builtin.file:
