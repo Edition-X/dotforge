@@ -54,6 +54,10 @@ call plug#begin('~/.config/nvim/autoload/plugged')
     " Telescope and its dependency
     Plug 'nvim-lua/plenary.nvim'
     Plug 'nvim-telescope/telescope.nvim'
+    " DevOps Stuff
+    Plug 'hashivim/vim-terraform'
+    Plug 'pearofducks/ansible-vim'
+    Plug 'ekalinin/Dockerfile.vim'
 call plug#end()
 
 " Automatically install missing plugins on startup
