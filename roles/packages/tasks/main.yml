@@ -1,68 +1,57 @@
 ---
 - name: Brew - Formulae
   community.general.homebrew:
-    update_homebrew: yes
+    name: "{{ item }}"
     state: present
-    name:
-      - ansible
-      - antigen
-      - asciiquarium
-      - bash
-      - cmatrix
-      - coreutils
-      - cowsay
-      - fd
-      - figlet
-      - fortune
-      - git
-      - glow
-      - htop
-      - lazydocker
-      - lazygit
-      - lolcat
-      - make
-      - ncdu
-      - neofetch
-      - neovim
-      - node
-      - pipes-sh
-      - pyenv
-      - python@3.13
-      - ranger
-      - ripgrep
-      - sshpass
-      - terraform
-      - tig
-      - tmux
-      - tree
-      - tree-sitter
-      - wget
+  loop:
+    - bat
+    - buildkit
+    - certbot
+    - direnv
+    - docker-compose
+    - go
+    - goreleaser/tap/goreleaser
+    - htop
+    - jq
+    - pre-commit
+    - pv
+    - py3cairo
+    - pygobject3
+    - pyqt5
+    - python
+    - rename
+    - rlwrap
+    - shellcheck
+    - starship
+    - syncthing
+    - telnet
+    - tmux
+    - tree
+    - vim
+    - wget
+    - yq
   tags:
     - brew
 
 - name: Brew - Casks
   community.general.homebrew_cask:
+    name: chromedriver
     state: present
-    accept_external_apps: True
-    name:
-      - chromedriver
   tags:
     - brew
 
 - name: Python - Packages
   ansible.builtin.pip:
-    name: "{{ item }}"
-    state: present
-    executable: "{{ pip_executable | default('pip3') }}"
-  with_items:
-    - ansible-core
-    - cffi
-    - cryptography
-    - Jinja2
-    - MarkupSafe
-    - packaging
-    - pycparser
-    - PyYAML
-    - resolvelib
+    name:
+      - ansible-core
+      - cryptography
+      - PyYAML
+      - awscli
+      - awsume
+      - boto3
+      - cfn-lint
+      - pre-commit
+      - prompt_toolkit
+      - pynvim
   tags:
-    - python 
+    - python
