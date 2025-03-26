@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+export TERM=xterm-256color
+export EDITOR=nvim
+export LANG="en_US.UTF-8"
+export LC_ALL="en_US.UTF-8"
+export LC_CTYPE="en_US.UTF-8"
+export AWS_PAGER=""
+export VAULT_PASSWORD={{ user_dir }}/.vault_pass.txt
+export ANSIBLE_VAULT_PASSWORD_FILE=$VAULT_PASSWORD
+export PYRIGHTCONFIG=~/.pyrightconfig.json
