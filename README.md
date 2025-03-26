@@ -14,6 +14,14 @@ The configuration is organized into roles:
 - **packages**: Manages Homebrew formulae, casks, and Python packages
 - **cleanup**: Removes managed files (used for uninstallation)
 
+## Inventory and Variables
+
+The setup uses Ansible's inventory system:
+
+- **inventory**: Contains host groups (local, work, personal)
+- **group_vars/macbooks.yml**: Common variables for all MacBooks
+- **host_vars/**: Host-specific variables (create files like hostname.yml)
+
 ## Usage
 
 ```bash
@@ -36,6 +44,15 @@ make neovim     # Neovim config only
 make tmux       # tmux config only
 make packages   # Install packages only
 ```
+
+## For Different Hosts
+
+To configure a different MacBook:
+
+1. Add the host to the inventory file
+2. Create host-specific files in host_files/hostname/
+3. Optionally add host-specific variables in host_vars/hostname.yml
+4. Run: `ANSIBLE_LIMIT=hostname make apply`
 
 ## Adding New Configuration
 

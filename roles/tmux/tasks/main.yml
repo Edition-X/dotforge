@@ -1,13 +1,13 @@
 ---
 - name: TMUX - Config file
   ansible.builtin.copy:
-    src: "host_files/{{ inventory_hostname }}/{{ item }}"
-    dest: "{{ user_dir }}/.{{ item }}"
+    src: "{{ host_files_dir }}/{{ item.src }}"
+    dest: "{{ item.dest }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0644'
   with_items:
-    - tmux.conf
-    - tmux.conf.local
+    - { src: "tmux.conf", dest: "{{ config_paths.tmux_conf }}" }
+    - { src: "tmux.conf.local", dest: "{{ config_paths.tmux_conf_local }}" }
   tags:
     - dot 

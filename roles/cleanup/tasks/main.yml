@@ -2,31 +2,31 @@
 - name: Cleanup files and directories
   ansible.builtin.file:
     state: absent
-    path: "{{ user_dir }}/{{ item }}"
+    path: "{{ item }}"
   loop:
-    - .ssh/id_rsa
-    - .ssh/id_ed25519
-    - .ssh/id_rsa.pub
-    - .ssh/id_ed25519.pub
-    - .ssh/config
-    - .vault_pass.txt
-    - .aliases
-    - pyrightconfig.json
-    - .env_vars
-    - .zshrc
-    - .functions
-    - .tmux.conf
-    - .tmux.conf.local
-    - .config/nvim
+    - "{{ ssh_dir }}/id_rsa"
+    - "{{ ssh_dir }}/id_ed25519"
+    - "{{ ssh_dir }}/id_rsa.pub"
+    - "{{ ssh_dir }}/id_ed25519.pub"
+    - "{{ config_paths.ssh_config }}"
+    - "{{ user_dir }}/.vault_pass.txt"
+    - "{{ config_paths.aliases }}"
+    - "{{ config_paths.pyright_config }}"
+    - "{{ config_paths.env_vars }}"
+    - "{{ config_paths.zshrc }}"
+    - "{{ config_paths.functions }}"
+    - "{{ config_paths.tmux_conf }}"
+    - "{{ config_paths.tmux_conf_local }}"
+    - "{{ config_paths.nvim }}"
   tags:
     - cleanup
 
 - name: Cleanup directories if empty
   ansible.builtin.file:
     state: absent
-    path: "{{ user_dir }}/{{ item }}"
+    path: "{{ item }}"
   loop:
-    - .ssh
-    - .config
+    - "{{ ssh_dir }}"
+    - "{{ user_dir }}/.config"
   tags:
     - cleanup 

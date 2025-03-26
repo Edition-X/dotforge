@@ -1,8 +1,8 @@
 ---
 - name: .aliases - Config file
   ansible.builtin.file:
-    src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/aliases"
-    dest: "{{ user_dir }}/.aliases"
+    src: "{{ host_files_dir }}/aliases"
+    dest: "{{ config_paths.aliases }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     state: link
@@ -11,8 +11,8 @@
 
 - name: pyrightconfig - Config file
   ansible.builtin.file:
-    src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/pyrightconfig.json"
-    dest: "{{ user_dir }}/pyrightconfig.json"
+    src: "{{ host_files_dir }}/pyrightconfig.json"
+    dest: "{{ config_paths.pyright_config }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     state: link
@@ -23,7 +23,7 @@
   no_log: True
   ansible.builtin.template:
     src: "env_vars.j2"
-    dest: "{{ user_dir }}/.env_vars"
+    dest: "{{ config_paths.env_vars }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0600'
@@ -33,7 +33,7 @@
 - name: .zshrc - Config file
   ansible.builtin.template:
     src: "zshrc.j2"
-    dest: "{{ user_dir }}/.zshrc"
+    dest: "{{ config_paths.zshrc }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0644'
@@ -42,8 +42,8 @@
 
 - name: .functions - Config file
   ansible.builtin.file:
-    src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/functions"
-    dest: "{{ user_dir }}/.functions"
+    src: "{{ host_files_dir }}/functions"
+    dest: "{{ config_paths.functions }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     state: link

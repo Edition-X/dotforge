@@ -1,30 +1,26 @@
 ---
 - name: SSH - Private keys
   ansible.builtin.copy:
-    src: "host_files/{{ inventory_hostname }}/{{ item }}"
-    dest: "{{ user_dir }}/.ssh/{{ item }}"
+    src: "{{ host_files_dir }}/{{ item }}"
+    dest: "{{ ssh_dir }}/{{ item }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0600'
-  with_items:
-    - id_rsa
-    - id_ed25519
+  with_items: "{{ ssh_keys }}"
 
 - name: SSH - Public keys
   ansible.builtin.copy:
-    src: "host_files/{{ inventory_hostname }}/{{ item }}"
-    dest: "{{ user_dir }}/.ssh/{{ item }}"
+    src: "{{ host_files_dir }}/{{ item }}.pub"
+    dest: "{{ ssh_dir }}/{{ item }}.pub"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0644'
-  with_items:
-    - id_rsa.pub
-    - id_ed25519.pub
+  with_items: "{{ ssh_keys }}"
 
 - name: SSH - Config file
   ansible.builtin.template:
     src: "config.j2"
-    dest: "{{ user_dir }}/.ssh/config"
+    dest: "{{ config_paths.ssh_config }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0644'
@@ -34,7 +30,7 @@
 - name: Ansible Vault - Password file
   no_log: False
   ansible.builtin.file:
-    src: "{{ user_dir }}/Projects/macbook-pro/host_files/{{ inventory_hostname }}/vault_pass.txt"
+    src: "{{ host_files_dir }}/vault_pass.txt"
     dest: "{{ user_dir }}/.vault_pass.txt"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"

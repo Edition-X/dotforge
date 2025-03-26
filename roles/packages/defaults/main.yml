@@ -1,3 +1,2 @@
 ---
-# Python executable to use for pip
-pip_executable: "{{ lookup('env', 'HOME') }}/.pyenv/shims/pip" 
+# Package management defaults 

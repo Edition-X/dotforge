@@ -1,6 +1,8 @@
 PYTHON_VIRTUAL_ENVIRONMENT := venv
 PYTHON_REQUIREMENTS_FILE   := requirements.txt
 ANSIBLE_PLAYBOOK_FILE      := site.yml
+ANSIBLE_INVENTORY_FILE     := inventory
+ANSIBLE_LIMIT              := local
 
 .DEFAULT_GOAL := $(PYTHON_VIRTUAL_ENVIRONMENT)
 
@@ -16,36 +18,36 @@ $(PYTHON_VIRTUAL_ENVIRONMENT): $(PYTHON_REQUIREMENTS_FILE)
 
 .PHONY: apply
 apply: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --skip-tags cleanup)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --skip-tags cleanup)
 
 .PHONY: delete
 delete: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags cleanup -e "cleanup=true")
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags cleanup -e "cleanup=true")
 
 .PHONY: check
 check: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook --check $(ANSIBLE_PLAYBOOK_FILE) $(RUN_ARGS))
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) --check $(ANSIBLE_PLAYBOOK_FILE) $(RUN_ARGS))
 
 # Role-specific targets
 .PHONY: ssh
 ssh: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags ssh)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags ssh)
 
 .PHONY: dotfiles
 dotfiles: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags dotfiles)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags dotfiles)
 
 .PHONY: neovim
 neovim: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags neovim)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags neovim)
 
 .PHONY: tmux
 tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags tmux)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags tmux)
 
 .PHONY: packages
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
 
 .PHONY: clean
 clean:
