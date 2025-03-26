@@ -1,15 +1,2 @@
 [local]
 localhost ansible_connection=local
-
-[work]
-# Add work machines here
-# work-mbp ansible_host=192.168.1.100
-
-[personal]
-# Add personal machines here
-# home-mbp ansible_host=192.168.1.101
-
-[macbooks:children]
-local
-work
-personal 
