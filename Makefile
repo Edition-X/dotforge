@@ -20,11 +20,28 @@ apply: $(PYTHON_VIRTUAL_ENVIRONMENT)
 
 .PHONY: delete
 delete: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags cleanup)
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags cleanup -e "cleanup=true")
 
 .PHONY: check
 check: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook --check $(ANSIBLE_PLAYBOOK_FILE) $(RUN_ARGS))
+
+# Role-specific targets
+.PHONY: ssh
+ssh: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags ssh)
+
+.PHONY: dotfiles
+dotfiles: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags dotfiles)
+
+.PHONY: neovim
+neovim: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags neovim)
+
+.PHONY: tmux
+tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags tmux)
 
 .PHONY: clean
 clean:
