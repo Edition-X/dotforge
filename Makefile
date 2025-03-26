@@ -43,6 +43,10 @@ neovim: $(PYTHON_VIRTUAL_ENVIRONMENT)
 tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags tmux)
 
+.PHONY: packages
+packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
+
 .PHONY: clean
 clean:
 	-@rm -rf $(PYTHON_VIRTUAL_ENVIRONMENT)

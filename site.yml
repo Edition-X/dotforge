@@ -11,6 +11,7 @@
     - { role: dotfiles, tags: ['dotfiles', 'dot'] }
     - { role: neovim, tags: ['neovim', 'dot'] }
     - { role: tmux, tags: ['tmux', 'dot'] }
+    - { role: packages, tags: ['packages'] }
     - { role: cleanup, tags: ['cleanup'], when: "cleanup | default(false) | bool" }
 
   tasks:

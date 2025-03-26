@@ -11,6 +11,7 @@ The configuration is organized into roles:
 - **dotfiles**: Manages shell config files (.zshrc, .aliases, etc.)
 - **neovim**: Configures Neovim editor
 - **tmux**: Sets up tmux configuration
+- **packages**: Manages Homebrew formulae, casks, and Python packages
 - **cleanup**: Removes managed files (used for uninstallation)
 
 ## Usage
@@ -27,6 +28,13 @@ make delete
 
 # Clean up build environment
 make clean
+
+# Apply specific roles
+make ssh        # SSH keys and config only
+make dotfiles   # Shell config files only
+make neovim     # Neovim config only
+make tmux       # tmux config only
+make packages   # Install packages only
 ```
 
 ## Adding New Configuration

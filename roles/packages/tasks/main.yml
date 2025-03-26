@@ -1,0 +1,68 @@
+---
+- name: Brew - Formulae
+  community.general.homebrew:
+    update_homebrew: yes
+    state: present
+    name:
+      - ansible
+      - antigen
+      - asciiquarium
+      - bash
+      - cmatrix
+      - coreutils
+      - cowsay
+      - fd
+      - figlet
+      - fortune
+      - git
+      - glow
+      - htop
+      - lazydocker
+      - lazygit
+      - lolcat
+      - make
+      - ncdu
+      - neofetch
+      - neovim
+      - node
+      - pipes-sh
+      - pyenv
+      - python@3.13
+      - ranger
+      - ripgrep
+      - sshpass
+      - terraform
+      - tig
+      - tmux
+      - tree
+      - tree-sitter
+      - wget
+  tags:
+    - brew
+
+- name: Brew - Casks
+  community.general.homebrew_cask:
+    state: present
+    accept_external_apps: True
+    name:
+      - chromedriver
+  tags:
+    - brew
+
+- name: Python - Packages
+  ansible.builtin.pip:
+    name: "{{ item }}"
+    state: present
+    executable: "{{ pip_executable | default('pip3') }}"
+  with_items:
+    - ansible-core
+    - cffi
+    - cryptography
+    - Jinja2
+    - MarkupSafe
+    - packaging
+    - pycparser
+    - PyYAML
+    - resolvelib
+  tags:
+    - python 
