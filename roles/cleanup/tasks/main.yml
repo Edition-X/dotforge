@@ -29,4 +29,4 @@
     - "{{ ssh_dir }}"
     - "{{ user_dir }}/.config"
   tags:
-    - cleanup 
+    - cleanup

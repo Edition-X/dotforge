@@ -10,4 +10,4 @@
     access_time: preserve
   with_items:
     - "{{ ssh_dir }}"
-    - "{{ user_dir }}/.config" 
+    - "{{ user_dir }}/.config"

@@ -49,6 +49,21 @@ tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
 
+# Validation targets
+.PHONY: lint
+lint: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-lint)
+	@$(call activate, yamllint .)
+
+.PHONY: setup-git-hooks
+setup-git-hooks: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, pip install pre-commit)
+	@$(call activate, pre-commit install)
+
+.PHONY: pre-commit
+pre-commit: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, pre-commit run --all-files)
+
 .PHONY: clean
 clean:
 	-@rm -rf $(PYTHON_VIRTUAL_ENVIRONMENT)

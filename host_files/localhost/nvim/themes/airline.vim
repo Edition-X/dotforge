@@ -55,4 +55,3 @@ let g:webdevicons_enable_airline_tabline = 1
 hi! Normal
 "hi! Normal ctermbg=NONE guibg=NONE
 hi! NonText ctermbg=NONE guibg=NONE guifg=NONE ctermfg=NONE
-

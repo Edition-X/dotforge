@@ -48,4 +48,4 @@
     group: "{{ ansible_user_gid | quote }}"
     state: link
   tags:
-    - dot 
+    - dot

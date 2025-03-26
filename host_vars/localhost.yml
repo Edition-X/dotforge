@@ -27,4 +27,4 @@ config_paths:
   nvim: "{{ user_dir }}/.config/nvim"
   tmux_conf: "{{ user_dir }}/.tmux.conf"
   tmux_conf_local: "{{ user_dir }}/.tmux.conf.local"
-  pyright_config: "{{ user_dir }}/pyrightconfig.json" 
+  pyright_config: "{{ user_dir }}/pyrightconfig.json"

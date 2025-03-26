@@ -45,6 +45,27 @@ make tmux       # tmux config only
 make packages   # Install packages only
 ```
 
+## Code Validation
+
+The repository uses pre-commit hooks to validate code quality:
+
+```bash
+# Set up git hooks (run once after cloning)
+make setup-git-hooks
+
+# Run pre-commit checks manually on all files
+make pre-commit
+
+# Run linting only
+make lint
+```
+
+Pre-commit will automatically run these checks before each commit:
+- YAML syntax validation
+- Ansible playbook linting
+- Trailing whitespace and EOF fixing
+- Merge conflict detection
+
 ## For Different Hosts
 
 To configure a different MacBook:
@@ -69,4 +90,4 @@ To configure a different MacBook:
 
 ## License
 
-This project is privately maintained. 
+This project is privately maintained.
