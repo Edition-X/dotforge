@@ -1,0 +1,8 @@
+---
+collections:
+  - name: community.general
+    version: 10.5.0
+
+  # Add other collections as needed
+  # - name: ansible.posix
+  #   version: "1.5.4" 
