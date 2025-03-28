@@ -13,14 +13,6 @@ repos:
       - id: mixed-line-ending
         args: ['--fix=lf']
 
-  - repo: https://github.com/ansible-community/ansible-lint
-    rev: v24.2.0
-    hooks:
-      - id: ansible-lint
-        files: \.(yaml|yml)$
-        exclude: ^(collections/|roles/|site\.yml)
-        args: ['--force-color']
-
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.33.0
     hooks:
