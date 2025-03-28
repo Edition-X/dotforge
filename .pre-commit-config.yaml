@@ -22,11 +22,8 @@ repos:
         args: ['--force-color']
         additional_dependencies:
           - ansible-core>=2.15.0
-        # Environment variables for vault handling
-        env:
-          ANSIBLE_VAULT_PASSWORD_FILE: /dev/null
-          ANSIBLE_VAULT_ID_MATCH: "False"
-          ANSIBLE_HOST_KEY_CHECKING: "False"
+        # Note: Vault handling is configured via environment variables at runtime
+        # See ansible documentation for ANSIBLE_VAULT_PASSWORD_FILE and related variables
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.33.0

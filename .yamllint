@@ -7,4 +7,4 @@ rules:
     level: warning
   truthy:
     allowed-values: ['true', 'false', 'yes', 'no']
-  comments-indentation: disable  # don't force comment indentation 
+  comments-indentation: disable  # don't force comment indentation
