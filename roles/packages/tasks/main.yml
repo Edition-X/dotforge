@@ -4,30 +4,41 @@
     name: "{{ item }}"
     state: present
   loop:
-    - bat
-    - buildkit
-    - certbot
-    - direnv
-    - docker-compose
+    - ansible
+    - antigen
+    - asciiquarium
+    - awscli
+    - cmatrix
+    - coreutils
+    - cowsay
+    - figlet
+    - fortune
+    - git
+    - glow
     - go
-    - goreleaser/tap/goreleaser
     - htop
+    - hudochenkov/sshpass/sshpass
     - jq
+    - lazydocker
+    - lazygit
+    - lolcat
+    - make
+    - ncdu
+    - neofetch
+    - neovim
+    - node
+    - pipes-sh
     - pre-commit
     - pv
-    - py3cairo
-    - pygobject3
-    - pyqt5
-    - python
-    - rename
-    - rlwrap
-    - shellcheck
-    - starship
-    - syncthing
+    - pyenv
+    - ranger
+    - ripgrep
+    - six
+    - terraform
     - telnet
+    - tig
     - tmux
     - tree
-    - vim
     - wget
     - yq
   tags:
@@ -43,15 +54,12 @@
 - name: Python - Packages
   ansible.builtin.pip:
     name:
-      - ansible-core
-      - cryptography
+      - black
+      - flake8
+      - mypy
+      - pip
+      - py
       - PyYAML
-      - awscli
-      - awsume
-      - boto3
-      - cfn-lint
-      - pre-commit
-      - prompt_toolkit
-      - pynvim
+      - virtualenv
   tags:
     - python
