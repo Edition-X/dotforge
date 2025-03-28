@@ -7,8 +7,6 @@ exclude_paths:
   - collections/
   - "*/vault.yml"
   - host_vars/localhost/vault.yml
-  - roles/
-  - site.yml
 
 # Severity settings
 skip_list:
@@ -17,7 +15,6 @@ skip_list:
   - '306'  # [risky-file-permissions] File permissions unset or incorrect
   - 'internal-error'  # Skip issues with syntax checking
   - 'var-spacing'     # Skip variable spacing checks
-  - 'yaml[line-length]'  # Skip line length checks on YAML
 
 # Set line length (consistent with yamllint)
 parseable: true
