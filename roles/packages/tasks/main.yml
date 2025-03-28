@@ -28,6 +28,7 @@
     - neovim
     - node
     - pipes-sh
+    - pipenv
     - pre-commit
     - pv
     - pyenv
