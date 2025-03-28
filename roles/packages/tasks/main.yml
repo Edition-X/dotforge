@@ -1,0 +1,65 @@
+---
+- name: Brew - Formulae
+  community.general.homebrew:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - ansible
+    - antigen
+    - asciiquarium
+    - awscli
+    - cmatrix
+    - coreutils
+    - cowsay
+    - figlet
+    - fortune
+    - git
+    - glow
+    - go
+    - htop
+    - hudochenkov/sshpass/sshpass
+    - jq
+    - lazydocker
+    - lazygit
+    - lolcat
+    - make
+    - ncdu
+    - neofetch
+    - neovim
+    - node
+    - pipes-sh
+    - pre-commit
+    - pv
+    - pyenv
+    - ranger
+    - ripgrep
+    - six
+    - terraform
+    - telnet
+    - tig
+    - tmux
+    - tree
+    - wget
+    - yq
+  tags:
+    - brew
+
+- name: Brew - Casks
+  community.general.homebrew_cask:
+    name: chromedriver
+    state: present
+  tags:
+    - brew
+
+- name: Python - Packages
+  ansible.builtin.pip:
+    name:
+      - black
+      - flake8
+      - mypy
+      - pip
+      - py
+      - PyYAML
+      - virtualenv
+  tags:
+    - python

@@ -1,0 +1,3 @@
+---
+# Default location for home directory if not specified
+user_dir: "{{ lookup('env', 'HOME') }}"

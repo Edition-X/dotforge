@@ -1,0 +1,66 @@
+# {{ ansible_managed }}
+#  _____    _
+# |__  /___| |__  _ __ ___
+#   / // __| '_ \| '__/ __|
+#  / /_\__ \ | | | | | (__
+# /____|___/_| |_|_|  \___|
+
+plugins=(virtualenv)
+DEFAULT_USER={{ osx_username | default(ansible_user_id) }}
+POWERLEVEL9K_MODE='nerdfont-complete'
+POWERLEVEL9K_INSTALLATION_PATH=$ANTIGEN_BUNDLES/bhilburn/powerlevel9k
+POWERLEVEL9K_PROMPT_ON_NEWLINE=true
+#POWERLEVEL9K_RPROMPT_ON_NEWLINE=true
+POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
+POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon custom_internet_signal custom_battery_status_joined ssh root_indicator dir dir_writable vcs)
+POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(virtualenv  command_execution_time  status  time)
+POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="%K{green}%F{black} \uf155 %f%F{green}%k\ue0b0%f "
+POWERLEVEL9K_DIR_HOME_BACKGROUND='mediumpurple3'
+POWERLEVEL9K_DIR_HOME_FOREGROUND='white'
+POWERLEVEL9K_DIR_HOME_SUBFOLDER_BACKGROUND='darkorange'
+POWERLEVEL9K_DIR_HOME_SUBFOLDER_FOREGROUND='black'
+POWERLEVEL9K_DIR_DEFAULT_BACKGROUND='blue'
+POWERLEVEL9K_DIR_DEFAULT_FOREGROUND='white'
+POWERLEVEL9K_SHORTEN_DIR_LENGTH=3
+POWERLEVEL9K_SHORTEN_DELIMITER=".."
+POWERLEVEL9K_SHORTEN_STRATEGY="truncate_from_right"
+
+HISTFILE=~/.histfile
+HISTSIZE=10000
+SAVEHIST=10000
+setopt appendhistory autocd beep nomatch notify autopushd
+unsetopt extendedglob
+unsetopt HIST_VERIFY
+
+source /opt/homebrew/share/antigen/antigen.zsh
+antigen use oh-my-zsh
+antigen bundle zsh-users/zsh-autosuggestions
+antigen bundle zsh-users/zsh-syntax-highlighting
+antigen bundle common-aliases
+antigen bundle zsh_reload
+#antigen bundle z
+#antigen bundle andrewferrier/fzf-z
+antigen theme bhilburn/powerlevel9k powerlevel9k
+#antigen theme steeef  # Similar to bash profile
+
+antigen apply
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# Only run tmux if not already inside a tmux session
+if [ -z "$TMUX" ]; then
+  TMUX_OUTPUT="$(tmux a 2>&1)"
+  if [[ "$TMUX_OUTPUT" == *"no sessions"* ]]; then
+      tmux new -s "SunRise Robotics" -n "Reactive"
+  else
+      tmux a
+  fi
+fi
+
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init --path)"
+
+source ~/.aliases
+source ~/.env_vars
+source ~/.functions

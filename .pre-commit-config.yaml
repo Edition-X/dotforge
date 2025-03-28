@@ -1,0 +1,42 @@
+---
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: >
+          (?x)^(
+            collections/.*
+          )$
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  - repo: https://github.com/ansible-community/ansible-lint
+    rev: v24.2.0
+    hooks:
+      - id: ansible-lint
+        files: \.(yaml|yml)$
+        # The ansible-lint hook will use our custom .ansible-lint configuration
+        args: ['--force-color']
+        additional_dependencies:
+          - ansible-core>=2.15.0
+        # Note: Vault handling is configured via environment variables at runtime
+        # See ansible documentation for ANSIBLE_VAULT_PASSWORD_FILE and related variables
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        args: ['-d', '{extends: relaxed, rules: {line-length: {max: 120}}}']
+        # Exclude third-party files that we don't need to lint
+        exclude: >
+          (?x)^(
+            host_files/localhost/nvim/autoload/plugged/.*|
+            collections/.*
+          )$

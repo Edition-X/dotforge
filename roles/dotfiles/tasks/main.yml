@@ -1,0 +1,51 @@
+---
+- name: .aliases - Config file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/aliases"
+    dest: "{{ config_paths.aliases }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    state: link
+  tags:
+    - dot
+
+- name: pyrightconfig - Config file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/pyrightconfig.json"
+    dest: "{{ config_paths.pyright_config }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    state: link
+  tags:
+    - dot
+
+- name: .env_vars - Config file
+  no_log: True
+  ansible.builtin.template:
+    src: "env_vars.j2"
+    dest: "{{ config_paths.env_vars }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  tags:
+    - dot
+
+- name: .zshrc - Config file
+  ansible.builtin.template:
+    src: "zshrc.j2"
+    dest: "{{ config_paths.zshrc }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0644'
+  tags:
+    - dot
+
+- name: .functions - Config file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/functions"
+    dest: "{{ config_paths.functions }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    state: link
+  tags:
+    - dot

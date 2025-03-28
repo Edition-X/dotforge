@@ -1,0 +1,9 @@
+---
+# Configuration for skipping specific pre-commit hooks on specific files
+# This is used to exclude third-party files from checks
+
+exclude: |
+  (?x)^(
+    host_files/localhost/nvim/autoload/plugged/.*|
+    collections/.*
+  )$

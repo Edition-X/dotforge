@@ -1,0 +1,30 @@
+---
+# User and directory variables
+user_name: "{{ lookup('env', 'USER') }}"
+user_dir: "{{ lookup('env', 'HOME') }}"
+user_group: "staff"
+
+# Project paths
+project_dir: "{{ user_dir }}/Projects/macbook-pro"
+host_files_dir: "{{ project_dir }}/host_files/{{ inventory_hostname }}"
+
+# Python configuration
+pip_executable: "{{ user_dir }}/.pyenv/shims/pip"
+
+# SSH configuration
+ssh_dir: "{{ user_dir }}/.ssh"
+ssh_keys:
+  - id_rsa
+  - id_ed25519
+
+# Configuration file paths
+config_paths:
+  ssh_config: "{{ ssh_dir }}/config"
+  aliases: "{{ user_dir }}/.aliases"
+  functions: "{{ user_dir }}/.functions"
+  zshrc: "{{ user_dir }}/.zshrc"
+  env_vars: "{{ user_dir }}/.env_vars"
+  nvim: "{{ user_dir }}/.config/nvim"
+  tmux_conf: "{{ user_dir }}/.tmux.conf"
+  tmux_conf_local: "{{ user_dir }}/.tmux.conf.local"
+  pyright_config: "{{ user_dir }}/pyrightconfig.json"

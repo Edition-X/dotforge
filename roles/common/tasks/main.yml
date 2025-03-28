@@ -1,0 +1,13 @@
+---
+- name: Create needed directories in home directory
+  ansible.builtin.file:
+    state: directory
+    path: "{{ item }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+    modification_time: preserve
+    access_time: preserve
+  with_items:
+    - "{{ ssh_dir }}"
+    - "{{ user_dir }}/.config"

@@ -1,0 +1,10 @@
+---
+- name: .nvim - Config file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/nvim"
+    dest: "{{ config_paths.nvim }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    state: link
+  tags:
+    - dot

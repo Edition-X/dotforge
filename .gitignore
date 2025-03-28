@@ -6,3 +6,4 @@ credentials.txt
 host_files/localhost/nvim/autoload/plugged/
 host_files/localhost/nvim/viminfo
 node_modules/
+collections/
