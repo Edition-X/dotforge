@@ -18,11 +18,24 @@ repos:
     hooks:
       - id: ansible-lint
         files: \.(yaml|yml)$
-        exclude: ^(collections/|roles/|site\.yml)
+        # The ansible-lint hook will use our custom .ansible-lint configuration
         args: ['--force-color']
+        additional_dependencies:
+          - ansible-core>=2.15.0
+        # Environment variables for vault handling
+        env:
+          ANSIBLE_VAULT_PASSWORD_FILE: /dev/null
+          ANSIBLE_VAULT_ID_MATCH: "False"
+          ANSIBLE_HOST_KEY_CHECKING: "False"
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.33.0
     hooks:
       - id: yamllint
         args: ['-d', '{extends: relaxed, rules: {line-length: {max: 120}}}']
+        # Exclude third-party files that we don't need to lint
+        exclude: >
+          (?x)^(
+            host_files/localhost/nvim/autoload/plugged/.*|
+            collections/.*
+          )$
