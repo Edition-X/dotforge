@@ -49,4 +49,4 @@ SKIP=ansible-lint git commit -m "Your commit message"
 
 2. **YAML linting issues in third-party files**:
    - The configuration excludes files in `host_files/localhost/nvim/autoload/plugged/` and `collections/`
-   - If needed, add additional patterns to `.pre-commit-config-skip.yaml` 
+   - If needed, add additional patterns to `.pre-commit-config-skip.yaml`

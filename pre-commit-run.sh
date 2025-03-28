@@ -15,4 +15,4 @@ pre-commit "$@"
 if [ $? -ne 0 ]; then
     echo "Note: If you want to commit despite ansible-lint failures, use:"
     echo "SKIP=ansible-lint git commit ..."
-fi 
+fi
