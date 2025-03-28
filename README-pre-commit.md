@@ -50,3 +50,19 @@ SKIP=ansible-lint git commit -m "Your commit message"
 2. **YAML linting issues in third-party files**:
    - The configuration excludes files in `host_files/localhost/nvim/autoload/plugged/` and `collections/`
    - If needed, add additional patterns to `.pre-commit-config-skip.yaml`
+
+## Managing Ansible Collections
+
+This repository uses a `requirements.yml` file to manage Ansible collections rather than committing them directly to the repository. The `collections/` directory is excluded from git via the `.gitignore` file.
+
+To install collections:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
+To add a new collection:
+
+1. Edit the `requirements.yml` file to add the collection name and version
+2. Run the command above to install it
+3. Never commit collection files directly to the repository
