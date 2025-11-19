@@ -1,6 +1,14 @@
 ---
 extends: relaxed
 
+ignore: |
+  collections/
+  .git/
+  venv/
+  node_modules/
+  host_files/localhost/nvim/autoload/plugged/
+  host_files/localhost/nvim/pack/github/start/copilot.vim/
+
 rules:
   line-length:
     max: 120

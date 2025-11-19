@@ -64,6 +64,11 @@ setup-git-hooks: $(PYTHON_VIRTUAL_ENVIRONMENT)
 pre-commit: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, pre-commit run --all-files)
 
+.PHONY: ci
+ci: lint
+	@$(call activate, ansible-playbook site.yml --syntax-check)
+	@echo "CI checks passed!"
+
 .PHONY: clean
 clean:
 	-@rm -rf $(PYTHON_VIRTUAL_ENVIRONMENT)

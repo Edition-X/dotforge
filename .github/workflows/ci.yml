@@ -1,0 +1,76 @@
+name: CI
+
+"on":
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files
+        env:
+          SKIP: no-commit-to-branch
+
+      - name: Install Ansible
+        run: pip install ansible-core
+
+      - name: Syntax Check
+        run: ansible-playbook site.yml --syntax-check
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dry-run:
+    name: Dry Run (macOS)
+    runs-on: macos-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Ansible Collections
+        run: ansible-galaxy install -r requirements.yml
+
+      - name: Run Playbook (Check Mode)
+        run: ansible-playbook site.yml --check
+        env:
+          ANSIBLE_FORCE_COLOR: '1'
+          # Mock vault password if needed, or skip vault-dependent tasks
+          # ANSIBLE_VAULT_PASSWORD_FILE: .vault_pass.txt
