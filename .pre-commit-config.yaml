@@ -3,7 +3,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -18,7 +18,7 @@ repos:
         args: ['--fix=lf']
 
   - repo: https://github.com/ansible-community/ansible-lint
-    rev: v24.2.0
+    rev: v25.11.0
     hooks:
       - id: ansible-lint
         files: \.(yaml|yml)$
@@ -30,7 +30,7 @@ repos:
         # See ansible documentation for ANSIBLE_VAULT_PASSWORD_FILE and related variables
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.33.0
+    rev: v1.37.1
     hooks:
       - id: yamllint
         args: ['-d', '{extends: relaxed, rules: {line-length: {max: 120}}}']
@@ -38,5 +38,6 @@ repos:
         exclude: >
           (?x)^(
             host_files/localhost/nvim/autoload/plugged/.*|
+            host_files/localhost/nvim/pack/github/start/copilot.vim/.*|
             collections/.*
           )$

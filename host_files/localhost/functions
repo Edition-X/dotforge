@@ -1,172 +1,524 @@
-# Create directory and cd into it
-function md() {
-  mkdir -p "$1" && cd "$1"
+#!/usr/bin/env bash
+# =============================================================================
+# DevOps Shell Functions Library
+# Professional-grade shell functions with error handling and validation
+# =============================================================================
+
+# Color codes for output formatting
+readonly COLOR_RED='\033[0;31m'
+readonly COLOR_GREEN='\033[0;32m'
+readonly COLOR_YELLOW='\033[1;33m'
+readonly COLOR_BLUE='\033[0;34m'
+readonly COLOR_NC='\033[0m'
+
+# Logging functions
+_log_info() { echo -e "${COLOR_BLUE}[INFO]${COLOR_NC} $*" >&2; }
+_log_success() { echo -e "${COLOR_GREEN}[SUCCESS]${COLOR_NC} $*" >&2; }
+_log_warn() { echo -e "${COLOR_YELLOW}[WARN]${COLOR_NC} $*" >&2; }
+_log_error() { echo -e "${COLOR_RED}[ERROR]${COLOR_NC} $*" >&2; }
+
+# Check if command exists
+_command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+# Confirm destructive operations
+_confirm() {
+  local prompt="${1:-Are you sure?}"
+  [[ "${FORCE_YES:-0}" == "1" ]] && return 0
+  read -rp "$prompt [y/N] " response
+  [[ "$response" =~ ^[yY]([eE][sS])?$ ]]
 }
 
-# Quickly view recent logs from a specific Docker container
-function dlogs() {
-  docker logs --tail=50 -f "$1"
+# =============================================================================
+# DIRECTORY & FILE MANAGEMENT
+# =============================================================================
+
+# Create directory and change into it with validation
+md() {
+  [[ -z "$1" ]] && { _log_error "Usage: md <directory_name>"; return 1; }
+  mkdir -p "$1" && cd "$1" && _log_success "Created and moved to: $1" || {
+    _log_error "Failed to create directory: $1"; return 1;
+  }
 }
 
-# Quickly build and tag Docker images
-function dbuild() {
-  docker build -t "$1" .
+# Compress directory with multiple format support
+compressdir() {
+  [[ -z "$1" ]] && { _log_error "Usage: compressdir <output_name> [directory]"; return 1; }
+  local output="${1%.tar.gz}" target="${2:-.}"
+  [[ ! -d "$target" ]] && { _log_error "Directory not found: $target"; return 1; }
+
+  _log_info "Compressing $target to ${output}.tar.gz..."
+  tar -czf "${output}.tar.gz" -C "$(dirname "$target")" "$(basename "$target")" && \
+    _log_success "Created: ${output}.tar.gz ($(du -h "${output}.tar.gz" | cut -f1))" || \
+    { _log_error "Compression failed"; return 1; }
 }
 
-# Quickly prune unused Docker resources
-function dclean() {
-  docker system prune -f
+# Smart extraction supporting multiple archive formats
+extract() {
+  [[ -z "$1" ]] && { _log_error "Usage: extract <file>"; return 1; }
+  [[ ! -f "$1" ]] && { _log_error "File not found: $1"; return 1; }
+
+  case "$1" in
+    *.tar.gz|*.tgz)  tar -xzf "$1" ;;
+    *.tar.bz2|*.tbz) tar -xjf "$1" ;;
+    *.tar.xz)        tar -xJf "$1" ;;
+    *.tar)           tar -xf "$1" ;;
+    *.zip)           unzip "$1" ;;
+    *.gz)            gunzip "$1" ;;
+    *.bz2)           bunzip2 "$1" ;;
+    *.7z)            7za x "$1" ;;
+    *) _log_error "Unsupported format: $1"; return 1 ;;
+  esac
+  [[ $? -eq 0 ]] && _log_success "Extracted: $1"
 }
 
-# Check current AWS CLI profile
-function awsprofile() {
-  aws configure list | grep profile
+# Show directory size
+dirsize() {
+  local target="${1:-.}"
+  [[ ! -d "$target" ]] && { _log_error "Directory not found: $target"; return 1; }
+  du -sh "$target"
 }
 
-# Quickly deploy Terraform
-function tfdeploy() {
-  terraform init && terraform plan && terraform apply -auto-approve
+# List recent files
+recentfiles() { ls -lht | head -n "$((${1:-10} + 1))"; }
+
+# =============================================================================
+# DOCKER FUNCTIONS
+# =============================================================================
+
+# View Docker container logs with validation
+dlogs() {
+  ! _command_exists docker && { _log_error "Docker not installed"; return 1; }
+  [[ -z "$1" ]] && { _log_error "Usage: dlogs <container> [lines]"; return 1; }
+
+  docker ps -a --format '{{.Names}}' | grep -q "^${1}$" || \
+    { _log_error "Container not found: $1"; return 1; }
+
+  _log_info "Streaming logs for: $1"
+  docker logs --tail="${2:-100}" -f "$1"
 }
 
-# Quickly destroy Terraform-managed infrastructure
-function tfdestroy() {
-  terraform destroy -auto-approve
+# Build Docker image with Dockerfile validation
+dbuild() {
+  ! _command_exists docker && { _log_error "Docker not installed"; return 1; }
+  [[ -z "$1" ]] && { _log_error "Usage: dbuild <image_name> [path]"; return 1; }
+
+  local path="${2:-.}"
+  [[ ! -f "${path}/Dockerfile" ]] && [[ ! -f "$path" ]] && \
+    { _log_error "Dockerfile not found in: $path"; return 1; }
+
+  _log_info "Building image: $1"
+  docker build -t "$1" "$path" && _log_success "Image built: $1"
 }
 
-# Quickly SSH using predefined keys
-function sshkey() {
-  ssh -i ~/.ssh/"$1" "$2"
+# Prune Docker resources with confirmation
+dclean() {
+  ! _command_exists docker && { _log_error "Docker not installed"; return 1; }
+  _confirm "Remove unused Docker resources?" || { _log_info "Cancelled"; return 0; }
+
+  if [[ "$1" == "-a" ]] || [[ "$1" == "--all" ]]; then
+    docker system prune -af --volumes
+  else
+    docker system prune -f
+  fi
+  [[ $? -eq 0 ]] && _log_success "Docker cleanup complete"
 }
 
-# Quickly list available Kubernetes contexts
-function kctxlist() {
+# =============================================================================
+# AWS FUNCTIONS
+# =============================================================================
+
+# Display current AWS profile with identity
+awsprofile() {
+  ! _command_exists aws && { _log_error "AWS CLI not installed"; return 1; }
+
+  echo "Current Profile: ${AWS_PROFILE:-default}"
+  echo "---"
+  aws configure list
+  _command_exists jq && echo -e "\nIdentity:" && aws sts get-caller-identity 2>/dev/null | jq '.'
+}
+
+# Switch AWS profile
+awsswitch() {
+  ! _command_exists aws && { _log_error "AWS CLI not installed"; return 1; }
+  [[ -z "$1" ]] && {
+    _log_error "Usage: awsswitch <profile_name>"
+    echo "Available profiles:"
+    aws configure list-profiles
+    return 1
+  }
+
+  aws configure list-profiles | grep -q "^${1}$" || \
+    { _log_error "Profile not found: $1"; return 1; }
+
+  export AWS_PROFILE="$1"
+  _log_success "Switched to: $1"
+  awsprofile
+}
+
+# =============================================================================
+# TERRAFORM FUNCTIONS
+# =============================================================================
+
+# Deploy Terraform with validation and planning
+tfdeploy() {
+  ! _command_exists terraform && { _log_error "Terraform not installed"; return 1; }
+  [[ ! -f "main.tf" ]] && [[ ! -f "terraform.tf" ]] && \
+    { _log_error "No Terraform config found"; return 1; }
+
+  [[ -n "$1" ]] && {
+    _log_info "Selecting workspace: $1"
+    terraform workspace select "$1" || terraform workspace new "$1"
+  }
+
+  _log_info "Initializing..." && terraform init || return 1
+  _log_info "Validating..." && terraform validate || return 1
+  _log_info "Planning..." && terraform plan -out=tfplan || return 1
+
+  _confirm "Apply this plan?" || { rm -f tfplan; return 0; }
+
+  terraform apply tfplan && _log_success "Deployment complete" || _log_error "Apply failed"
+  rm -f tfplan
+}
+
+# Destroy Terraform infrastructure with safety
+tfdestroy() {
+  ! _command_exists terraform && { _log_error "Terraform not installed"; return 1; }
+  [[ ! -f "main.tf" ]] && [[ ! -f "terraform.tf" ]] && \
+    { _log_error "No Terraform config found"; return 1; }
+
+  local workspace="${1:-$(terraform workspace show 2>/dev/null)}"
+  _log_warn "⚠️  DESTRUCTIVE: Will destroy workspace: ${workspace}"
+
+  _confirm "Confirm destruction?" || return 0
+  terraform plan -destroy || return 1
+  _confirm "Final confirmation to destroy?" || return 0
+
+  terraform destroy && _log_success "Infrastructure destroyed" || _log_error "Destroy failed"
+}
+
+# =============================================================================
+# KUBERNETES FUNCTIONS
+# =============================================================================
+
+# List Kubernetes contexts
+kctxlist() {
+  ! _command_exists kubectl && { _log_error "kubectl not installed"; return 1; }
   kubectl config get-contexts
 }
 
-# Quickly check status of all pods in current namespace
-function kpods() {
-  kubectl get pods --watch
+# Switch Kubernetes context
+kctx() {
+  ! _command_exists kubectl && { _log_error "kubectl not installed"; return 1; }
+  [[ -z "$1" ]] && { _log_error "Usage: kctx <context>"; kctxlist; return 1; }
+  kubectl config use-context "$1" && _log_success "Switched to: $1"
 }
 
-# Quickly display current network interfaces and IP addresses
-function myip() {
-  ifconfig | grep 'inet ' | grep -v 127.0.0.1
+# Watch pods in namespace
+kpods() {
+  ! _command_exists kubectl && { _log_error "kubectl not installed"; return 1; }
+  local ns="${1:-$(kubectl config view --minify -o 'jsonpath={..namespace}' 2>/dev/null)}"
+  ns="${ns:-default}"
+  _log_info "Watching pods in: $ns"
+  kubectl get pods -n "$ns" --watch
 }
 
-# Quickly update Homebrew and upgrade all installed packages
-function brewup() {
-  brew update && brew upgrade
+# Get pod logs
+klogs() {
+  ! _command_exists kubectl && { _log_error "kubectl not installed"; return 1; }
+  [[ -z "$1" ]] && { _log_error "Usage: klogs <pod> [namespace] [container]"; return 1; }
+
+  local cmd="kubectl logs -f -n ${2:-default}"
+  [[ -n "$3" ]] && cmd="$cmd -c $3"
+  $cmd "$1"
 }
 
-# Clean Homebrew cache and outdated packages
-function brewclean() {
-  brew cleanup -s
-}
-# Quickly flush DNS cache
-function flushdns() {
-  dscacheutil -flushcache && sudo killall -HUP mDNSResponder
+# =============================================================================
+# GIT FUNCTIONS
+# =============================================================================
+
+# Show current branch with status
+gbranch() {
+  git rev-parse --git-dir >/dev/null 2>&1 || { _log_error "Not a git repo"; return 1; }
+  echo "Branch: $(git branch --show-current)"
+  [[ -n "$(git status --short)" ]] && echo "Status: Changes present" && git status --short || echo "Status: Clean"
 }
 
-# Quickly edit hosts file
-function edithosts() {
-  sudo vim /etc/hosts
+# Commit with validation
+gcom() {
+  git rev-parse --git-dir >/dev/null 2>&1 || { _log_error "Not a git repo"; return 1; }
+  [[ -z "$1" ]] && { _log_error "Usage: gcom <message>"; return 1; }
+  [[ -z "$(git status --porcelain)" ]] && { _log_warn "No changes"; return 0; }
+
+  git add . && git commit -m "$1" && _log_success "Committed"
 }
 
-# Quickly check listening ports
-function ports() {
-  lsof -iTCP -sTCP:LISTEN -n -P
+# Enhanced git log
+glog() {
+  git rev-parse --git-dir >/dev/null 2>&1 || { _log_error "Not a git repo"; return 1; }
+  git log --oneline --decorate --graph -n "${1:-20}"
 }
 
-# Quickly check disk usage
-function diskspace() {
-  df -h
-}
-# Quickly check current timezone
-function timezone() {
-  sudo systemsetup -gettimezone
+# =============================================================================
+# SYSTEM MONITORING
+# =============================================================================
+
+# Check listening ports
+ports() {
+  [[ -n "$1" ]] && lsof -iTCP:"$1" -sTCP:LISTEN -n -P || \
+    lsof -iTCP -sTCP:LISTEN -n -P | awk 'NR==1 || /LISTEN/'
 }
 
-# Quickly display all installed fonts
-function fonts() {
-  system_profiler SPFontsDataType
+# Kill process by name with confirmation
+killproc() {
+  [[ -z "$1" ]] && { _log_error "Usage: killproc <name>"; return 1; }
+  local pids=$(pgrep -f "$1")
+  [[ -z "$pids" ]] && { _log_warn "No processes found: $1"; return 0; }
+
+  ps aux | grep "$1" | grep -v grep
+  _confirm "Kill these processes?" && pkill -f "$1" && _log_success "Killed"
 }
 
-# Quickly kill a process by name
-function killproc() {
-  pkill "$1"
+# Search processes
+psgrep() {
+  [[ -z "$1" ]] && { _log_error "Usage: psgrep <term>"; return 1; }
+  ps aux | grep -i "$1" | grep -v grep
 }
 
-# Quickly compress current directory
-function compressdir() {
-  tar -czvf "$1.tar.gz" .
+# Memory usage
+memusage() {
+  if [[ "$(uname)" == "Darwin" ]]; then
+    vm_stat | perl -ne '/page size of (\d+)/ and $size=$1;
+    /Pages\s+free:\s+(\d+)/ and printf("Free: %.2f GB\n", $1*$size/1073741824);
+    /Pages\s+active:\s+(\d+)/ and printf("Active: %.2f GB\n", $1*$size/1073741824);
+    /Pages\s+inactive:\s+(\d+)/ and printf("Inactive: %.2f GB\n", $1*$size/1073741824);
+    /Pages\s+wired\s+down:\s+(\d+)/ and printf("Wired: %.2f GB\n", $1*$size/1073741824)'
+  else
+    free -h
+  fi
 }
 
-# Quickly extract compressed files
-function extract() {
-  tar -xzvf "$1"
+# CPU usage
+cpuusage() {
+  [[ "$(uname)" == "Darwin" ]] && top -l 1 | grep "CPU usage" || \
+    mpstat 1 1 2>/dev/null || top -bn1 | grep "Cpu(s)"
 }
 
-# Quickly check macOS system version
-function macversion() {
+# Disk space with color coding
+diskspace() {
+  df -h | awk -v t="${1:-80}" 'NR==1 {print; next} {
+    u=int($5);
+    if(u>=t) printf "\033[0;31m%s\033[0m\n",$0
+    else if(u>=t-10) printf "\033[1;33m%s\033[0m\n",$0
+    else print $0
+  }'
+}
+
+# =============================================================================
+# NETWORK FUNCTIONS
+# =============================================================================
+
+# Show local IP
+myip() {
+  if [[ "$(uname)" == "Darwin" ]]; then
+    ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}'
+  else
+    ip addr show | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | cut -d/ -f1
+  fi
+}
+
+# Show public IP with location
+publicip() {
+  _log_info "Fetching public IP..."
+  local ip=$(curl -s --max-time 5 ifconfig.me || curl -s --max-time 5 icanhazip.com)
+
+  [[ -z "$ip" ]] && { _log_error "Failed to get IP"; return 1; }
+  echo "Public IP: $ip"
+
+  _command_exists jq && curl -s "https://ipapi.co/${ip}/json/" | \
+    jq -r '"Location: \(.city), \(.region), \(.country_name)"'
+}
+
+# Flush DNS cache (macOS)
+flushdns() {
+  [[ "$(uname)" != "Darwin" ]] && { _log_error "macOS only"; return 1; }
+  sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
+  [[ $? -eq 0 ]] && _log_success "DNS cache flushed"
+}
+
+# Edit hosts file with backup
+edithosts() {
+  [[ ! -f /etc/hosts ]] && { _log_error "Hosts file not found"; return 1; }
+  sudo cp /etc/hosts "/etc/hosts.backup.$(date +%Y%m%d_%H%M%S)"
+  sudo "${EDITOR:-vim}" /etc/hosts
+}
+
+# =============================================================================
+# PACKAGE MANAGEMENT
+# =============================================================================
+
+# Update Homebrew
+brewup() {
+  ! _command_exists brew && { _log_error "Homebrew not installed"; return 1; }
+  _log_info "Updating Homebrew..."
+  brew update && brew upgrade && _log_success "Update complete"
+}
+
+# Clean Homebrew
+brewclean() {
+  ! _command_exists brew && { _log_error "Homebrew not installed"; return 1; }
+  brew cleanup -s && brew doctor && _log_success "Cleanup complete"
+}
+
+# =============================================================================
+# SSH FUNCTIONS
+# =============================================================================
+
+# SSH with key validation
+sshkey() {
+  [[ -z "$1" ]] || [[ -z "$2" ]] && { _log_error "Usage: sshkey <key> <host> [user]"; return 1; }
+
+  local key="$HOME/.ssh/$1"
+  [[ ! -f "$key" ]] && { _log_error "Key not found: $key"; return 1; }
+
+  # Fix permissions if needed
+  local perms=$(stat -f "%A" "$key" 2>/dev/null || stat -c "%a" "$key" 2>/dev/null)
+  [[ "$perms" != "600" ]] && [[ "$perms" != "400" ]] && chmod 600 "$key"
+
+  _log_info "Connecting to $2..."
+  [[ -n "$3" ]] && ssh -i "$key" "$3@$2" || ssh -i "$key" "$2"
+}
+
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
+# Search history
+hsearch() {
+  [[ -z "$1" ]] && { _log_error "Usage: hsearch <term>"; return 1; }
+  history | grep -i "$1" | grep -v hsearch
+}
+
+# Get timezone
+timezone() {
+  [[ "$(uname)" == "Darwin" ]] && sudo systemsetup -gettimezone || \
+    timedatectl 2>/dev/null || cat /etc/timezone
+}
+
+# macOS version info
+macversion() {
+  [[ "$(uname)" != "Darwin" ]] && { _log_error "macOS only"; return 1; }
   sw_vers
+  system_profiler SPHardwareDataType | grep -E "Model|Processor|Memory"
 }
 
-# Quickly view running processes
-function psgrep() {
-  ps aux | grep "$1"
+# System log (macOS)
+syslog() {
+  [[ "$(uname)" == "Darwin" ]] && log stream --predicate 'eventMessage contains "error"' || \
+    journalctl -f 2>/dev/null || tail -f /var/log/syslog
 }
 
-# Quickly tail system log
-function syslog() {
-  tail -f /var/log/system.log
+# List fonts (macOS)
+fonts() {
+  [[ "$(uname)" == "Darwin" ]] && system_profiler SPFontsDataType || \
+    fc-list 2>/dev/null
 }
 
-# Quickly view current git branch
-function gbranch() {
-  git branch --show-current
+# Display help
+devops-help() {
+  cat << 'EOF'
+╔════════════════════════════════════════════════════════════════════╗
+║           DevOps Shell Functions Library - Quick Reference         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+📁 DIRECTORY & FILE MANAGEMENT
+  md <dir>                    Create and cd into directory
+  compressdir <name> [dir]    Compress directory to tar.gz
+  extract <file>              Extract archive (multi-format support)
+  dirsize [dir]               Show directory size
+  recentfiles [count]         List recent files (default: 10)
+
+🐳 DOCKER
+  dlogs <container> [lines]   Stream container logs (default: 100)
+  dbuild <image> [path]       Build Docker image
+  dclean [-a|--all]           Prune unused resources (confirm req'd)
+
+☁️  AWS
+  awsprofile                  Show current AWS profile & identity
+  awsswitch <profile>         Switch AWS profile
+
+🏗️  TERRAFORM
+  tfdeploy [workspace]        Deploy with validation (confirm req'd)
+  tfdestroy [workspace]       Destroy infrastructure (2x confirm req'd)
+
+☸️  KUBERNETES
+  kctxlist                    List available contexts
+  kctx <context>              Switch context
+  kpods [namespace]           Watch pods (default: current/default ns)
+  klogs <pod> [ns] [container] Stream pod logs
+
+📦 GIT
+  gbranch                     Show current branch & status
+  gcom <message>              Stage all & commit
+  glog [count]                View commit history (default: 20)
+
+🖥️  SYSTEM MONITORING
+  ports [port]                Show listening ports
+  killproc <name>             Kill process by name (confirm req'd)
+  psgrep <term>               Search running processes
+  memusage                    Display memory usage
+  cpuusage                    Display CPU usage
+  diskspace [threshold]       Show disk usage (color-coded, default: 80%)
+
+🌐 NETWORK
+  myip                        Show local IP addresses
+  publicip                    Show public IP with location info
+  flushdns                    Flush DNS cache (macOS)
+  edithosts                   Edit hosts file (creates backup)
+
+📦 PACKAGE MANAGEMENT
+  brewup                      Update Homebrew & packages (macOS)
+  brewclean                   Clean Homebrew cache (macOS)
+
+🔐 SSH
+  sshkey <key> <host> [user]  SSH with specific key (validates perms)
+
+🔧 UTILITIES
+  hsearch <term>              Search command history
+  timezone                    Show current timezone
+  macversion                  Show macOS version info (macOS)
+  syslog                      Stream system logs
+  fonts                       List installed fonts (macOS)
+  devops-help                 Show this help message
+
+╔════════════════════════════════════════════════════════════════════╗
+║ FEATURES: Error handling • Input validation • Confirmation prompts ║
+║          Color-coded output • Cross-platform support • Safe defaults║
+╚════════════════════════════════════════════════════════════════════╝
+
+Environment Variables:
+  FORCE_YES=1                 Skip confirmation prompts (use with caution!)
+  EDITOR                      Preferred text editor (default: vim)
+  AWS_PROFILE                 Current AWS profile
+
+EOF
 }
 
-# Quickly stage and commit changes in git
-function gcom() {
-  git add . && git commit -m "$1"
-}
+# Export all functions
+export -f md compressdir extract dirsize recentfiles
+export -f dlogs dbuild dclean
+export -f awsprofile awsswitch
+export -f tfdeploy tfdestroy
+export -f kctxlist kctx kpods klogs
+export -f gbranch gcom glog
+export -f ports killproc psgrep memusage cpuusage diskspace
+export -f myip publicip flushdns edithosts
+export -f brewup brewclean
+export -f sshkey
+export -f hsearch timezone macversion syslog fonts
+export -f devops-help
 
-# Quickly check memory usage
-function memusage() {
-  vm_stat | perl -ne '/page size of (\d+)/ and $size=$1; /Pages free:\s+(\d+)/ and printf("Free memory: %.2f GB\n", $1 * $size / 1048576)'
-}
-
-# Quickly view recent commits
-function glog() {
-  git log --oneline --decorate --graph -n 10
-}
-
-# Quickly search history
-function hsearch() {
-  history | grep "$1"
-}
-
-# Quickly check CPU usage
-function cpuusage() {
-  top -l 1 | grep "CPU usage"
-}
-
-# Quickly open system preferences
-function sysprefs() {
-  open /System/Applications/System\ Preferences.app
-}
-
-# Quickly open recent files in current directory
-function recentfiles() {
-  ls -lt | head
-}
-
-# Quickly show current directory size
-function dirsize() {
-  du -sh .
-}
-
-# Quickly check public IP address
-function publicip() {
-  curl ifconfig.me
-}
+# Display welcome message on first load
+if [[ "${DEVOPS_FUNCTIONS_LOADED:-0}" != "1" ]]; then
+  export DEVOPS_FUNCTIONS_LOADED=1
+  echo -e "${COLOR_GREEN}✓${COLOR_NC} DevOps Functions Loaded - Type ${COLOR_BLUE}devops-help${COLOR_NC} for quick reference"
+fi

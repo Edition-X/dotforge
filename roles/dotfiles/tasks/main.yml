@@ -9,7 +9,7 @@
   tags:
     - dot
 
-- name: pyrightconfig - Config file
+- name: Pyrightconfig - Config file
   ansible.builtin.file:
     src: "{{ host_files_dir }}/pyrightconfig.json"
     dest: "{{ config_paths.pyright_config }}"
@@ -20,7 +20,7 @@
     - dot
 
 - name: .env_vars - Config file
-  no_log: True
+  no_log: true
   ansible.builtin.template:
     src: "env_vars.j2"
     dest: "{{ config_paths.env_vars }}"
