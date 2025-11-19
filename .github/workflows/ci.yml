@@ -23,6 +23,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pre-commit
+          echo "dummy_password" > credentials.txt
 
       - name: Run pre-commit
         run: pre-commit run --all-files
@@ -64,6 +65,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          echo "dummy_password" > credentials.txt
 
       - name: Install Ansible Collections
         run: ansible-galaxy install -r requirements.yml
