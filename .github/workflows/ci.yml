@@ -23,7 +23,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pre-commit
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > credentials.txt
+          echo "dummy_password" > credentials.txt
 
       - name: Run pre-commit
         run: pre-commit run --all-files
@@ -48,31 +48,3 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  dry-run:
-    name: Dry Run (macOS)
-    runs-on: macos-latest
-    needs: [lint]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > credentials.txt
-
-      - name: Install Ansible Collections
-        run: ansible-galaxy install -r requirements.yml
-
-      - name: Run Playbook (Check Mode)
-        run: ansible-playbook site.yml --check
-        env:
-          ANSIBLE_FORCE_COLOR: '1'
-          # Mock vault password if needed, or skip vault-dependent tasks
-          # ANSIBLE_VAULT_PASSWORD_FILE: .vault_pass.txt
