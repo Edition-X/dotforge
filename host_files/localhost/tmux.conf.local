@@ -294,3 +294,9 @@ tmux_conf_copy_to_os_clipboard=false
 
 # move status line to top
 #set -g status-position top
+
+# enable vi mode for copy-mode
+set -g mode-keys vi
+
+# vim-style line selection in copy mode
+bind -T copy-mode-vi V send -X select-line

@@ -19,7 +19,6 @@ skip_list:
   - 'var-spacing'     # Skip variable spacing checks
 
 # Set line length (consistent with yamllint)
-parseable: true
 verbosity: 1
 use_default_rules: true
 
