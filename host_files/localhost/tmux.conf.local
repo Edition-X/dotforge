@@ -333,12 +333,12 @@ bind S setw synchronize-panes \; display "Sync: #{?pane_synchronized,ON,OFF}"
 
 # Robotics Dev Layout: Ctrl+A d (for dev)
 # Creates: Editor | Logs | Terminal split
-bind d new-window -n 'dev' -c '#{pane_current_path}' \; send-keys -t 'dev' 'nvim .' Enter \; split-window -t 'dev' -h -p 35 \; split-window -t 'dev' -v -p 50 \; select-pane -t 'dev:0'
+bind d new-window -n 'dev' \; send-keys -t 'dev' 'nvim .' Enter \; split-window -t 'dev' -h -p 35 \; split-window -t 'dev' -v -p 50 \; select-pane -t 'dev:0'
 
 # Monitoring Layout: Ctrl+A k (for Kubernetes/monitoring)
 # Creates: htop | k9s | Terminal
-bind k new-window -n 'monitor' -c '#{pane_current_path}' \; send-keys -t 'monitor' 'htop' Enter \; split-window -t 'monitor' -h -p 60 \; send-keys -t 'monitor.1' 'k9s 2>/dev/null || echo "k9s not installed"' Enter \; split-window -t 'monitor' -v -p 50 \; select-pane -t 'monitor:0'
+bind k new-window -n 'monitor' \; send-keys -t 'monitor' 'htop' Enter \; split-window -t 'monitor' -h -p 60 \; send-keys -t 'monitor.1' 'k9s 2>/dev/null || echo "k9s not installed"' Enter \; split-window -t 'monitor' -v -p 50 \; select-pane -t 'monitor:0'
 
 # Deploy Layout: Ctrl+A a (for Ansible/deploy)
 # Creates: Main terminal | Ansible output
-bind a new-window -n 'deploy' -c '#{pane_current_path}' \; split-window -t 'deploy' -h -p 40 \; select-pane -t 'deploy:0'
+bind a new-window -n 'deploy' \; split-window -t 'deploy' -h -p 40 \; select-pane -t 'deploy:0'
