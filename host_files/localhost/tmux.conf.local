@@ -331,25 +331,25 @@ bind S setw synchronize-panes \; display "Sync: #{?pane_synchronized,ON,OFF}"
 # SESSION TEMPLATES FOR ROBOTICS WORKFLOWS
 # =============================================================================
 
-# Robotics Dev Layout: Ctrl+A D (for Dev)
+# Robotics Dev Layout: Ctrl+A d (for dev)
 # Creates: Editor | Logs | Terminal split
-bind D new-window -n 'dev' \; \
+bind d new-window -n 'dev' \; \
   send-keys 'nvim .' Enter \; \
   split-window -h -p 35 \; \
   split-window -v -p 50 \; \
   select-pane -t 0
 
-# Monitoring Layout: Ctrl+A M (for Monitor)
+# Monitoring Layout: Ctrl+A k (for Kubernetes/monitoring)
 # Creates: htop | k9s | Terminal
-bind M new-window -n 'monitor' \; \
+bind k new-window -n 'monitor' \; \
   send-keys 'htop' Enter \; \
   split-window -h -p 60 \; \
   send-keys 'k9s 2>/dev/null || echo "k9s not installed"' Enter \; \
   split-window -v -p 50 \; \
   select-pane -t 0
 
-# Deploy Layout: Ctrl+A Y (for deploY)
+# Deploy Layout: Ctrl+A a (for Ansible/deploy)
 # Creates: Main terminal | Ansible output
-bind Y new-window -n 'deploy' \; \
+bind a new-window -n 'deploy' \; \
   split-window -h -p 40 \; \
   select-pane -t 0
