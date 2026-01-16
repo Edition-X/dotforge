@@ -49,3 +49,13 @@
     state: link
   tags:
     - dot
+
+- name: Starship.toml - Config file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/starship.toml"
+    dest: "{{ config_paths.starship_config }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    state: link
+  tags:
+    - dot

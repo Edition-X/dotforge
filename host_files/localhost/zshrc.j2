@@ -6,24 +6,6 @@
 # /____|___/_| |_|_|  \___|
 
 plugins=(virtualenv)
-DEFAULT_USER={{ osx_username | default(ansible_user_id) }}
-POWERLEVEL9K_MODE='nerdfont-complete'
-POWERLEVEL9K_INSTALLATION_PATH=$ANTIGEN_BUNDLES/bhilburn/powerlevel9k
-POWERLEVEL9K_PROMPT_ON_NEWLINE=true
-#POWERLEVEL9K_RPROMPT_ON_NEWLINE=true
-POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
-POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon custom_internet_signal custom_battery_status_joined ssh root_indicator dir dir_writable vcs)
-POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(virtualenv  command_execution_time  status  time)
-POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX="%K{green}%F{black} \uf155 %f%F{green}%k\ue0b0%f "
-POWERLEVEL9K_DIR_HOME_BACKGROUND='mediumpurple3'
-POWERLEVEL9K_DIR_HOME_FOREGROUND='white'
-POWERLEVEL9K_DIR_HOME_SUBFOLDER_BACKGROUND='darkorange'
-POWERLEVEL9K_DIR_HOME_SUBFOLDER_FOREGROUND='black'
-POWERLEVEL9K_DIR_DEFAULT_BACKGROUND='blue'
-POWERLEVEL9K_DIR_DEFAULT_FOREGROUND='white'
-POWERLEVEL9K_SHORTEN_DIR_LENGTH=3
-POWERLEVEL9K_SHORTEN_DELIMITER=".."
-POWERLEVEL9K_SHORTEN_STRATEGY="truncate_from_right"
 
 HISTFILE=~/.histfile
 HISTSIZE=10000
@@ -40,10 +22,10 @@ antigen bundle common-aliases
 antigen bundle zsh_reload
 #antigen bundle z
 #antigen bundle andrewferrier/fzf-z
-antigen theme bhilburn/powerlevel9k powerlevel9k
-#antigen theme steeef  # Similar to bash profile
 
 antigen apply
+
+eval "$(starship init zsh)"
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 

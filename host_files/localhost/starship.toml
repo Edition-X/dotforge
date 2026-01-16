@@ -1,0 +1,88 @@
+# Starship prompt configuration
+# Fast, minimal, and powerful shell prompt
+
+format = """
+$os\
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$python\
+$terraform\
+$kubernetes\
+$aws\
+$docker_context\
+$line_break\
+$character"""
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+
+[os]
+disabled = false
+style = "bold blue"
+
+[username]
+show_always = false
+format = "[$user]($style) "
+style = "bold yellow"
+
+[hostname]
+ssh_only = true
+format = "[@$hostname]($style) "
+style = "bold cyan"
+
+[directory]
+truncation_length = 3
+truncation_symbol = "…/"
+style = "bold cyan"
+format = "[$path]($style)[$read_only]($read_only_style) "
+
+[git_branch]
+symbol = " "
+style = "bold purple"
+format = "[$symbol$branch]($style) "
+
+[git_status]
+style = "bold red"
+format = "([$all_status$ahead_behind]($style) )"
+
+[python]
+symbol = " "
+style = "bold yellow"
+format = "[$symbol$version]($style) "
+detect_extensions = ["py"]
+detect_files = ["requirements.txt", "pyproject.toml", "Pipfile"]
+
+[terraform]
+symbol = "󱁢 "
+style = "bold 105"
+format = "[$symbol$version]($style) "
+
+[kubernetes]
+disabled = false
+symbol = "☸ "
+style = "bold blue"
+format = '[$symbol$context( \($namespace\))]($style) '
+
+[aws]
+symbol = " "
+style = "bold orange"
+format = '[$symbol($profile )(\($region\) )]($style)'
+disabled = false
+
+[docker_context]
+symbol = " "
+style = "bold blue"
+format = "[$symbol$context]($style) "
+disabled = false
+
+[cmd_duration]
+min_time = 2_000
+style = "bold yellow"
+format = "took [$duration]($style) "
+
+[line_break]
+disabled = false

@@ -35,6 +35,7 @@
     - ranger
     - ripgrep
     - six
+    - starship
     - terraform
     - telnet
     - tig

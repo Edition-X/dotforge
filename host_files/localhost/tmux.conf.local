@@ -42,7 +42,7 @@ tmux_conf_new_session_prompt=false
 # RGB 24-bit colour support (tmux >= 2.2), possible values are:
 #  - true
 #  - false (default)
-tmux_conf_theme_24b_colour=false
+tmux_conf_theme_24b_colour=true
 
 # window style
 tmux_conf_theme_window_fg='default'
@@ -275,7 +275,7 @@ tmux_conf_copy_to_os_clipboard=false
 # this is the place to override or undo settings
 
 # increase history size
-#set -g history-limit 10000
+set -g history-limit 50000
 
 # start with mouse mode enabled
 #set -g mouse on
@@ -300,3 +300,56 @@ set -g mode-keys vi
 
 # vim-style line selection in copy mode
 bind -T copy-mode-vi V send -X select-line
+
+# =============================================================================
+# ENHANCED TERMINAL COLORS & SUPPORT
+# =============================================================================
+
+set -ga terminal-overrides ",xterm-256color:Tc"
+set -g default-terminal "tmux-256color"
+
+# =============================================================================
+# ENHANCED COPY MODE
+# =============================================================================
+
+# Incremental search in copy mode
+bind -T copy-mode-vi / command-prompt -i -p "(search down)" "send -X search-forward-incremental \"%%%\""
+bind -T copy-mode-vi ? command-prompt -i -p "(search up)" "send -X search-backward-incremental \"%%%\""
+
+# Copy to system clipboard on selection
+bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"
+bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"
+
+# =============================================================================
+# PANE SYNCHRONIZATION (for running commands on multiple robots)
+# =============================================================================
+
+# Toggle pane synchronization: Ctrl+A S
+bind S setw synchronize-panes \; display "Sync: #{?pane_synchronized,ON,OFF}"
+
+# =============================================================================
+# SESSION TEMPLATES FOR ROBOTICS WORKFLOWS
+# =============================================================================
+
+# Robotics Dev Layout: Ctrl+A D (for Dev)
+# Creates: Editor | Logs | Terminal split
+bind D new-window -n 'dev' \; \
+  send-keys 'nvim .' Enter \; \
+  split-window -h -p 35 \; \
+  split-window -v -p 50 \; \
+  select-pane -t 0
+
+# Monitoring Layout: Ctrl+A M (for Monitor)
+# Creates: htop | k9s | Terminal
+bind M new-window -n 'monitor' \; \
+  send-keys 'htop' Enter \; \
+  split-window -h -p 60 \; \
+  send-keys 'k9s 2>/dev/null || echo "k9s not installed"' Enter \; \
+  split-window -v -p 50 \; \
+  select-pane -t 0
+
+# Deploy Layout: Ctrl+A Y (for deploY)
+# Creates: Main terminal | Ansible output
+bind Y new-window -n 'deploy' \; \
+  split-window -h -p 40 \; \
+  select-pane -t 0
