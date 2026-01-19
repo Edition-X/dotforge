@@ -12,26 +12,13 @@
   tags:
     - dot
 
-- name: TMUX - Layout scripts directory
+- name: TMUX - Remove layout scripts
   ansible.builtin.file:
-    path: "{{ user_dir }}/.tmux-layouts"
-    state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
-    mode: '0755'
-  tags:
-    - dot
-
-- name: TMUX - Layout scripts
-  ansible.builtin.copy:
-    src: "{{ host_files_dir }}/{{ item.src }}"
-    dest: "{{ user_dir }}/.tmux-layouts/{{ item.dest }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
-    mode: '0755'
-  with_items:
-    - { src: "tmux-dev-layout.sh", dest: "tmux-dev-layout.sh" }
-    - { src: "tmux-monitor-layout.sh", dest: "tmux-monitor-layout.sh" }
-    - { src: "tmux-deploy-layout.sh", dest: "tmux-deploy-layout.sh" }
+    path: "{{ user_dir }}/.tmux-layouts/{{ item }}"
+    state: absent
+  loop:
+    - tmux-dev-layout.sh
+    - tmux-monitor-layout.sh
+    - tmux-deploy-layout.sh
   tags:
     - dot

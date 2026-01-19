@@ -326,19 +326,3 @@ bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy
 
 # Toggle pane synchronization: Ctrl+A S
 bind S setw synchronize-panes \; display "Sync: #{?pane_synchronized,ON,OFF}"
-
-# =============================================================================
-# SESSION TEMPLATES FOR ROBOTICS WORKFLOWS
-# =============================================================================
-
-# Robotics Dev Layout: Ctrl+A d (for dev)
-# Creates: Editor | Logs | Terminal split
-bind d run-shell -b "~/.tmux-layouts/tmux-dev-layout.sh '#S' \"#{pane_current_path}\""
-
-# Monitoring Layout: Ctrl+A k (for Kubernetes/monitoring)
-# Creates: htop | k9s | Terminal
-bind k run-shell -b "~/.tmux-layouts/tmux-monitor-layout.sh '#S' \"#{pane_current_path}\""
-
-# Deploy Layout: Ctrl+A a (for Ansible/deploy)
-# Creates: Main terminal | Ansible output
-bind a run-shell -b "~/.tmux-layouts/tmux-deploy-layout.sh '#S' \"#{pane_current_path}\""
