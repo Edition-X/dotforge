@@ -2,8 +2,14 @@
 set -euo pipefail
 
 # Dev layout: nvim editor with logs and terminal panes
-workdir="${1:-$HOME}"
-window_id=$(tmux new-window -P -F "#{window_id}" -n 'dev' -c "$workdir")
+session_name="${1:-}"
+workdir="${2:-$HOME}"
+
+if [[ -z "$session_name" ]]; then
+  session_name=$(tmux display-message -p '#S')
+fi
+
+window_id=$(tmux new-window -P -F "#{window_id}" -t "$session_name" -n 'dev' -c "$workdir")
 
 tmux send-keys -t "$window_id" 'nvim .' Enter
 sleep 0.2
