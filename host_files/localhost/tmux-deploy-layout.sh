@@ -9,7 +9,7 @@ if [[ -z "$session_name" ]]; then
   session_name=$(tmux display-message -p '#S')
 fi
 
-window_id=$(tmux new-window -P -F "#{window_id}" -t "$session_name" -n 'deploy' -c "$workdir")
+main_pane=$(tmux new-window -P -F "#{pane_id}" -t "$session_name" -n 'deploy' -c "$workdir")
 
-tmux split-window -t "$window_id" -h -p 40 -c "$workdir"
-tmux select-pane -t "${window_id}.0"
+tmux split-window -P -F "#{pane_id}" -t "$main_pane" -h -p 40 -c "$workdir" >/dev/null
+tmux select-pane -t "$main_pane"
