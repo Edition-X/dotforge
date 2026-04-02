@@ -33,6 +33,7 @@ _confirm() {
 # =============================================================================
 
 # Create directory and change into it with validation
+unalias md 2>/dev/null
 md() {
   [[ -z "$1" ]] && { _log_error "Usage: md <directory_name>"; return 1; }
   mkdir -p "$1" && cd "$1" && _log_success "Created and moved to: $1" || {
