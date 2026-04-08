@@ -40,6 +40,26 @@
   tags:
     - dot
 
+- name: Ghostty - Config directory
+  ansible.builtin.file:
+    path: "{{ user_dir }}/.config/ghostty"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  tags:
+    - dot
+
+- name: Ghostty - Config file
+  ansible.builtin.copy:
+    src: "{{ host_files_dir }}/ghostty.config"
+    dest: "{{ config_paths.ghostty_config }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0644'
+  tags:
+    - dot
+
 - name: .functions - Config file
   ansible.builtin.file:
     src: "{{ host_files_dir }}/functions"

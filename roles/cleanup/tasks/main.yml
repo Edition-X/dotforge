@@ -17,6 +17,7 @@
     - "{{ config_paths.functions }}"
     - "{{ config_paths.tmux_conf }}"
     - "{{ config_paths.tmux_conf_local }}"
+    - "{{ config_paths.ghostty_config }}"
     - "{{ config_paths.nvim }}"
   tags:
     - cleanup

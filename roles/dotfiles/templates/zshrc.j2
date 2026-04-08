@@ -45,6 +45,22 @@ antigen theme bhilburn/powerlevel9k powerlevel9k
 
 antigen apply
 
+# Ensure Home/End and word-wise navigation work consistently across
+# terminal emulators and through tmux.
+bindkey $'\e[H' beginning-of-line
+bindkey $'\e[F' end-of-line
+bindkey $'\eOH' beginning-of-line
+bindkey $'\eOF' end-of-line
+bindkey $'\e[1~' beginning-of-line
+bindkey $'\e[4~' end-of-line
+bindkey $'\e[7~' beginning-of-line
+bindkey $'\e[8~' end-of-line
+bindkey $'\eb' backward-word
+bindkey $'\ef' forward-word
+bindkey $'\e[1;3D' backward-word
+bindkey $'\e[1;3C' forward-word
+
+
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Only run tmux if not already inside a tmux session

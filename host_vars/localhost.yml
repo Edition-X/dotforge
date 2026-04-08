@@ -28,3 +28,4 @@ config_paths:
   tmux_conf: "{{ user_dir }}/.tmux.conf"
   tmux_conf_local: "{{ user_dir }}/.tmux.conf.local"
   pyright_config: "{{ user_dir }}/pyrightconfig.json"
+  ghostty_config: "{{ user_dir }}/.config/ghostty/config"
