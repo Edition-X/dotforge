@@ -90,3 +90,36 @@
     mode: '0600'
   tags:
     - dot
+
+- name: Forge - Config directory
+  ansible.builtin.file:
+    path: "{{ config_paths.forge_dir }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  tags:
+    - dot
+    - forge
+
+- name: Forge - Skills directory
+  ansible.builtin.copy:
+    src: "{{ host_files_dir }}/forge/skills/"
+    dest: "{{ config_paths.forge_skills }}/"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: preserve
+  tags:
+    - dot
+    - forge
+
+- name: Forge - MCP config
+  ansible.builtin.template:
+    src: "forge.mcp.json.j2"
+    dest: "{{ config_paths.forge_mcp }}"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  tags:
+    - dot
+    - forge
