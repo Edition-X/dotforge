@@ -63,8 +63,14 @@ bindkey $'\e[1;3C' forward-word
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# Only run tmux if not already inside a tmux session
-if [ -z "$TMUX" ]; then
+# Auto-start/attach tmux for interactive shells, EXCEPT under cmux.
+#
+# cmux is its own multiplexer: it drives tmux in control mode and manages its
+# own tabs/panes. If every cmux shell runs `tmux a` it attaches all tabs to the
+# same session, so they all mirror each other. cmux sets CMUX_SHELL_INTEGRATION_DIR
+# in the shell env (via its ZDOTDIR bootstrap, before this file is sourced), so
+# we use that to opt cmux out. Ghostty and other terminals keep tmux as before.
+if [ -z "$TMUX" ] && [ -z "$CMUX_SHELL_INTEGRATION_DIR" ]; then
   TMUX_OUTPUT="$(tmux a 2>&1)"
   if [[ "$TMUX_OUTPUT" == *"no sessions"* ]]; then
       tmux new -s "SunRise Robotics" -n "Reactive"
