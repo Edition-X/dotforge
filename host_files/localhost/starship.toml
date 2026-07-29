@@ -27,7 +27,7 @@ style = "bold blue"
 [username]
 show_always = false
 format = "[$user]($style) "
-style = "bold yellow"
+style_user = "bold yellow"
 
 [hostname]
 ssh_only = true
