@@ -19,10 +19,30 @@ A powerful, automated configuration management system for MacBook Pro setup usin
 - 🛠️ **Modular Design**: Organized into specialized roles for easy maintenance
 - 🔄 **Idempotent**: Safe to run multiple times without side effects
 - 🧪 **Validation**: Pre-commit hooks ensure code quality
-- 📦 **Package Management**: Automated installation of Homebrew formulae, casks, and Python packages
+- 📦 **Package Management**: Declarative `Brewfile` covering formulae, casks, taps and go/uv/npm globals
 - 🔐 **Security**: Secure SSH key and configuration management
 - 🎨 **Development Tools**: Pre-configured Neovim and tmux setup
 - 🧹 **Clean Uninstall**: Easy removal of all managed configurations
+
+## 🧭 First-time Setup
+
+The playbook decrypts secrets with an Ansible Vault password that is
+deliberately **not** in the repo (`credentials.txt` is gitignored). A fresh
+clone cannot run until you put it back:
+
+```bash
+# 1. Restore the vault password (from your password manager)
+echo 'THE-VAULT-PASSWORD' > credentials.txt
+
+# 2. Build the venv and apply
+make apply
+```
+
+`ansible.cfg` points `vault_password_file` at `./credentials.txt`. Note that
+`~/.env_vars` also exports `ANSIBLE_VAULT_PASSWORD_FILE`; having both set makes
+`ansible-vault` ambiguous about which vault id to use, which is why the Makefile
+unsets the environment variable before every run. Do the same if you invoke
+`ansible-vault` by hand.
 
 ## 🚀 Quick Start
 
@@ -50,10 +70,11 @@ The configuration is organized into specialized roles:
 |------|-------------|
 | `common` | Creates required directories |
 | `ssh` | Manages SSH keys and configuration |
-| `dotfiles` | Manages shell config files (.zshrc, .aliases) |
+| `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, starship, and Forge MCP/skills |
 | `neovim` | Configures Neovim editor |
 | `tmux` | Sets up tmux configuration |
-| `packages` | Manages Homebrew formulae, casks, and Python packages |
+| `packages` | Applies the root `Brewfile` via `brew bundle` |
+| `macos` | Applies `defaults` captured from the machine (Dock, Finder, typing) |
 | `cleanup` | Removes managed files (uninstallation) |
 
 ### 🛠️ Role-Specific Commands
@@ -63,8 +84,31 @@ make ssh        # SSH keys and config only
 make dotfiles   # Shell config files only
 make neovim     # Neovim config only
 make tmux       # tmux config only
-make packages   # Install packages only
+make packages   # Install missing packages
+make upgrade    # Install missing packages AND upgrade outdated ones
 ```
+
+### 📦 Packages
+
+Everything installable lives in the root [`Brewfile`](Brewfile) — taps, formulae,
+casks, and go/uv/npm globals. It is the single source of truth, and works with or
+without Ansible:
+
+```bash
+make drift      # what has drifted from the Brewfile
+make dump       # rewrite the Brewfile from what is actually installed
+```
+
+Two things worth knowing:
+
+- **`make apply` never upgrades.** `brew bundle` runs with `--no-upgrade` so an
+  apply only fills in what is missing. Use `make upgrade` to move versions.
+- **Third-party taps need `trusted: true`.** Homebrew refuses to load formulae
+  from untrusted taps, and that refusal is fatal — it will abort the whole play.
+
+Python packages are *not* managed here. Machine-wide tools belong in the
+Brewfile; anything project-specific belongs to that project's own uv/poetry
+environment.
 
 ### 🔍 Code Quality
 
@@ -90,14 +134,21 @@ Pre-commit checks include:
 ### 🎯 Configuration Management
 
 #### Inventory System
-- `inventory`: Contains host groups (local, work, personal)
-- `group_vars/macbooks.yml`: Common variables for all MacBooks
-- `host_vars/`: Host-specific variables (create files like hostname.yml)
+- `inventory`: Contains the host groups `local` and `macbooks`
+- `group_vars/macbooks.yml`: Common variables for all MacBooks, including the
+  `config_paths` map that every role deploys against
+- `host_vars/<hostname>/`: Host-specific variables. Use the **directory** form —
+  `vars.yml` for plain values and `vault.yml` for secrets. A sibling
+  `host_vars/<hostname>.yml` file is silently ignored when the directory exists,
+  so do not create both.
+- `host_files/<hostname>/`: The actual dotfiles that get linked or copied into
+  place. Jinja templates belong in a role's `templates/` directory, not here —
+  Ansible does not search `host_files/` for them.
 
 #### Adding New Hosts
 1. Add the host to the inventory file
 2. Create host-specific files in `host_files/hostname/`
-3. Optionally add host-specific variables in `host_vars/hostname.yml`
+3. Add host-specific variables in `host_vars/hostname/vars.yml`
 4. Run: `ANSIBLE_LIMIT=hostname make apply`
 
 ### 📝 Adding New Configuration
@@ -106,7 +157,18 @@ Pre-commit checks include:
 2. Add tasks to the role's `tasks/main.yml` file
 3. Add templates to the role's `templates/` directory
 4. Add static files to the role's `files/` directory
-5. Update the README.md to document the changes
+5. Add the deployed path to `config_paths` in `group_vars/macbooks.yml`, and to
+   the `cleanup` role so `make delete` stays a genuine uninstall
+6. Update the README.md to document the changes
+
+#### Link vs copy vs template
+
+- **Link** anything you might edit by hand. Local edits then show up as a git
+  diff in this repo instead of drifting silently until the next apply overwrites
+  them. Used for `.aliases`, `.gitconfig`, `ghostty.config`, `tmux.conf.local`.
+- **Copy** vendored files you never touch, e.g. the oh-my-tmux `tmux.conf`.
+- **Template** anything that needs a variable or a secret, e.g. `.zshrc`,
+  `.env_vars`, `.env_secrets`.
 
 ## 📋 Requirements
 
