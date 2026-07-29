@@ -1,0 +1,54 @@
+---
+# macOS defaults.
+#
+# This list was captured from the live machine rather than invented, so a first
+# apply is a no-op. Only settings that were already deliberately changed from
+# the macOS default are listed — the point is to stop them being lost on a
+# rebuild, not to impose new preferences.
+macos_defaults:  # noqa: var-naming[no-role-prefix]
+  # Show all file extensions in Finder
+  - domain: NSGlobalDomain
+    key: AppleShowAllExtensions
+    type: bool
+    value: true
+
+  # Dark mode. Remove this entry if you switch appearance often, otherwise an
+  # apply will pull you back to dark.
+  - domain: NSGlobalDomain
+    key: AppleInterfaceStyle
+    type: string
+    value: Dark
+
+  # No autocorrect or auto-capitalisation while typing code
+  - domain: NSGlobalDomain
+    key: NSAutomaticCapitalizationEnabled
+    type: bool
+    value: false
+  - domain: NSGlobalDomain
+    key: NSAutomaticSpellingCorrectionEnabled
+    type: bool
+    value: false
+
+  # Dock hidden and pinned to the left edge
+  - domain: com.apple.dock
+    key: autohide
+    type: bool
+    value: true
+  - domain: com.apple.dock
+    key: orientation
+    type: string
+    value: left
+
+  # Finder: path and status bars visible, list view by default
+  - domain: com.apple.finder
+    key: ShowPathbar
+    type: bool
+    value: true
+  - domain: com.apple.finder
+    key: ShowStatusBar
+    type: bool
+    value: true
+  - domain: com.apple.finder
+    key: FXPreferredViewStyle
+    type: string
+    value: Nlsv
