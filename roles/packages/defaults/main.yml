@@ -1,2 +1,14 @@
 ---
 # Package management defaults
+
+# Homebrew install prefix. /opt/homebrew on Apple Silicon, /usr/local on Intel.
+homebrew_prefix: /opt/homebrew  # noqa: var-naming[no-role-prefix]
+
+# Brewfile driving `brew bundle`. Lives at the repo root so it can also be used
+# directly with `brew bundle check` without going through Ansible.
+brew_bundle_file: "{{ project_dir }}/Brewfile"  # noqa: var-naming[no-role-prefix]
+
+# When false (the default) packages that are already installed are left at
+# their current version, matching the old `state: present` behaviour. Set true
+# — or run `make upgrade` — to let brew upgrade outdated packages.
+brew_upgrade: false  # noqa: var-naming[no-role-prefix]
