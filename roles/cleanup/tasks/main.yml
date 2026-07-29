@@ -1,4 +1,6 @@
 ---
+# Uninstall. Only ever removes paths this repo actually manages — see the note
+# on the directory task below for why that distinction matters.
 - name: Cleanup files and directories
   ansible.builtin.file:
     state: absent
@@ -11,23 +13,41 @@
     - "{{ config_paths.ssh_config }}"
     - "{{ user_dir }}/.vault_pass.txt"
     - "{{ config_paths.aliases }}"
+    - "{{ config_paths.functions }}"
     - "{{ config_paths.pyright_config }}"
     - "{{ config_paths.env_vars }}"
+    - "{{ config_paths.env_secrets }}"
     - "{{ config_paths.zshrc }}"
-    - "{{ config_paths.functions }}"
     - "{{ config_paths.tmux_conf }}"
     - "{{ config_paths.tmux_conf_local }}"
     - "{{ config_paths.ghostty_config }}"
+    - "{{ config_paths.starship_config }}"
+    - "{{ config_paths.gitconfig }}"
+    - "{{ config_paths.git_ignore }}"
     - "{{ config_paths.nvim }}"
+    # Forge: only the files this repo writes. The rest of ~/forge is Forge's own
+    # state — database, snapshots, credentials, history — and is not ours to
+    # delete.
+    - "{{ config_paths.forge_mcp }}"
+    - "{{ config_paths.forge_skills }}"
   tags:
     - cleanup
 
+# rmdir, not `state: absent`. This task used to remove ~/.ssh and ~/.config with
+# `file: state=absent`, which deletes recursively regardless of the task name —
+# so `make delete` would have taken out every unmanaged thing living in those
+# directories too. rmdir refuses on a non-empty directory, which is the intent.
 - name: Cleanup directories if empty
-  ansible.builtin.file:
-    state: absent
-    path: "{{ item }}"
+  ansible.builtin.command:
+    cmd: "rmdir {{ item | quote }}"
+    removes: "{{ item }}"
   loop:
+    - "{{ config_paths.ghostty_config | dirname }}"
+    - "{{ config_paths.git_ignore | dirname }}"
     - "{{ ssh_dir }}"
     - "{{ user_dir }}/.config"
+  register: cleanup_rmdir
+  changed_when: cleanup_rmdir.rc == 0
+  failed_when: false
   tags:
     - cleanup
