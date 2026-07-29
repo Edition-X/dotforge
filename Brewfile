@@ -169,9 +169,8 @@ brew "ollama"
 brew "opencode"
 # Multi-modal AI tool to extract and summarize content
 brew "summarize"
-# NOTE: goplaces migrated from a formula to a cask upstream. The cask is
-# declared below. An unlinked 0.2.1 keg from the old formula is still in the
-# Cellar; it is inert, remove with: brew uninstall --formula goplaces
+# NOTE: goplaces migrated from a formula to a cask upstream, so it is declared
+# in the cask section below rather than here.
 
 ## Toys ##
 # Aquarium animation in ASCII art
