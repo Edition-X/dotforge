@@ -1,14 +1,25 @@
 ---
-- name: TMUX - Config file
+# tmux.conf is vendored oh-my-tmux and is never hand-edited, so a copy is right.
+- name: TMUX - Base config file
   ansible.builtin.copy:
-    src: "{{ host_files_dir }}/{{ item.src }}"
-    dest: "{{ item.dest }}"
+    src: "{{ host_files_dir }}/tmux.conf"
+    dest: "{{ config_paths.tmux_conf }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0644'
-  with_items:
-    - { src: "tmux.conf", dest: "{{ config_paths.tmux_conf }}" }
-    - { src: "tmux.conf.local", dest: "{{ config_paths.tmux_conf_local }}" }
+  tags:
+    - dot
+
+# tmux.conf.local is the file that actually gets tweaked, so link it and let
+# local changes surface as a git diff instead of being silently overwritten.
+- name: TMUX - Local overrides file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/tmux.conf.local"
+    dest: "{{ config_paths.tmux_conf_local }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
   tags:
     - dot
 
