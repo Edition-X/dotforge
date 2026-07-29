@@ -99,12 +99,23 @@ make drift      # what has drifted from the Brewfile
 make dump       # rewrite the Brewfile from what is actually installed
 ```
 
-Two things worth knowing:
+Things worth knowing:
 
 - **`make apply` never upgrades.** `brew bundle` runs with `--no-upgrade` so an
   apply only fills in what is missing. Use `make upgrade` to move versions.
-- **Third-party taps need `trusted: true`.** Homebrew refuses to load formulae
-  from untrusted taps, and that refusal is fatal — it will abort the whole play.
+- **Third-party taps need trust.** Homebrew refuses to load formulae from
+  untrusted taps, and that refusal is fatal — it aborts the whole run. Run
+  `brew trust <tap>` for each tap in the Brewfile on a new machine.
+- **`brew bundle dump` lies about untrusted taps.** It omits their packages
+  silently rather than erroring, so a dump taken before trusting every tap will
+  quietly drop packages from this file. Trust first, then dump, then check the
+  diff both ways — `make drift` only tells you what is declared-but-missing, not
+  what is installed-but-undeclared.
+- **GUI apps are adopted, not reinstalled.** `scripts/adopt-casks.sh` hands
+  existing `/Applications` entries to Homebrew without replacing them. It needs
+  an interactive sudo password, so it is a manual one-off rather than an Ansible
+  task. App Store apps go through `mas` instead, since their receipts are tied
+  to the purchasing Apple ID.
 
 Python packages are *not* managed here. Machine-wide tools belong in the
 Brewfile; anything project-specific belongs to that project's own uv/poetry

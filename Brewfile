@@ -10,13 +10,21 @@
 # Note: `brew bundle check` reports outdated packages as unmet. The packages
 # role deliberately installs with --no-upgrade so that `make apply` stays
 # predictable; use `make upgrade` to actually pull upgrades in.
+#
+# Warning about `brew bundle dump`: it silently omits anything from a tap you
+# have not trusted. Run `brew trust <tap>` for every tap below before trusting
+# a dump, or packages quietly vanish from this file. That is how terraform and
+# six other formulae went missing the first time this was generated.
 
-# Third-party taps. `trusted: true` is required since Homebrew 6 refuses to
-# load formulae from untrusted taps.
+# Third-party taps. Every one of these needs `brew trust <tap>` locally;
+# Homebrew refuses to load formulae from untrusted taps and that refusal is
+# fatal to a whole `brew bundle` run.
 tap "antoniorodr/memo"
 tap "hashicorp/tap"
 tap "hudochenkov/sshpass"
+tap "ngrok/ngrok"
 tap "openclaw/tap"
+tap "steipete/tap"
 tap "streetpea/streetpea"
 
 ## Shell and core utilities ##
@@ -54,6 +62,8 @@ brew "wget"
 brew "glow"
 # Manipulate and query tags on macOS files
 brew "tag"
+# Mac App Store CLI — drives the `mas` entries at the end of this file
+brew "mas"
 # Terminal multiplexer
 brew "tmux"
 # Ambitious Vim-fork focused on extensibility and agility
@@ -123,6 +133,8 @@ brew "minikube"
 brew "lazydocker"
 # Machine image builder
 brew "hashicorp/tap/packer", trusted: true
+# Infrastructure as code
+brew "hashicorp/tap/terraform", trusted: true
 # Non-interactive ssh password auth — needed by ansible against the fleet
 brew "hudochenkov/sshpass/sshpass"
 
@@ -169,6 +181,16 @@ brew "ollama"
 brew "opencode"
 # Multi-modal AI tool to extract and summarize content
 brew "summarize"
+# GOG.com CLI
+brew "openclaw/tap/gogcli"
+# WhatsApp CLI
+brew "openclaw/tap/wacli"
+# Search GIFs from the terminal
+brew "steipete/tap/gifgrep"
+# Screenshot and UI automation for AI agents
+brew "steipete/tap/peekaboo"
+# Screenshot annotation tool
+brew "steipete/tap/sag"
 # NOTE: goplaces migrated from a formula to a cask upstream, so it is declared
 # in the cask section below rather than here.
 
@@ -190,24 +212,73 @@ brew "pipes-sh"
 # Fast, highly customisable system info script — archived upstream
 brew "neofetch"
 
-## Casks ##
+## Casks — developer tooling ##
 # Terminal-based AI coding assistant
 cask "claude-code@latest"
 # Automated testing of webapps for Google Chrome
 cask "chromedriver"
 # Get up and running with large language models locally
 cask "ollama-app"
-# Knowledge base that works on top of a local folder of plain text Markdown files
-cask "obsidian"
 # Development environment
 cask "vagrant"
 # Secure tunnels to localhost
-cask "ngrok"
+cask "ngrok/ngrok/ngrok"
+# AI-assisted editors and agents
+cask "antigravity"
+cask "devin-desktop"
+cask "t3-code"
+# Design
+cask "figma"
+cask "openclaw/tap/goplaces", trusted: true
+
+## Casks — applications ##
+# Knowledge base that works on top of a local folder of plain text Markdown files
+cask "obsidian"
+cask "brave-browser"
+cask "spotify"
 # 3D creation suite
 cask "blender"
 # PlayStation Remote Play client
-cask "chiaki-ng"
-cask "openclaw/tap/goplaces", trusted: true
+cask "streetpea/streetpea/chiaki-ng"
+# Media automation
+cask "radarr"
+cask "sonarr"
+# 8BitDo controller utilities
+cask "8bitdo-firmware-updater"
+cask "8bitdo-ultimate-software"
+
+# Apps present in /Applications that Homebrew could manage but has NOT adopted
+# yet. Adopting needs sudo (Homebrew runs `chmod -R a+rX` on the bundle), so it
+# cannot be scripted unattended — run scripts/adopt-casks.sh once, then move
+# these up into the lists above.
+#
+# Do not uncomment before adopting: `brew bundle install` would try a fresh
+# install, hit the existing app and fail the whole run.
+#
+#   cask "chatgpt"              cask "chatgpt-classic"
+#   cask "claude"               cask "cmux"
+#   cask "crossover"            cask "cursor"
+#   cask "discord"              cask "firefox"
+#   cask "ghostty"              cask "google-chrome"
+#   cask "linear"               cask "microsoft-edge"
+#   cask "raycast"              cask "steam"
+#   cask "surfshark"            cask "visual-studio-code"
+#   cask "vivaldi"              cask "vlc"
+#
+# Two more cannot be adopted at all right now:
+#   privadovpn  — installed 3.15.0, cask is 4.2.0 and the bundle version check
+#                 rejects the mismatch. Upgrade by hand, then adopt.
+#   vnc-viewer  — the cask's download URL is currently broken upstream.
+
+## Mac App Store ##
+# Managed with mas. These cannot be casks — App Store apps are receipt-signed
+# to the purchasing Apple ID, so `brew bundle` shells out to mas instead.
+mas "iMovie", id: 408981434
+mas "LastPass for Safari", id: 6504626762
+mas "Microsoft OneNote", id: 784801555
+mas "Notenik", id: 1465997984
+mas "Slack", id: 803453959
+mas "uBlock Origin Lite", id: 6745342698
 
 ## Go tools ##
 go "github.com/bootdotdev/bootdev"
