@@ -12,12 +12,11 @@ macos_defaults:  # noqa: var-naming[no-role-prefix]
     type: bool
     value: true
 
-  # Dark mode. Remove this entry if you switch appearance often, otherwise an
-  # apply will pull you back to dark.
-  - domain: NSGlobalDomain
-    key: AppleInterfaceStyle
-    type: string
-    value: Dark
+  # Deliberately NOT managing NSGlobalDomain AppleInterfaceStyle. This machine
+  # has AppleInterfaceStyleSwitchesAutomatically = 1, so macOS adds and removes
+  # that key itself as it moves between light and dark. Declaring it captured
+  # whatever happened to be set at capture time and then forced it back on every
+  # apply, fighting the OS. If you ever pin appearance manually, add it back.
 
   # No autocorrect or auto-capitalisation while typing code
   - domain: NSGlobalDomain

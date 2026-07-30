@@ -212,6 +212,13 @@ brew "pipes-sh"
 # Fast, highly customisable system info script — archived upstream
 brew "neofetch"
 
+## Casks — editors and terminals ##
+cask "cursor"
+cask "visual-studio-code"
+cask "ghostty"
+cask "cmux"
+cask "antigravity"
+
 ## Casks — developer tooling ##
 # Terminal-based AI coding assistant
 cask "claude-code@latest"
@@ -223,52 +230,62 @@ cask "ollama-app"
 cask "vagrant"
 # Secure tunnels to localhost
 cask "ngrok/ngrok/ngrok"
-# AI-assisted editors and agents
-cask "antigravity"
+# AI agents and assistants
+cask "claude"
+cask "chatgpt-classic"
 cask "devin-desktop"
 cask "t3-code"
 # Design
 cask "figma"
 cask "openclaw/tap/goplaces", trusted: true
 
+## Casks — browsers ##
+cask "brave-browser"
+cask "firefox"
+cask "google-chrome"
+cask "microsoft-edge"
+cask "vivaldi"
+
 ## Casks — applications ##
 # Knowledge base that works on top of a local folder of plain text Markdown files
 cask "obsidian"
-cask "brave-browser"
+cask "linear"
 cask "spotify"
+cask "discord"
+cask "vlc"
 # 3D creation suite
 cask "blender"
+# Run Windows software on macOS
+cask "crossover"
+# VPN
+cask "surfshark"
+# Games and controllers
+cask "steam"
 # PlayStation Remote Play client
 cask "streetpea/streetpea/chiaki-ng"
+cask "8bitdo-firmware-updater"
+cask "8bitdo-ultimate-software"
 # Media automation
 cask "radarr"
 cask "sonarr"
-# 8BitDo controller utilities
-cask "8bitdo-firmware-updater"
-cask "8bitdo-ultimate-software"
+# Launcher
+cask "raycast"
 
-# Apps present in /Applications that Homebrew could manage but has NOT adopted
-# yet. Adopting needs sudo (Homebrew runs `chmod -R a+rX` on the bundle), so it
-# cannot be scripted unattended — run scripts/adopt-casks.sh once, then move
-# these up into the lists above.
+# Apps in /Applications that Homebrew is NOT managing.
 #
-# Do not uncomment before adopting: `brew bundle install` would try a fresh
-# install, hit the existing app and fail the whole run.
+# Adopting needs sudo — Homebrew runs `chmod -R a+rX` on the bundle — so it
+# cannot run unattended. Use scripts/adopt-casks.sh, then move the cask up into
+# a list above. Do not uncomment before adopting: `brew bundle install` would
+# attempt a fresh install, collide with the existing app and fail the run.
 #
-#   cask "chatgpt"              cask "chatgpt-classic"
-#   cask "claude"               cask "cmux"
-#   cask "crossover"            cask "cursor"
-#   cask "discord"              cask "firefox"
-#   cask "ghostty"              cask "google-chrome"
-#   cask "linear"               cask "microsoft-edge"
-#   cask "raycast"              cask "steam"
-#   cask "surfshark"            cask "visual-studio-code"
-#   cask "vivaldi"              cask "vlc"
-#
-# Two more cannot be adopted at all right now:
+#   chatgpt     — adoption still pending, needs an interactive sudo prompt.
 #   privadovpn  — installed 3.15.0, cask is 4.2.0 and the bundle version check
 #                 rejects the mismatch. Upgrade by hand, then adopt.
 #   vnc-viewer  — the cask's download URL is currently broken upstream.
+#
+# Beyond those, ~20 apps have no cask at all: Steam games, Battle.net,
+# DisplayLink Manager, logioptionsplus, OpenVPN Connect, NZBGet, zoom.us,
+# Spectacle (archived upstream) and similar. They stay unmanaged.
 
 ## Mac App Store ##
 # Managed with mas. These cannot be casks — App Store apps are receipt-signed
