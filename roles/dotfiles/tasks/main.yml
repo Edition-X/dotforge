@@ -37,6 +37,7 @@
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0644'
+  notify: Invalidate antigen cache
   tags:
     - dot
 
