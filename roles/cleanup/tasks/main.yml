@@ -21,7 +21,6 @@
     - "{{ config_paths.tmux_conf }}"
     - "{{ config_paths.tmux_conf_local }}"
     - "{{ config_paths.ghostty_config }}"
-    - "{{ config_paths.starship_config }}"
     - "{{ config_paths.gitconfig }}"
     - "{{ config_paths.git_ignore }}"
     - "{{ config_paths.nvim }}"

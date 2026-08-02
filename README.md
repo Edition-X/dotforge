@@ -70,7 +70,7 @@ The configuration is organized into specialized roles:
 |------|-------------|
 | `common` | Creates required directories |
 | `ssh` | Manages SSH keys and configuration |
-| `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, starship, and Forge MCP/skills |
+| `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, and Forge MCP/skills |
 | `neovim` | Configures Neovim editor |
 | `tmux` | Sets up tmux configuration |
 | `packages` | Applies the root `Brewfile` via `brew bundle` |
