@@ -1,103 +1,132 @@
 # Starship prompt configuration
 #
-# Recreates the powerlevel9k prompt this machine used before the switch to
-# starship. The original was:
+# Recreates the powerlevel9k prompt this machine used before the switch. Rather
+# than reconstructing it from the p9k settings by eye, the original theme was
+# rendered out of ~/.antigen/bundles and matched escape sequence by escape
+# sequence against this one.
 #
-#   LEFT   os_icon, ssh, root_indicator, dir, dir_writable, vcs
-#   RIGHT  virtualenv, command_execution_time, status, time
-#   dir    home = mediumpurple3/white, home subfolder = darkorange/black,
-#          elsewhere = blue/white; shortened to 3 elements from the right
-#   line 2 green background,  glyph, powerline arrow
+# Colours and glyphs are taken from that render, not guessed:
+#   os        black background, white apple
+#   dir       208 darkorange background, black text, folder glyph
+#   git       2 green background, black text, octoface + branch glyphs
+#   line 2    2 green background, black text, dollar glyph
+#   status    black background, green tick / red cross
+#   time      white background, black text, clock glyph
 #
-# Username and hostname were deliberately absent — p9k's DEFAULT_USER hid them
-# and there was no `context` segment — so they stay hidden here, except that
-# hostname reappears over SSH the way p9k's `ssh` segment did.
+# Username and hostname were never shown — p9k's DEFAULT_USER hid them and there
+# was no `context` segment — so they stay off, except hostname over SSH, which
+# mirrors the old `ssh` segment.
 #
-# Two segments in the old config, custom_internet_signal and
-# custom_battery_status_joined, were referenced but never defined anywhere, so
-# they always rendered as nothing. They are not reproduced.
+# custom_internet_signal and custom_battery_status_joined were listed as p9k
+# segments but were never defined anywhere in this repo's history. The reference
+# render confirms they emitted nothing, so they are not reproduced.
 #
-# Colours are xterm-256 indexes so they match the old names exactly:
-#   208 darkorange   98 mediumpurple3   4 blue   2 green
+# NOTE: the icons below are nerd-font Private Use Area characters. Some editors
+# and tools silently drop them, which leaves the prompt as bare coloured blocks
+# with no icons. If that happens, regenerate rather than retyping them.
 
 add_newline = true
 
-# The powerline bar covers only the segments that are always present — the OS
-# icon and the directory — and closes itself immediately after. Git is rendered
-# as coloured text past the end of the bar rather than as another background
-# segment, because a background segment for an optional module leaves an empty
-# coloured stub on the prompt whenever you are outside a repo.
+# $fill pushes what follows to the right margin. That is how p9k put its RPROMPT
+# on the FIRST line: POWERLEVEL9K_RPROMPT_ON_NEWLINE was commented out, so the
+# right-hand side shared line 1 with the path. A starship right_format cannot do
+# this, because zsh only draws RPROMPT against the prompt's final line.
 format = """
-[](fg:236)\
+[╭─](fg:white)\
 $os\
-[](fg:236 bg:208)\
 $directory\
-[](fg:208)\
 $hostname\
-$git_branch\
-$git_status\
+${custom.git_clean}\
+${custom.git_dirty}\
+${custom.dir_close}\
+$fill\
+$python\
+$cmd_duration\
+$status\
+$time\
 $line_break\
 $character"""
 
-# Each right-hand segment carries its own leading  separator inside its own
-# format. When the module has nothing to show, the separator disappears with it,
-# so there are no orphaned arrows.
-right_format = """$python$cmd_duration$status$time"""
+[fill]
+symbol = " "
 
-# Apple logo, nerd-font glyph rather than the 🍎 emoji starship defaults to.
-# This is what POWERLEVEL9K_MODE='nerdfont-complete' rendered.
+# Apple as the nerd-font glyph. Starship's own macOS default is the emoji.
 [os]
 disabled = false
 format = "[ $symbol ]($style)"
-style = "fg:255 bg:236"
+style = "fg:255 bg:black"
 
 [os.symbols]
-Macos = ""
+Macos = ""
 
-# darkorange on black. The old config varied this by location — purple for $HOME
-# exactly, orange for anything under it, blue elsewhere — which starship cannot
-# express conditionally. Orange is the case you were in almost all the time.
+# Folder glyph then the path, on darkorange. p9k varied this by location —
+# mediumpurple3 for $HOME exactly, darkorange beneath it, blue elsewhere — which
+# starship cannot express, because a module's background cannot depend on the
+# path. Darkorange is the case you were in virtually always.
 [directory]
 style = "fg:0 bg:208"
-format = "[ $path ]($style)[$read_only]($read_only_style)"
-read_only = " "
+format = "[](fg:black bg:208)[  $path ]($style)[$read_only]($read_only_style)"
+read_only = "  "
 read_only_style = "fg:0 bg:208"
-truncation_length = 3
-truncation_symbol = "../"
-# p9k shortened to 3 path components wherever you were. Starship otherwise
-# collapses the path to the repository root, which is a different behaviour.
 truncate_to_repo = false
+# p9k trimmed each parent to 3 characters and joined them with "..", giving
+# ~/Pro../macbook-pro. Starship trims to 3 characters with no trailing dots, so
+# this renders ~/Pro/macbook-pro. It is the one piece that cannot match exactly.
+truncation_length = 3
+fish_style_pwd_dir_length = 3
 
-# Only over SSH, matching the old `ssh` segment.
 [hostname]
 ssh_only = true
-format = "[ $hostname]($style)"
-style = "fg:255"
+format = "[](fg:208 bg:black)[ $hostname ]($style)"
+style = "fg:255 bg:black"
+
+# p9k coloured the vcs segment by state: green when the worktree was clean,
+# yellow when it was dirty. Starship cannot vary a module's background on a
+# condition, so the whole git segment is built from a pair of custom modules
+# with mutually exclusive `when` guards — including their own closing arrow,
+# which has to match whichever background was used. Exactly one ever fires.
+#
+# git_branch/git_status are left disabled below because these replace them.
+[custom.git_clean]
+description = "vcs segment, clean worktree - green"
+when = 'git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ -z "$(git status --porcelain)" ]'
+command = 'git branch --show-current 2>/dev/null || git rev-parse --short HEAD'
+format = "[](fg:208 bg:2)[    $output ](fg:0 bg:2)[](fg:2)"
+shell = ["bash", "--noprofile", "--norc"]
+
+[custom.git_dirty]
+description = "vcs segment, dirty worktree - yellow"
+when = 'git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ -n "$(git status --porcelain)" ]'
+command = 'git branch --show-current 2>/dev/null || git rev-parse --short HEAD'
+format = "[](fg:208 bg:3)[    $output  ](fg:0 bg:3)[](fg:3)"
+shell = ["bash", "--noprofile", "--norc"]
 
 [git_branch]
-symbol = " "
-format = "[ $symbol$branch]($style)"
-style = "fg:2"
+disabled = true
 
 [git_status]
-format = "[ $all_status$ahead_behind]($style)"
-style = "fg:214"
+disabled = true
 
-# Second line: green block with the  glyph and a powerline arrow, exactly as
-# POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX drew it. Unlike p9k this also turns
-# red when the previous command failed.
+[custom.dir_close]
+description = "Closes the prompt bar in orange outside a git repository"
+when = "! git rev-parse --is-inside-work-tree"
+format = "[]($style)"
+style = "fg:208"
+shell = ["bash", "--noprofile", "--norc"]
+
+# Second line: green block, dollar glyph, powerline arrow. p9k drew this the
+# same regardless of outcome; here it turns red when the last command failed.
 [character]
-success_symbol = "[  ](fg:0 bg:2)[](fg:2)"
-error_symbol = "[  ](fg:0 bg:1)[](fg:1)"
+success_symbol = "[  ](fg:0 bg:2)[](fg:2)"
+error_symbol = "[  ](fg:0 bg:1)[](fg:1)"
 
-# Right-hand side, in the old order: virtualenv, duration, status, time.
-# p9k showed `virtualenv`, which appeared only while a virtualenv was active —
-# not in every directory that happens to contain a .py file. Emptying the
-# detect_* lists removes the file-based triggers and leaves the active-venv one.
+# Right-hand side in the old order: virtualenv, duration, status, time.
+# p9k's `virtualenv` segment appeared only while a virtualenv was active, not in
+# every directory holding a .py file, so the detect_* triggers are emptied.
 [python]
-symbol = " "
+symbol = ""
 style = "fg:0 bg:220"
-format = "[](fg:220)[ $symbol$virtualenv ]($style)"
+format = "[](fg:220)[ $virtualenv ]($style)"
 detect_extensions = []
 detect_files = []
 detect_folders = []
@@ -105,23 +134,28 @@ detect_folders = []
 [cmd_duration]
 min_time = 3_000
 style = "fg:0 bg:220"
-format = "[](fg:220)[ $duration ]($style)"
+format = "[](fg:220)[ $duration ]($style)"
 
+# map_symbol is required, otherwise starship ignores success_symbol and renders
+# on failure only. p9k showed a tick on success too.
 [status]
 disabled = false
-style = "fg:255 bg:1"
-format = "[](fg:1)[ $symbol$status ]($style)"
-symbol = "✘ "
+map_symbol = true
+format = "[](fg:black)[ $symbol ]($style)"
+symbol = "✘"
+success_symbol = ""
+success_style = "fg:2 bg:black"
+failure_style = "fg:1 bg:black"
+style = "fg:2 bg:black"
 
 [time]
 disabled = false
 time_format = "%H:%M:%S"
-style = "fg:255 bg:238"
-format = "[](fg:238)[ $time ]($style)"
+style = "fg:0 bg:white"
+format = "[](fg:white)[ $time  ]($style)"
 
-# Everything below was in the starship config that shipped unused. Kept, but off
-# the main bar so the prompt stays close to the old one — they show on the right
-# only when relevant.
+# Present in the unused starship config that shipped in this repo. p9k showed
+# none of them, so they stay off.
 [aws]
 disabled = true
 
@@ -132,6 +166,9 @@ disabled = true
 disabled = true
 
 [terraform]
+disabled = true
+
+[nodejs]
 disabled = true
 
 [username]
