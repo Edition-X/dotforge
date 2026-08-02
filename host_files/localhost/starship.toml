@@ -1,88 +1,138 @@
 # Starship prompt configuration
-# Fast, minimal, and powerful shell prompt
+#
+# Recreates the powerlevel9k prompt this machine used before the switch to
+# starship. The original was:
+#
+#   LEFT   os_icon, ssh, root_indicator, dir, dir_writable, vcs
+#   RIGHT  virtualenv, command_execution_time, status, time
+#   dir    home = mediumpurple3/white, home subfolder = darkorange/black,
+#          elsewhere = blue/white; shortened to 3 elements from the right
+#   line 2 green background,  glyph, powerline arrow
+#
+# Username and hostname were deliberately absent — p9k's DEFAULT_USER hid them
+# and there was no `context` segment — so they stay hidden here, except that
+# hostname reappears over SSH the way p9k's `ssh` segment did.
+#
+# Two segments in the old config, custom_internet_signal and
+# custom_battery_status_joined, were referenced but never defined anywhere, so
+# they always rendered as nothing. They are not reproduced.
+#
+# Colours are xterm-256 indexes so they match the old names exactly:
+#   208 darkorange   98 mediumpurple3   4 blue   2 green
 
+add_newline = true
+
+# The powerline bar covers only the segments that are always present — the OS
+# icon and the directory — and closes itself immediately after. Git is rendered
+# as coloured text past the end of the bar rather than as another background
+# segment, because a background segment for an optional module leaves an empty
+# coloured stub on the prompt whenever you are outside a repo.
 format = """
+[](fg:236)\
 $os\
-$username\
-$hostname\
+[](fg:236 bg:208)\
 $directory\
+[](fg:208)\
+$hostname\
 $git_branch\
 $git_status\
-$python\
-$terraform\
-$kubernetes\
-$aws\
-$docker_context\
 $line_break\
 $character"""
 
-[character]
-success_symbol = "[❯](bold green)"
-error_symbol = "[❯](bold red)"
+# Each right-hand segment carries its own leading  separator inside its own
+# format. When the module has nothing to show, the separator disappears with it,
+# so there are no orphaned arrows.
+right_format = """$python$cmd_duration$status$time"""
 
+# Apple logo, nerd-font glyph rather than the 🍎 emoji starship defaults to.
+# This is what POWERLEVEL9K_MODE='nerdfont-complete' rendered.
 [os]
 disabled = false
-style = "bold blue"
+format = "[ $symbol ]($style)"
+style = "fg:255 bg:236"
 
-[username]
-show_always = false
-format = "[$user]($style) "
-style_user = "bold yellow"
+[os.symbols]
+Macos = ""
 
+# darkorange on black. The old config varied this by location — purple for $HOME
+# exactly, orange for anything under it, blue elsewhere — which starship cannot
+# express conditionally. Orange is the case you were in almost all the time.
+[directory]
+style = "fg:0 bg:208"
+format = "[ $path ]($style)[$read_only]($read_only_style)"
+read_only = " "
+read_only_style = "fg:0 bg:208"
+truncation_length = 3
+truncation_symbol = "../"
+# p9k shortened to 3 path components wherever you were. Starship otherwise
+# collapses the path to the repository root, which is a different behaviour.
+truncate_to_repo = false
+
+# Only over SSH, matching the old `ssh` segment.
 [hostname]
 ssh_only = true
-format = "[@$hostname]($style) "
-style = "bold cyan"
-
-[directory]
-truncation_length = 3
-truncation_symbol = "…/"
-style = "bold cyan"
-format = "[$path]($style)[$read_only]($read_only_style) "
+format = "[ $hostname]($style)"
+style = "fg:255"
 
 [git_branch]
 symbol = " "
-style = "bold purple"
-format = "[$symbol$branch]($style) "
+format = "[ $symbol$branch]($style)"
+style = "fg:2"
 
 [git_status]
-style = "bold red"
-format = "([$all_status$ahead_behind]($style) )"
+format = "[ $all_status$ahead_behind]($style)"
+style = "fg:214"
 
+# Second line: green block with the  glyph and a powerline arrow, exactly as
+# POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX drew it. Unlike p9k this also turns
+# red when the previous command failed.
+[character]
+success_symbol = "[  ](fg:0 bg:2)[](fg:2)"
+error_symbol = "[  ](fg:0 bg:1)[](fg:1)"
+
+# Right-hand side, in the old order: virtualenv, duration, status, time.
+# p9k showed `virtualenv`, which appeared only while a virtualenv was active —
+# not in every directory that happens to contain a .py file. Emptying the
+# detect_* lists removes the file-based triggers and leaves the active-venv one.
 [python]
 symbol = " "
-style = "bold yellow"
-format = "[$symbol$version]($style) "
-detect_extensions = ["py"]
-detect_files = ["requirements.txt", "pyproject.toml", "Pipfile"]
-
-[terraform]
-symbol = "󱁢 "
-style = "bold 105"
-format = "[$symbol$version]($style) "
-
-[kubernetes]
-disabled = false
-symbol = "☸ "
-style = "bold blue"
-format = '[$symbol$context( \($namespace\))]($style) '
-
-[aws]
-symbol = " "
-style = "bold orange"
-format = '[$symbol($profile )(\($region\) )]($style)'
-disabled = false
-
-[docker_context]
-symbol = " "
-style = "bold blue"
-format = "[$symbol$context]($style) "
-disabled = false
+style = "fg:0 bg:220"
+format = "[](fg:220)[ $symbol$virtualenv ]($style)"
+detect_extensions = []
+detect_files = []
+detect_folders = []
 
 [cmd_duration]
-min_time = 2_000
-style = "bold yellow"
-format = "took [$duration]($style) "
+min_time = 3_000
+style = "fg:0 bg:220"
+format = "[](fg:220)[ $duration ]($style)"
 
-[line_break]
+[status]
 disabled = false
+style = "fg:255 bg:1"
+format = "[](fg:1)[ $symbol$status ]($style)"
+symbol = "✘ "
+
+[time]
+disabled = false
+time_format = "%H:%M:%S"
+style = "fg:255 bg:238"
+format = "[](fg:238)[ $time ]($style)"
+
+# Everything below was in the starship config that shipped unused. Kept, but off
+# the main bar so the prompt stays close to the old one — they show on the right
+# only when relevant.
+[aws]
+disabled = true
+
+[kubernetes]
+disabled = true
+
+[docker_context]
+disabled = true
+
+[terraform]
+disabled = true
+
+[username]
+disabled = true
