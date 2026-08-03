@@ -33,10 +33,24 @@ macos_defaults:  # noqa: var-naming[no-role-prefix]
   # media functions fire on a bare press and Fn gives you F1-F12. Needed so
   # skhd (see the dotfiles role) can bind bare F-keys to open apps without
   # every press also changing the volume.
+  #
+  # Written to BOTH the plain global domain and the currentHost (per-machine)
+  # domain — the `defaults -currentHost` equivalent — because it was unclear
+  # which one macOS actually reads for this key versus which one just silently
+  # accepts the write and is ignored. Belt and braces rather than a guess.
+  #
+  # This key needs a LOGOUT (not just re-running `make apply`) to take effect.
+  # Unlike Dock/Finder settings, nothing can be killall'd to make the keyboard
+  # HID interpretation layer re-read it live.
   - domain: NSGlobalDomain
     key: com.apple.keyboard.fnState
     type: bool
     value: true
+  - domain: NSGlobalDomain
+    key: com.apple.keyboard.fnState
+    type: bool
+    value: true
+    host: currentHost
 
   # Dock hidden and pinned to the left edge
   - domain: com.apple.dock

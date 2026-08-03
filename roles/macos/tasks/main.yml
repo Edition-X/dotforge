@@ -9,10 +9,11 @@
     key: "{{ item.key }}"
     type: "{{ item.type }}"
     value: "{{ item.value }}"
+    host: "{{ item.host | default(omit) }}"
     state: present
   loop: "{{ macos_defaults }}"
   loop_control:
-    label: "{{ item.domain }} {{ item.key }}"
+    label: "{{ item.domain }} {{ item.key }}{{ ' (host=' + item.host + ')' if item.host is defined else '' }}"
   notify:
     - Restart Dock
     - Restart Finder
