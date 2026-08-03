@@ -28,6 +28,16 @@ macos_defaults:  # noqa: var-naming[no-role-prefix]
     type: bool
     value: false
 
+  # F1-F12 act as standard function keys by default; hold Fn for volume,
+  # brightness, etc. This is the opposite of the factory default, where the
+  # media functions fire on a bare press and Fn gives you F1-F12. Needed so
+  # skhd (see the dotfiles role) can bind bare F-keys to open apps without
+  # every press also changing the volume.
+  - domain: NSGlobalDomain
+    key: com.apple.keyboard.fnState
+    type: bool
+    value: true
+
   # Dock hidden and pinned to the left edge
   - domain: com.apple.dock
     key: autohide

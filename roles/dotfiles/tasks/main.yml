@@ -124,6 +124,38 @@
     - dot
     - git
 
+- name: Skhd - Config file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/skhdrc"
+    dest: "{{ config_paths.skhdrc }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+  notify: Restart skhd service
+  tags:
+    - dot
+    - skhd
+
+# `skhd --start-service` installs and loads a launchd agent, idempotent via
+# `creates` — the plist not existing is the only signal used, so this never
+# re-runs once skhd has been started here at least once.
+#
+# skhd will keep crashing on launch until it has been granted Accessibility
+# access, which macOS will not grant non-interactively:
+#   System Settings > Privacy & Security > Accessibility > add
+#   /opt/homebrew/bin/skhd, toggle it on.
+# Bare F-key presses only reach skhd, rather than the OS's default media-key
+# handling, once that permission is granted AND fnState (see the macos role)
+# is applied.
+- name: Skhd - Install and start service
+  ansible.builtin.command:
+    cmd: "{{ homebrew_prefix }}/bin/skhd --start-service"
+    creates: "{{ user_dir }}/Library/LaunchAgents/com.koekeishiya.skhd.plist"
+  tags:
+    - dot
+    - skhd
+
 - name: Forge - Config directory
   ansible.builtin.file:
     path: "{{ config_paths.forge_dir }}"

@@ -19,6 +19,11 @@ ssh_keys:
 # Python configuration
 pip_executable: "{{ user_dir }}/.pyenv/shims/pip"
 
+# Homebrew install prefix. /opt/homebrew on Apple Silicon, /usr/local on Intel.
+# Shared across roles (packages, dotfiles), so it lives here rather than in a
+# single role's defaults.
+homebrew_prefix: /opt/homebrew
+
 # Configuration file paths
 config_paths:
   ssh_config: "{{ ssh_dir }}/config"
@@ -37,3 +42,4 @@ config_paths:
   ghostty_config: "{{ user_dir }}/.config/ghostty/config"
   gitconfig: "{{ user_dir }}/.gitconfig"
   git_ignore: "{{ user_dir }}/.config/git/ignore"
+  skhdrc: "{{ user_dir }}/.skhdrc"

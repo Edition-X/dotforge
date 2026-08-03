@@ -22,10 +22,16 @@
 tap "antoniorodr/memo"
 tap "hashicorp/tap"
 tap "hudochenkov/sshpass"
+tap "koekeishiya/formulae"
 tap "ngrok/ngrok"
 tap "openclaw/tap"
 tap "steipete/tap"
 tap "streetpea/streetpea"
+
+## Hotkeys ##
+# Global hotkey daemon — binds bare F-keys to open specific apps. Requires an
+# interactive one-time setup; see roles/dotfiles/tasks/main.yml.
+brew "koekeishiya/formulae/skhd", trusted: true
 
 ## Shell and core utilities ##
 # Plugin manager for zsh, inspired by oh-my-zsh and vundle — sourced by .zshrc
