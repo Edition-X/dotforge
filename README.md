@@ -70,11 +70,11 @@ The configuration is organized into specialized roles:
 |------|-------------|
 | `common` | Creates required directories |
 | `ssh` | Manages SSH keys and configuration |
-| `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, and Forge MCP/skills |
+| `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, Forge MCP/skills, and skhd |
 | `neovim` | Configures Neovim editor |
 | `tmux` | Sets up tmux configuration |
 | `packages` | Applies the root `Brewfile` via `brew bundle` |
-| `macos` | Applies `defaults` captured from the machine (Dock, Finder, typing) |
+| `macos` | Applies `defaults` captured from the machine (Dock, Finder, typing, F-keys) |
 | `cleanup` | Removes managed files (uninstallation) |
 
 ### 🛠️ Role-Specific Commands
@@ -120,6 +120,33 @@ Things worth knowing:
 Python packages are *not* managed here. Machine-wide tools belong in the
 Brewfile; anything project-specific belongs to that project's own uv/poetry
 environment.
+
+### ⌨️ F-keys
+
+Bare F1-F10 open specific apps (see `host_files/localhost/skhdrc` for the
+mapping); holding Fn gives the normal volume/brightness/media row. That is the
+opposite of the factory default, where F-keys are media keys by default and Fn
+gives F1-F12.
+
+Two pieces make it work:
+
+- `com.apple.keyboard.fnState` (in the `macos` role) flips which behaviour is
+  the bare press and which needs Fn.
+- [skhd](https://github.com/koekeishiya/skhd) (in the `dotfiles` role) is a
+  hotkey daemon that binds each bare F-key to `open -b <bundle-id>` for the
+  app it should launch.
+
+Raycast is not involved — its hotkey-to-app bindings live in an encrypted
+SQLite database (`~/Library/Application Support/com.raycast.macos/`), not a
+plist or text config, so there is no safe way to manage them from this repo.
+
+**One step Ansible cannot do for you:** skhd needs Accessibility access, and
+macOS will not grant that non-interactively. After `make apply`, go to
+**System Settings → Privacy & Security → Accessibility** and add
+`/opt/homebrew/bin/skhd`. Until then, F-keys keep behaving as media keys and
+`/tmp/skhd_<user>.err.log` will show `must be run with accessibility access`.
+`make apply` installs and starts the skhd service either way, so once the
+permission is granted it takes effect on its own — no re-run needed.
 
 ### 🔍 Code Quality
 

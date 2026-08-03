@@ -13,3 +13,14 @@
   loop:
     - init.zsh
     - init.zsh.zwc
+
+# skhd does not watch its config file, so a change needs an explicit restart to
+# take effect. failed_when: false because the service is not installed yet on a
+# first run — the "skhd - Install and start service" task starts it fresh in
+# that case and this handler has nothing to do.
+- name: Restart skhd service
+  ansible.builtin.command:
+    cmd: "{{ homebrew_prefix }}/bin/skhd --restart-service"
+  register: dotfiles_skhd_restart
+  changed_when: dotfiles_skhd_restart.rc == 0
+  failed_when: false

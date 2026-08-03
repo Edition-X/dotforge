@@ -29,6 +29,18 @@
     # delete.
     - "{{ config_paths.forge_mcp }}"
     - "{{ config_paths.forge_skills }}"
+    - "{{ config_paths.skhdrc }}"
+  tags:
+    - cleanup
+
+# skhd's launchd agent is separate from its config file and does not get
+# removed by deleting the symlink above.
+- name: Cleanup - Stop and remove skhd service
+  ansible.builtin.command:
+    cmd: "{{ homebrew_prefix }}/bin/skhd --stop-service"
+  register: cleanup_skhd_stop
+  changed_when: cleanup_skhd_stop.rc == 0
+  failed_when: false
   tags:
     - cleanup
 

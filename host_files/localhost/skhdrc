@@ -1,0 +1,23 @@
+# Managed by Ansible.
+#
+# Bare F-key presses open specific apps. This only works because
+# com.apple.keyboard.fnState is set to true (see roles/macos/defaults/main.yml),
+# which makes F1-F12 standard function keys by default and moves volume /
+# brightness / etc. onto Fn+F-key instead of the factory-default other way
+# round. Without that setting, a bare F1 press never reaches skhd as a key
+# event — the OS consumes it as a media key first.
+#
+# `open -b <bundle-id>` is used instead of `open -a "App Name"`, since bundle
+# IDs do not change if an app gets renamed or moved and cannot be typo'd against
+# a display name containing spaces or parentheses.
+
+f1  : open -b "com.cmuxterm.app"              # cmux
+f2  : open -b "com.t3tools.t3code"            # T3 Code (Alpha)
+f3  : open -b "com.microsoft.edgemac"         # Microsoft Edge
+f4  : open -b "org.mozilla.firefox"           # Firefox
+f5  : open -b "com.tinyspeck.slackmacgap"     # Slack
+f6  : open -b "md.obsidian"                   # Obsidian
+f7  : open -b "org.openvpn.client.app"        # OpenVPN Connect
+f8  : open -b "com.spotify.client"            # Spotify
+f9  : open -b "com.openai.chat"               # ChatGPT Classic
+f10 : open -b "com.anthropic.claudefordesktop" # Claude (desktop app)
