@@ -37,6 +37,7 @@
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0644'
+  notify: Invalidate antigen cache
   tags:
     - dot
 
@@ -50,13 +51,17 @@
   tags:
     - dot
 
+# Linked, not copied: a copy means edits made in the live file diverge silently
+# and are then clobbered by the next apply. A link makes local tweaks show up as
+# a git diff in this repo.
 - name: Ghostty - Config file
-  ansible.builtin.copy:
+  ansible.builtin.file:
     src: "{{ host_files_dir }}/ghostty.config"
     dest: "{{ config_paths.ghostty_config }}"
+    state: link
+    force: true
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
-    mode: '0644'
   tags:
     - dot
 
@@ -64,16 +69,6 @@
   ansible.builtin.file:
     src: "{{ host_files_dir }}/functions"
     dest: "{{ config_paths.functions }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
-    state: link
-  tags:
-    - dot
-
-- name: Starship.toml - Config file
-  ansible.builtin.file:
-    src: "{{ host_files_dir }}/starship.toml"
-    dest: "{{ config_paths.starship_config }}"
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     state: link
@@ -90,6 +85,44 @@
     mode: '0600'
   tags:
     - dot
+
+# Linked rather than templated: `git config --global` writes straight into this
+# file, so linking means any change you make by hand turns up as a git diff here
+# instead of drifting. force: true heals the link if git replaces it outright.
+- name: Git - Global config file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/gitconfig"
+    dest: "{{ config_paths.gitconfig }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+  tags:
+    - dot
+    - git
+
+- name: Git - Config directory
+  ansible.builtin.file:
+    path: "{{ config_paths.git_ignore | dirname }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0755'
+  tags:
+    - dot
+    - git
+
+- name: Git - Global ignore file
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/git_ignore"
+    dest: "{{ config_paths.git_ignore }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+  tags:
+    - dot
+    - git
 
 - name: Forge - Config directory
   ansible.builtin.file:

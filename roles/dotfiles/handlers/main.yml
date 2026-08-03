@@ -1,0 +1,15 @@
+---
+# Antigen compiles the bundle and theme list from .zshrc into ~/.antigen/init.zsh
+# and, on later shells, sources that cache instead of re-reading the `antigen`
+# lines. So editing .zshrc has no effect until the cache is thrown away.
+#
+# This bit once: a prompt change had no effect because a cache from months
+# earlier kept sourcing the old theme, whose precmd hook rebuilds PROMPT on
+# every prompt. The cache is derived state, so deploying .zshrc invalidates it.
+- name: Invalidate antigen cache
+  ansible.builtin.file:
+    path: "{{ user_dir }}/.antigen/{{ item }}"
+    state: absent
+  loop:
+    - init.zsh
+    - init.zsh.zwc

@@ -1,0 +1,16 @@
+---
+# killall returns non-zero when the process is not running, which is not a
+# failure here.
+- name: Restart Dock
+  ansible.builtin.command:
+    cmd: killall Dock
+  register: macos_dock_restart
+  changed_when: macos_dock_restart.rc == 0
+  failed_when: false
+
+- name: Restart Finder
+  ansible.builtin.command:
+    cmd: killall Finder
+  register: macos_finder_restart
+  changed_when: macos_finder_restart.rc == 0
+  failed_when: false

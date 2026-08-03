@@ -1,68 +1,59 @@
 ---
-- name: Brew - Formulae
-  community.general.homebrew:
-    name: "{{ item }}"
-    state: present
-  loop:
-    - ansible
-    - antigen
-    - asciiquarium
-    - awscli
-    - cmatrix
-    - codex
-    - coreutils
-    - cowsay
-    - figlet
-    - fortune
-    - git
-    - glow
-    - go
-    - htop
-    - hudochenkov/sshpass/sshpass
-    - jq
-    - lazydocker
-    - lazygit
-    - lolcat
-    - make
-    - ncdu
-    - neofetch
-    - neovim
-    - node
-    - pipes-sh
-    - pipenv
-    - pre-commit
-    - pv
-    - pyenv
-    - ranger
-    - ripgrep
-    - six
-    - starship
-    - terraform
-    - telnet
-    - tig
-    - tmux
-    - tree
-    - wget
-    - yq
+# Packages are declared in the repo-root Brewfile and applied with
+# `brew bundle`. This replaced a hand-maintained list of formulae looped through
+# community.general.homebrew, which drifted badly: it declared no taps, so
+# third-party formulae failed Homebrew's tap-trust check and aborted the play
+# before casks or Python packages ever ran, and it covered no go/uv/npm globals.
+#
+# Python packages are no longer installed here. They were going into the global
+# pyenv site-packages while brew also provided black and flake8, so which copy
+# you got depended on PATH order. Machine-wide tools belong in the Brewfile;
+# everything else belongs to a project's own uv/poetry environment.
+
+- name: Brew - Locate Brewfile
+  ansible.builtin.stat:
+    path: "{{ brew_bundle_file }}"
+  register: packages_brewfile_stat
   tags:
     - brew
 
-- name: Brew - Casks
-  community.general.homebrew_cask:
-    name: chromedriver
-    state: present
+- name: Brew - Fail early when the Brewfile is missing
+  ansible.builtin.fail:
+    msg: "Brewfile not found at {{ brew_bundle_file }}"
+  when: not packages_brewfile_stat.stat.exists
   tags:
     - brew
 
-- name: Python - Packages
-  ansible.builtin.pip:
-    name:
-      - black
-      - flake8
-      - mypy
-      - pip
-      - py
-      - PyYAML
-      - virtualenv
+# check_mode: false so `make check` reports real drift rather than skipping.
+# A non-zero rc means "something is missing", not an error, hence failed_when.
+- name: Brew - Check bundle against the Brewfile
+  ansible.builtin.command:
+    cmd: >-
+      {{ homebrew_prefix }}/bin/brew bundle check
+      --file={{ brew_bundle_file | quote }}
+      --verbose
+      {{ '' if brew_upgrade else '--no-upgrade' }}
+  register: packages_brew_bundle_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
   tags:
-    - python
+    - brew
+
+- name: Brew - Report bundle drift
+  ansible.builtin.debug:
+    msg: "{{ packages_brew_bundle_check.stdout_lines | select('search', '^→') | list }}"
+  when: packages_brew_bundle_check.rc != 0
+  tags:
+    - brew
+
+- name: Brew - Install bundle
+  ansible.builtin.command:
+    cmd: >-
+      {{ homebrew_prefix }}/bin/brew bundle install
+      --file={{ brew_bundle_file | quote }}
+      {{ '' if brew_upgrade else '--no-upgrade' }}
+  when: packages_brew_bundle_check.rc != 0
+  changed_when: true
+  tags:
+    - brew

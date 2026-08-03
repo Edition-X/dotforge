@@ -1,0 +1,20 @@
+---
+# Dock and Finder only pick up some of these on restart, so the handlers below
+# bounce them — but only when something actually changed. Because the list was
+# captured from the live machine, a routine apply changes nothing and the
+# handlers never fire.
+- name: MacOS - Apply defaults
+  community.general.osx_defaults:
+    domain: "{{ item.domain }}"
+    key: "{{ item.key }}"
+    type: "{{ item.type }}"
+    value: "{{ item.value }}"
+    state: present
+  loop: "{{ macos_defaults }}"
+  loop_control:
+    label: "{{ item.domain }} {{ item.key }}"
+  notify:
+    - Restart Dock
+    - Restart Finder
+  tags:
+    - macos

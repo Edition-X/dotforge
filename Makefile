@@ -49,6 +49,24 @@ tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
 
+# Install packages AND upgrade any that are outdated. Kept separate from
+# `apply` so a routine apply never moves versions underneath you.
+.PHONY: upgrade
+upgrade: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages -e "brew_upgrade=true")
+
+# Package drift, straight from brew with no Ansible in the way.
+.PHONY: drift
+drift:
+	@brew bundle check --file=Brewfile --verbose --no-upgrade || true
+
+# Rewrite the Brewfile from what is actually installed. Review the diff before
+# committing — dump loses the grouping comments.
+.PHONY: dump
+dump:
+	@brew bundle dump --file=Brewfile --describe --no-vscode --force
+	@git --no-pager diff --stat Brewfile
+
 # Validation targets
 .PHONY: lint
 lint: $(PYTHON_VIRTUAL_ENVIRONMENT)
