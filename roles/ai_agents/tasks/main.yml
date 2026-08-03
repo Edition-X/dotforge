@@ -1,0 +1,182 @@
+---
+# One canonical AGENTS.md, symlinked into every harness. Linked rather than
+# copied for the same reason as the rest of the dotfiles: a copy lets the live
+# file drift silently and then get clobbered by the next apply, whereas a link
+# makes any local tweak show up as a git diff in this repo.
+
+# Discovered rather than listed, so adding a skill is just adding a directory
+# under host_files/localhost/ai/skills/ — no role edit needed.
+- name: Discover repo-owned skills
+  ansible.builtin.find:
+    paths: "{{ ai_source_dir }}/skills"
+    file_type: directory
+    recurse: false
+  register: ai_agents_skills_found
+  tags:
+    - ai
+
+- name: Register repo-owned skill names
+  ansible.builtin.set_fact:
+    ai_agents_skills: >-
+      {{ ai_agents_skills_found.files | map(attribute='path') | map('basename') | sort }}
+  tags:
+    - ai
+
+# Created even under --check, so that the backup task below has somewhere to
+# aim and a dry run reports what it would actually back up rather than erroring.
+# An empty directory is a harmless thing to leave behind after a check run.
+- name: Migration - Backup directory
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  check_mode: false
+  tags:
+    - ai
+
+- name: Migration - Stat pre-existing instruction files
+  ansible.builtin.stat:
+    path: "{{ item.instructions }}"
+  loop: "{{ ai_harnesses }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_existing_instructions
+  tags:
+    - ai
+
+# Runs before the first link replaces anything. These files were hand-maintained
+# per harness and had drifted apart; the merged result is the canonical
+# AGENTS.md, but keep the originals recoverable. force:false means a second
+# apply never overwrites the first backup.
+- name: Migration - Back up hand-maintained instruction files
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/{{ item.item.name | lower | replace(' ', '-') }}-{{ item.stat.path | basename }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_existing_instructions.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.stat.exists
+    - not item.stat.islnk
+  tags:
+    - ai
+
+- name: Harness - Config directory
+  ansible.builtin.file:
+    path: "{{ item.dir }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  loop: "{{ ai_harnesses }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - ai
+
+- name: Harness - Canonical instruction file
+  ansible.builtin.file:
+    src: "{{ ai_source_dir }}/AGENTS.md"
+    dest: "{{ item.instructions }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+  loop: "{{ ai_harnesses }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - ai
+
+- name: Harness - Skills directory
+  ansible.builtin.file:
+    path: "{{ item.skills }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  loop: "{{ ai_harnesses }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - ai
+
+# The skills directory itself stays a real directory rather than a link, because
+# each harness mixes repo-owned skills with skills linked out to the repo that
+# owns them. Only the individual skills are links.
+- name: Migration - Stat skills about to be replaced by links
+  ansible.builtin.stat:
+    path: "{{ item.0.skills }}/{{ item.1 }}"
+  loop: "{{ ai_harnesses | product(ai_agents_skills) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+  register: ai_agents_existing_skills
+  tags:
+    - ai
+
+# A non-empty directory cannot be replaced by a link in place, so the copies
+# these skills were vendored as have to go first. Their content is already in
+# this repo — that is where they were copied from.
+#
+# Under --check this removal is not performed, so the link task below then
+# reports "refusing to convert it" against directories that a real run would
+# have already cleared. Those check-mode failures are expected on a machine
+# that has not been migrated yet, and disappear once it has.
+- name: Migration - Remove copied skills superseded by links
+  ansible.builtin.file:
+    path: "{{ item.item.0.skills }}/{{ item.item.1 }}"
+    state: absent
+  loop: "{{ ai_agents_existing_skills.results }}"
+  loop_control:
+    label: "{{ item.item.0.name }}/{{ item.item.1 }}"
+  when:
+    - item.stat.exists
+    - not item.stat.islnk
+  tags:
+    - ai
+
+- name: Harness - Shared skills
+  ansible.builtin.file:
+    src: "{{ ai_source_dir }}/skills/{{ item.1 }}"
+    dest: "{{ item.0.skills }}/{{ item.1 }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+  loop: "{{ ai_harnesses | product(ai_agents_skills) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+  tags:
+    - ai
+
+# Linked to the repo that owns them, so edits in Projects/paperclip take effect
+# for every harness without a re-apply.
+- name: Harness - Externally owned skills
+  ansible.builtin.file:
+    src: "{{ ai_external_skills_src }}/{{ item.1 }}"
+    dest: "{{ item.0.skills }}/{{ item.1 }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+  loop: "{{ ai_harnesses | product(ai_external_skills) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+  tags:
+    - ai
+
+- name: Retired harnesses - Remove orphaned instruction files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ ai_agents_unused_instructions }}"
+  when: ai_agents_prune_unused | bool
+  tags:
+    - ai

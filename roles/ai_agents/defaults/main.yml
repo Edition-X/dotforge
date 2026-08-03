@@ -1,0 +1,8 @@
+---
+# Harnesses no longer in use. Their config is left on disk untouched unless this
+# is turned on, which removes only the instruction files this role would
+# otherwise own. Nothing else in those directories is touched.
+ai_agents_prune_unused: false
+
+ai_agents_unused_instructions:
+  - "{{ user_dir }}/.gemini/GEMINI.md"

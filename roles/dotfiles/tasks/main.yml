@@ -167,16 +167,8 @@
     - dot
     - forge
 
-- name: Forge - Skills directory
-  ansible.builtin.copy:
-    src: "{{ host_files_dir }}/forge/skills/"
-    dest: "{{ config_paths.forge_skills }}/"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
-    mode: preserve
-  tags:
-    - dot
-    - forge
+# Forge skills moved to the ai_agents role, which shares one skill set across
+# every harness instead of keeping a forge-only copy.
 
 - name: Forge - MCP config
   ansible.builtin.template:

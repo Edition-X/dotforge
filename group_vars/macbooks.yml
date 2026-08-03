@@ -34,7 +34,6 @@ config_paths:
   env_secrets: "{{ user_dir }}/.env_secrets"
   forge_dir: "{{ user_dir }}/forge"
   forge_mcp: "{{ user_dir }}/forge/.mcp.json"
-  forge_skills: "{{ user_dir }}/forge/skills"
   nvim: "{{ user_dir }}/.config/nvim"
   tmux_conf: "{{ user_dir }}/.tmux.conf"
   tmux_conf_local: "{{ user_dir }}/.tmux.conf.local"
@@ -43,3 +42,40 @@ config_paths:
   gitconfig: "{{ user_dir }}/.gitconfig"
   git_ignore: "{{ user_dir }}/.config/git/ignore"
   skhdrc: "{{ user_dir }}/.skhdrc"
+
+# AI agent configuration. Shared between the ai_agents role (which deploys it)
+# and cleanup (which removes it), so it lives here rather than in either role's
+# defaults.
+#
+# One canonical AGENTS.md is linked into every harness below. The filename each
+# harness expects differs; the content does not.
+ai_source_dir: "{{ host_files_dir }}/ai"
+ai_backup_dir: "{{ user_dir }}/.ai-config-backup"
+
+ai_harnesses:
+  - name: Claude Code
+    dir: "{{ user_dir }}/.claude"
+    instructions: "{{ user_dir }}/.claude/CLAUDE.md"
+    skills: "{{ user_dir }}/.claude/skills"
+  - name: Codex
+    dir: "{{ user_dir }}/.codex"
+    instructions: "{{ user_dir }}/.codex/AGENTS.md"
+    skills: "{{ user_dir }}/.codex/skills"
+  - name: Forge
+    dir: "{{ config_paths.forge_dir }}"
+    instructions: "{{ config_paths.forge_dir }}/AGENTS.md"
+    skills: "{{ config_paths.forge_dir }}/skills"
+  - name: OpenCode
+    dir: "{{ user_dir }}/.config/opencode"
+    instructions: "{{ user_dir }}/.config/opencode/AGENTS.md"
+    skills: "{{ user_dir }}/.config/opencode/skills"
+
+# Skills owned by another repo. Linked to that repo rather than vendored here,
+# so the owning repo stays the single source of truth and edits there take
+# effect without a re-apply.
+ai_external_skills_src: "{{ user_dir }}/Projects/paperclip/skills"
+ai_external_skills:
+  - paperclip
+  - paperclip-create-agent
+  - paperclip-create-plugin
+  - para-memory-files

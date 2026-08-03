@@ -13,6 +13,14 @@ repos:
         pass_filenames: false
         always_run: true
 
+      # Advisory only — reports drift and exits 0. See the script header.
+      - id: check-agent-config-drift
+        name: check deployed agent config still links to this repo
+        entry: scripts/check-agent-config-drift.sh
+        language: script
+        pass_filenames: false
+        files: ^host_files/localhost/ai/
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

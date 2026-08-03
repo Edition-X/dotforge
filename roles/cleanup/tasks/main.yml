@@ -28,8 +28,47 @@
     # state — database, snapshots, credentials, history — and is not ours to
     # delete.
     - "{{ config_paths.forge_mcp }}"
-    - "{{ config_paths.forge_skills }}"
     - "{{ config_paths.skhdrc }}"
+  tags:
+    - cleanup
+
+# Same principle as ~/forge above: remove only the instruction symlink this repo
+# owns. The rest of each harness directory is its own state — sessions, history,
+# credentials, caches — and is not ours to delete.
+- name: Cleanup - Agent instruction files
+  ansible.builtin.file:
+    state: absent
+    path: "{{ item.instructions }}"
+  loop: "{{ ai_harnesses }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - cleanup
+
+# Discovered here rather than reused from the ai_agents role, so that
+# `--tags cleanup` works on its own without that role having run in the play.
+- name: Cleanup - Discover repo-owned skills
+  ansible.builtin.find:
+    paths: "{{ ai_source_dir }}/skills"
+    file_type: directory
+    recurse: false
+  register: cleanup_ai_skills
+  tags:
+    - cleanup
+
+# Skill links only, not the directory: a harness may hold skills installed by
+# other means alongside the ones linked from here.
+- name: Cleanup - Agent skill links
+  ansible.builtin.file:
+    state: absent
+    path: "{{ item.0.skills }}/{{ item.1 }}"
+  loop: >-
+    {{ ai_harnesses | product(
+         (cleanup_ai_skills.files | map(attribute='path') | map('basename') | list)
+         + ai_external_skills
+       ) | list }}
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
   tags:
     - cleanup
 

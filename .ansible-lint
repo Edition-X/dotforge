@@ -9,6 +9,9 @@ exclude_paths:
   - host_vars/localhost/vault.yml
   - host_files/localhost/nvim/autoload/plugged/
   - host_files/localhost/nvim/pack/github/start/copilot.vim/
+  # Vendored agent skills. Third-party YAML that happens to live in this repo,
+  # not Ansible content, and not ours to reformat.
+  - host_files/localhost/ai/skills/
 
 # Severity settings
 skip_list:
