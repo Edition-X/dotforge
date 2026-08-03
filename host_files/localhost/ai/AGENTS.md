@@ -84,6 +84,16 @@ evaluation, spike, migration, CI or performance investigation. Attach memories v
 The current working directory name, unless the user says otherwise. When working across
 repos, save against the repo actually being changed.
 
+## Planning Large Work
+
+`/wayfinder` charts an effort too big for one session as decision tickets on the repo's
+issue tracker, then works them one at a time. It is explicit-invocation only, so it never
+fires on its own — suggest it when the user describes work that is both large and still
+foggy, rather than waiting to be asked for it by name.
+
+First use in a given repo needs `/setup-matt-pocock-skills` run once, to record which issue
+tracker that repo uses. Without it, wayfinder falls back to local markdown under `.scratch/`.
+
 ## Safety
 
 - `trash` over `rm`. Recoverable beats gone.
