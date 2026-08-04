@@ -1,0 +1,7 @@
+---
+- name: Test AI agent deployment
+  hosts: macbooks
+  gather_facts: true
+  roles:
+    - role: ai_agents
+      tags: ['ai']

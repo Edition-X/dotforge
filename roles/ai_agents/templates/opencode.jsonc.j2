@@ -1,0 +1,112 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "{{ opencode_agent_models.orchestrator.model }}",
+  "small_model": "{{ opencode_agent_models.test_runner.model }}",
+  "default_agent": "orchestrator",
+  "subagent_depth": 1,
+  "snapshot": true,
+  "share": "disabled",
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 12
+  },
+  "tool_output": {
+    "max_lines": 400,
+    "max_bytes": 20000
+  },
+  "mcp": {
+    "arcane": {
+      "type": "local",
+      "command": ["{{ user_dir }}/.local/bin/arcane", "mcp"],
+      "enabled": true
+    },
+    "grafana": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8000/mcp",
+      "oauth": false,
+      "enabled": true,
+      "timeout": 30000
+    },
+    "linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp",
+      "oauth": {
+        "scope": "read write"
+      },
+      "enabled": true,
+      "timeout": 30000
+    },
+    "notion": {
+      "type": "remote",
+      "url": "https://mcp.notion.com/mcp",
+      "oauth": {},
+      "enabled": true,
+      "timeout": 30000
+    }
+  },
+  "permission": {
+    "*": "allow",
+    "read": {
+      "*": "allow",
+      "*.env": "ask",
+      "*.env.*": "ask",
+      "*.env.example": "allow"
+    },
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      "git rev-parse*": "allow",
+      "git ls-files*": "allow",
+      "git check-ignore*": "allow",
+      "make validate-opencode*": "allow",
+      "make test-ai-agents*": "allow",
+      "make lint*": "allow",
+      "make ci*": "allow",
+      "pytest*": "allow",
+      "npm test*": "allow",
+      "npm run test*": "allow",
+      "pnpm test*": "allow",
+      "yarn test*": "allow",
+      "go test*": "allow",
+      "cargo test*": "allow",
+      "git push*": "deny",
+      "git reset --hard*": "deny",
+      "git clean*": "deny",
+      "git checkout --*": "deny",
+      "rm -rf*": "deny",
+      "gh pr merge*": "deny",
+      "terraform destroy*": "deny",
+      "kubectl delete*": "ask"
+    },
+    "linear_create_attachment": "ask",
+    "linear_create_attachment_from_upload": "ask",
+    "linear_create_initiative_label": "ask",
+    "linear_create_issue_label": "ask",
+    "linear_delete_attachment": "ask",
+    "linear_delete_comment": "ask",
+    "linear_delete_customer": "ask",
+    "linear_delete_customer_need": "ask",
+    "linear_delete_diff_comment": "ask",
+    "linear_delete_status_update": "ask",
+    "linear_merge_diff": "ask",
+    "linear_prepare_attachment_upload": "ask",
+    "linear_resolve_diff_thread": "ask",
+    "linear_save_comment": "allow",
+    "linear_save_customer": "ask",
+    "linear_save_customer_need": "ask",
+    "linear_save_diff_comment": "ask",
+    "linear_save_document": "ask",
+    "linear_save_initiative": "ask",
+    "linear_save_issue": "allow",
+    "linear_save_milestone": "ask",
+    "linear_save_project": "ask",
+    "linear_save_release": "ask",
+    "linear_save_release_note": "ask",
+    "linear_save_status_update": "ask",
+    "linear_submit_diff_review": "ask"
+  }
+}

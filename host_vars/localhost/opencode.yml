@@ -1,0 +1,34 @@
+---
+# OpenCode routing policy. Keep model IDs and variants here so changing one
+# assignment does not require editing agent prompts or deployment tasks.
+opencode_schema_version: "1.18.10"
+opencode_max_parallel_tasks: 3
+
+opencode_agent_models:
+  orchestrator:
+    model: openai/gpt-5.6-terra
+    variant: high
+  architect:
+    model: openai/gpt-5.6-sol
+    variant: high
+  explorer:
+    model: openai/gpt-5.4-mini
+    variant: low
+  worker_fast:
+    model: openai/gpt-5.4-mini
+    variant: low
+  implementer:
+    model: openai/gpt-5.6-luna
+    variant: medium
+  debugger:
+    model: openai/gpt-5.6-terra
+    variant: high
+  reviewer:
+    model: openai/gpt-5.6-sol
+    variant: high
+  test_runner:
+    model: openai/gpt-5.4-mini
+    variant: low
+  documentation:
+    model: openai/gpt-5.4-mini
+    variant: low

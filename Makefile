@@ -45,6 +45,10 @@ neovim: $(PYTHON_VIRTUAL_ENVIRONMENT)
 tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags tmux)
 
+.PHONY: ai
+ai: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags ai)
+
 .PHONY: packages
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
@@ -86,6 +90,15 @@ pre-commit: $(PYTHON_VIRTUAL_ENVIRONMENT)
 ci: lint
 	@$(call activate, ansible-playbook site.yml --syntax-check)
 	@echo "CI checks passed!"
+
+.PHONY: validate-opencode
+validate-opencode: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) --check $(ANSIBLE_PLAYBOOK_FILE) --tags ai -e '{"ai_external_skills":[]}')
+	@if [ -f "$$HOME/.config/opencode/opencode.jsonc" ] && [ -f "$$HOME/.config/opencode/agents/orchestrator.md" ]; then ./scripts/validate-opencode-config.sh --config-dir "$$HOME/.config/opencode"; else echo "live OpenCode tree not installed; staged validation passed"; fi
+
+.PHONY: test-ai-agents
+test-ai-agents: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ./scripts/test-ai-agents-idempotency.sh)
 
 .PHONY: clean
 clean:

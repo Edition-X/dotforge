@@ -21,6 +21,21 @@ repos:
         pass_filenames: false
         files: ^host_files/localhost/ai/
 
+      - id: check-opencode-source
+        name: check OpenCode source policy
+        entry: scripts/check-opencode-source.sh
+        language: script
+        pass_filenames: false
+        files: >-
+          ^(
+            AGENTS\.md|
+            group_vars/macbooks\.yml|
+            host_vars/localhost/opencode\.yml|
+            host_files/localhost/ai/(AGENTS\.md|README\.md|opencode/.*)|
+            roles/ai_agents/(defaults/main\.yml|tasks/main\.yml|templates/.*)|
+            scripts/validate-opencode-config\.sh
+          )$
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

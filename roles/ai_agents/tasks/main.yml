@@ -172,6 +172,261 @@
   tags:
     - ai
 
+- name: OpenCode - Backup directory
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}/opencode"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  check_mode: false
+  tags:
+    - ai
+
+- name: OpenCode - Stat migration marker
+  ansible.builtin.stat:
+    path: "{{ ai_backup_dir }}/opencode/.managed"
+  register: ai_agents_opencode_backup_marker
+  tags:
+    - ai
+
+- name: OpenCode - Stat existing config files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ config_paths.opencode_config }}"
+    - "{{ config_paths.opencode_routing }}"
+  register: ai_agents_opencode_existing_config_files
+  tags:
+    - ai
+
+- name: OpenCode - Back up existing config files
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/opencode/{{ item.stat.path | basename }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_opencode_existing_config_files.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - item.stat.exists
+    - item.stat.isreg
+    - not ai_agents_opencode_backup_marker.stat.exists
+  tags:
+    - ai
+
+- name: OpenCode - Stat existing managed agents
+  ansible.builtin.stat:
+    path: "{{ config_paths.opencode_agents }}/{{ item.file }}"
+  loop: "{{ opencode_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_opencode_existing_agents
+  tags:
+    - ai
+
+- name: OpenCode - Back up existing managed agents
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/opencode/{{ item.item.file }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_opencode_existing_agents.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.stat.exists
+    - item.stat.isreg
+    - not ai_agents_opencode_backup_marker.stat.exists
+  tags:
+    - ai
+
+- name: OpenCode - Stat existing managed commands
+  ansible.builtin.stat:
+    path: "{{ config_paths.opencode_commands }}/{{ item }}"
+  loop: "{{ opencode_commands }}"
+  register: ai_agents_opencode_existing_commands
+  tags:
+    - ai
+
+- name: OpenCode - Back up existing managed commands
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/opencode/{{ item.item }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_opencode_existing_commands.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - item.stat.exists
+    - item.stat.isreg
+    - not ai_agents_opencode_backup_marker.stat.exists
+  tags:
+    - ai
+
+- name: OpenCode - Stage and validate managed configuration
+  tags:
+    - ai
+  block:
+    - name: OpenCode - Create staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: opencode-
+      register: ai_agents_opencode_stage
+      check_mode: false
+      changed_when: false
+
+    - name: OpenCode - Create staged directories
+      ansible.builtin.file:
+        path: "{{ ai_agents_opencode_stage.path }}/{{ item }}"
+        state: directory
+        mode: '0700'
+      loop:
+        - agents
+        - commands
+      check_mode: false
+      changed_when: false
+
+    - name: OpenCode - Stage main config
+      ansible.builtin.template:
+        src: opencode.jsonc.j2
+        dest: "{{ ai_agents_opencode_stage.path }}/opencode.jsonc"
+        mode: '0600'
+      check_mode: false
+      changed_when: false
+
+    - name: OpenCode - Stage routing documentation
+      ansible.builtin.template:
+        src: opencode-routing.md.j2
+        dest: "{{ ai_agents_opencode_stage.path }}/ROUTING.md"
+        mode: '0644'
+      check_mode: false
+      changed_when: false
+
+    - name: OpenCode - Stage agent definitions
+      ansible.builtin.template:
+        src: opencode/agent.md.j2
+        dest: "{{ ai_agents_opencode_stage.path }}/agents/{{ item.file }}"
+        mode: '0644'
+      loop: "{{ opencode_agents }}"
+      loop_control:
+        label: "{{ item.name }}"
+      check_mode: false
+      changed_when: false
+
+    - name: OpenCode - Stage command definitions
+      ansible.builtin.copy:
+        src: "{{ ai_source_dir }}/opencode/commands/{{ item }}"
+        dest: "{{ ai_agents_opencode_stage.path }}/commands/{{ item }}"
+        remote_src: true
+        mode: '0644'
+      loop: "{{ opencode_commands }}"
+      check_mode: false
+      changed_when: false
+
+    - name: OpenCode - Validate staged configuration
+      ansible.builtin.command:
+        cmd: >-
+          {{ project_dir | quote }}/scripts/validate-opencode-config.sh
+           --config-dir {{ ai_agents_opencode_stage.path | quote }}
+      register: ai_agents_opencode_validation
+      changed_when: false
+      check_mode: false
+
+    - name: OpenCode - Config directory
+      ansible.builtin.file:
+        path: "{{ config_paths.opencode_dir }}"
+        state: directory
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0700'
+      check_mode: false
+
+    - name: OpenCode - Agents directory
+      ansible.builtin.file:
+        path: "{{ config_paths.opencode_agents }}"
+        state: directory
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0700'
+      check_mode: false
+
+    - name: OpenCode - Commands directory
+      ansible.builtin.file:
+        path: "{{ config_paths.opencode_commands }}"
+        state: directory
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0700'
+      check_mode: false
+
+    - name: OpenCode - Install validated main config
+      ansible.builtin.copy:
+        src: "{{ ai_agents_opencode_stage.path }}/opencode.jsonc"
+        dest: "{{ config_paths.opencode_config }}"
+        remote_src: true
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0600'
+
+    - name: OpenCode - Install validated routing documentation
+      ansible.builtin.copy:
+        src: "{{ ai_agents_opencode_stage.path }}/ROUTING.md"
+        dest: "{{ config_paths.opencode_routing }}"
+        remote_src: true
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+
+    - name: OpenCode - Install validated agents
+      ansible.builtin.copy:
+        src: "{{ ai_agents_opencode_stage.path }}/agents/{{ item.file }}"
+        dest: "{{ config_paths.opencode_agents }}/{{ item.file }}"
+        remote_src: true
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+      loop: "{{ opencode_agents }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: OpenCode - Install validated commands
+      ansible.builtin.copy:
+        src: "{{ ai_agents_opencode_stage.path }}/commands/{{ item }}"
+        dest: "{{ config_paths.opencode_commands }}/{{ item }}"
+        remote_src: true
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0644'
+      loop: "{{ opencode_commands }}"
+
+    - name: OpenCode - Mark migration backup complete
+      ansible.builtin.file:
+        path: "{{ ai_backup_dir }}/opencode/.managed"
+        state: touch
+        owner: "{{ ansible_user_uid | quote }}"
+        group: "{{ ansible_user_gid | quote }}"
+        mode: '0600'
+      when: not ai_agents_opencode_backup_marker.stat.exists
+  always:
+    - name: OpenCode - Remove staging directory
+      ansible.builtin.file:
+        path: "{{ ai_agents_opencode_stage.path | default('') }}"
+        state: absent
+      when: ai_agents_opencode_stage is defined and ai_agents_opencode_stage.path is defined
+      check_mode: false
+      changed_when: false
 - name: Retired harnesses - Remove orphaned instruction files
   ansible.builtin.file:
     path: "{{ item }}"

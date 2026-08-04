@@ -42,6 +42,11 @@ config_paths:
   gitconfig: "{{ user_dir }}/.gitconfig"
   git_ignore: "{{ user_dir }}/.config/git/ignore"
   skhdrc: "{{ user_dir }}/.skhdrc"
+  opencode_dir: "{{ user_dir }}/.config/opencode"
+  opencode_config: "{{ user_dir }}/.config/opencode/opencode.jsonc"
+  opencode_agents: "{{ user_dir }}/.config/opencode/agents"
+  opencode_commands: "{{ user_dir }}/.config/opencode/commands"
+  opencode_routing: "{{ user_dir }}/.config/opencode/ROUTING.md"
 
 # AI agent configuration. Shared between the ai_agents role (which deploys it)
 # and cleanup (which removes it), so it lives here rather than in either role's
@@ -79,3 +84,59 @@ ai_external_skills:
   - paperclip-create-agent
   - paperclip-create-plugin
   - para-memory-files
+
+# OpenCode files are explicit so cleanup never removes user-owned agents,
+# commands, credentials, history, caches, or package state.
+opencode_agents:
+  - name: orchestrator
+    file: orchestrator.md
+    route_key: orchestrator
+    mode: primary
+    description: "Plans, delegates, reviews, corrects, and accepts bounded engineering work."
+  - name: architect
+    file: architect.md
+    route_key: architect
+    mode: subagent
+    description: "Evaluates architecture, boundaries, tradeoffs, and production risk without editing."
+  - name: explorer
+    file: explorer.md
+    route_key: explorer
+    mode: subagent
+    description: "Maps repositories and returns concise factual findings without editing."
+  - name: worker-fast
+    file: worker-fast.md
+    route_key: worker_fast
+    mode: subagent
+    description: "Performs precise low-risk mechanical edits inside an explicit file scope."
+  - name: implementer
+    file: implementer.md
+    route_key: implementer
+    mode: subagent
+    description: "Implements bounded features, refactors, tests, and understood fixes."
+  - name: debugger
+    file: debugger.md
+    route_key: debugger
+    mode: subagent
+    description: "Demonstrates root causes and applies smallest justified fixes."
+  - name: reviewer
+    file: reviewer.md
+    route_key: reviewer
+    mode: subagent
+    description: "Independently reviews changes and returns a strict verdict without editing."
+  - name: test-runner
+    file: test-runner.md
+    route_key: test_runner
+    mode: subagent
+    description: "Runs known deterministic checks and reports exit codes without editing."
+  - name: documentation
+    file: documentation.md
+    route_key: documentation
+    mode: subagent
+    description: "Writes documentation and runbooks in documentation paths only."
+
+opencode_commands:
+  - orchestrate.md
+  - implement-reviewed.md
+  - load-test-loop.md
+  - review.md
+  - debug-loop.md

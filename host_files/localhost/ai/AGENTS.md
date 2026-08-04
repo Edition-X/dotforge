@@ -100,3 +100,12 @@ tracker that repo uses. Without it, wayfinder falls back to local markdown under
 - Confirm before destructive or irreversible commands.
 - Don't push, publish, or send anything outward without asking.
 - Never write secrets to memory, logs, or committed files.
+
+## Completion discipline
+
+- Inspect repository conventions before changing files.
+- Preserve user changes and record a checkpoint before broad or risky work.
+- Use focused tests before broader verification. Inspect actual diffs instead of trusting summaries.
+- Route routine work to cheaper specialised agents when harness supports delegation.
+- Escalate repeated failures; do not repeat an unchanged failed approach.
+- Report skipped, failed, and unsupported checks explicitly. Never fabricate success.

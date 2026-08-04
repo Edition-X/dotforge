@@ -29,6 +29,26 @@
     # delete.
     - "{{ config_paths.forge_mcp }}"
     - "{{ config_paths.skhdrc }}"
+    - "{{ config_paths.opencode_config }}"
+    - "{{ config_paths.opencode_routing }}"
+  tags:
+    - cleanup
+
+- name: Cleanup - OpenCode agent files
+  ansible.builtin.file:
+    state: absent
+    path: "{{ config_paths.opencode_agents }}/{{ item.file }}"
+  loop: "{{ opencode_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - cleanup
+
+- name: Cleanup - OpenCode command files
+  ansible.builtin.file:
+    state: absent
+    path: "{{ config_paths.opencode_commands }}/{{ item }}"
+  loop: "{{ opencode_commands }}"
   tags:
     - cleanup
 
@@ -96,6 +116,8 @@
     - "{{ config_paths.git_ignore | dirname }}"
     - "{{ ssh_dir }}"
     - "{{ user_dir }}/.config"
+    - "{{ config_paths.opencode_agents }}"
+    - "{{ config_paths.opencode_commands }}"
   register: cleanup_rmdir
   changed_when: cleanup_rmdir.rc == 0
   failed_when: false

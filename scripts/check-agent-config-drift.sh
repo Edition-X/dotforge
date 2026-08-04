@@ -31,6 +31,25 @@ declare -a skills_dirs=(
     "${HOME}/.config/opencode/skills"
 )
 
+declare -a opencode_managed_files=(
+    "${HOME}/.config/opencode/opencode.jsonc"
+    "${HOME}/.config/opencode/ROUTING.md"
+    "${HOME}/.config/opencode/agents/orchestrator.md"
+    "${HOME}/.config/opencode/agents/architect.md"
+    "${HOME}/.config/opencode/agents/explorer.md"
+    "${HOME}/.config/opencode/agents/worker-fast.md"
+    "${HOME}/.config/opencode/agents/implementer.md"
+    "${HOME}/.config/opencode/agents/debugger.md"
+    "${HOME}/.config/opencode/agents/reviewer.md"
+    "${HOME}/.config/opencode/agents/test-runner.md"
+    "${HOME}/.config/opencode/agents/documentation.md"
+    "${HOME}/.config/opencode/commands/orchestrate.md"
+    "${HOME}/.config/opencode/commands/implement-reviewed.md"
+    "${HOME}/.config/opencode/commands/load-test-loop.md"
+    "${HOME}/.config/opencode/commands/review.md"
+    "${HOME}/.config/opencode/commands/debug-loop.md"
+)
+
 drift=()
 
 for f in "${instruction_files[@]}"; do
@@ -54,6 +73,15 @@ while IFS= read -r skill_path; do
         fi
     done
 done < <(find "$ai_dir/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+
+# Generated OpenCode files are not symlinks, so validation owns their content.
+# This advisory check catches partial deployments without touching user-owned
+# agents, commands, auth, history, caches, or package state.
+if [[ -e "${HOME}/.config/opencode/AGENTS.md" ]]; then
+    for f in "${opencode_managed_files[@]}"; do
+        [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed OpenCode setup")
+    done
+fi
 
 if (( ${#drift[@]} > 0 )); then
     echo "agent config drift — these are not links into this repo:"

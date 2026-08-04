@@ -71,6 +71,7 @@ The configuration is organized into specialized roles:
 | `common` | Creates required directories |
 | `ssh` | Manages SSH keys and configuration |
 | `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, Forge MCP/skills, and skhd |
+| `ai_agents` | Shared harness instructions and skills plus managed OpenCode agents, model routing, commands, permissions, and validation |
 | `neovim` | Configures Neovim editor |
 | `tmux` | Sets up tmux configuration |
 | `packages` | Applies the root `Brewfile` via `brew bundle` |
@@ -86,6 +87,7 @@ make neovim     # Neovim config only
 make tmux       # tmux config only
 make packages   # Install missing packages
 make upgrade    # Install missing packages AND upgrade outdated ones
+make ai         # Shared AI harness and OpenCode configuration only
 ```
 
 ### 📦 Packages
@@ -121,12 +123,52 @@ Python packages are *not* managed here. Machine-wide tools belong in the
 Brewfile; anything project-specific belongs to that project's own uv/poetry
 environment.
 
+### OpenCode
+
+OpenCode configuration is managed by existing `ai_agents` role. Source files
+live under `host_files/localhost/ai/opencode/`, model assignments live in
+`host_vars/localhost/opencode.yml`, and generated files deploy under
+`~/.config/opencode/`. Existing config is backed up once under
+`~/.ai-config-backup/opencode/`; auth, OAuth state, sessions, caches, package
+files, and user-owned agents or commands remain outside repository ownership.
+
+```bash
+make ai                 # Apply shared AI and OpenCode configuration
+make validate-opencode  # Render in check mode and validate OpenCode discovery
+make test-ai-agents     # Temporary-home migration and idempotency test
+```
+
+Restart OpenCode after applying configuration. Native commands:
+
+- `/orchestrate <goal>` — acceptance criteria, task graph, delegation, review, correction, and final verification.
+- `/implement-reviewed <feature or fix>` — bounded implementation with independent review and correction loop.
+- `/load-test-loop <target and safe environment>` — bounded performance loop; never production by default.
+- `/review <changes or revision range>` — read-only review and deterministic checks.
+- `/debug-loop <failure or defect>` — reproduce, prove root cause, apply smallest fix, verify.
+
+Model policy uses `openai/gpt-5.6-terra` high for orchestration and hard
+debugging, `openai/gpt-5.6-sol` high for architecture and independent review,
+`openai/gpt-5.6-luna` medium for implementation, and
+`openai/gpt-5.4-mini` low for exploration, mechanical work, tests, and docs.
+No `*-fast` model IDs are configured. Change one assignment in
+`host_vars/localhost/opencode.yml`, run `make ai`, then restart OpenCode.
+
 ### ⌨️ F-keys
 
-Bare F1-F10 open specific apps (see `host_files/localhost/skhdrc` for the
-mapping); holding Fn gives the normal volume/brightness/media row. That is the
+Bare F1-F10 open specific apps and F11 switches between light and dark
+appearance (see `host_files/localhost/skhdrc` for the mapping); holding Fn
+gives the normal volume/brightness/media row. That is the
 opposite of the factory default, where F-keys are media keys by default and Fn
 gives F1-F12.
+
+F11 disables macOS automatic appearance switching, then toggles the current
+appearance. Re-enable **Auto** in **System Settings → Appearance** to return to
+scheduled light/dark changes.
+
+F12 runs a Shortcuts action named `Toggle Focus`. Create it once in **Shortcuts**:
+make a shortcut with that exact name, add **Set Focus**, select **Do Not Disturb**,
+and choose **Toggle**. This uses Apple's supported Focus action rather than
+fragile Control Center UI scripting.
 
 Two pieces make it work:
 
