@@ -131,6 +131,8 @@ live under `host_files/localhost/ai/opencode/`, model assignments live in
 `~/.config/opencode/`. Existing config is backed up once under
 `~/.ai-config-backup/opencode/`; auth, OAuth state, sessions, caches, package
 files, and user-owned agents or commands remain outside repository ownership.
+This repo's `opencode.jsonc` allows `git push`; global policy keeps pushes
+denied in other repositories.
 
 ```bash
 make ai                 # Apply shared AI and OpenCode configuration
