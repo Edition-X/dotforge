@@ -140,3 +140,6 @@ opencode_commands:
   - load-test-loop.md
   - review.md
   - debug-loop.md
+  - wayfinder.md
+  - grill.md
+  - grilling.md

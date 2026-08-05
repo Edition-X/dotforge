@@ -48,6 +48,9 @@ declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/commands/load-test-loop.md"
     "${HOME}/.config/opencode/commands/review.md"
     "${HOME}/.config/opencode/commands/debug-loop.md"
+    "${HOME}/.config/opencode/commands/wayfinder.md"
+    "${HOME}/.config/opencode/commands/grill.md"
+    "${HOME}/.config/opencode/commands/grilling.md"
 )
 
 drift=()

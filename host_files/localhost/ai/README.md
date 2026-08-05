@@ -71,6 +71,8 @@ Native commands:
 - `/load-test-loop <target and safe environment>` — bounded, evidence-based performance loop.
 - `/review <changes or revision range>` — read-only review plus deterministic checks.
 - `/debug-loop <failure or defect>` — reproduce, prove root cause, fix, and verify.
+- `/wayfinder <destination>` — explicitly load Wayfinder for long-horizon decision mapping.
+- `/grill <plan or idea>` — explicitly load the grilling skill; `/grilling` is an alias.
 
 Run `make validate-opencode` for config validation and `make test-ai-agents` for
 deployment idempotency checks. Existing files are backed up once under

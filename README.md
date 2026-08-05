@@ -147,6 +147,8 @@ Restart OpenCode after applying configuration. Native commands:
 - `/load-test-loop <target and safe environment>` — bounded performance loop; never production by default.
 - `/review <changes or revision range>` — read-only review and deterministic checks.
 - `/debug-loop <failure or defect>` — reproduce, prove root cause, apply smallest fix, verify.
+- `/wayfinder <destination>` — explicit long-horizon decision mapping with the installed Wayfinder skill.
+- `/grill <plan or idea>` — explicit one-question-at-a-time decision grilling; `/grilling` is an alias.
 
 Model policy uses `openai/gpt-5.6-terra` high for orchestration and hard
 debugging, `openai/gpt-5.6-sol` high for architecture and independent review,

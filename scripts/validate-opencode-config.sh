@@ -48,7 +48,9 @@ required_agents=(
     orchestrator architect explorer worker-fast implementer debugger reviewer
     test-runner documentation
 )
-required_commands=(orchestrate implement-reviewed load-test-loop review debug-loop)
+required_commands=(
+    orchestrate implement-reviewed load-test-loop review debug-loop wayfinder grill grilling
+)
 
 for agent in architect explorer worker-fast implementer debugger reviewer test-runner documentation; do
     jq -e --arg agent "$agent" '.agent[$agent] != null' "$resolved_file" >/dev/null || {
