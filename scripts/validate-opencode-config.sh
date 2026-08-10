@@ -81,16 +81,18 @@ jq -e '(.plugin // []) | length == 0' "$resolved_file" >/dev/null || {
 }
 
 jq -e '
-    (.permission.bash | keys_unsorted) == ["*", "git status*", "git diff*", "git log*", "git show*", "git rev-parse*", "git ls-files*", "git check-ignore*", "make validate-opencode*", "make test-ai-agents*", "make lint*", "make ci*", "pytest*", "npm test*", "npm run test*", "pnpm test*", "yarn test*", "go test*", "cargo test*", "git push*", "git reset --hard*", "git clean*", "git checkout --*", "rm -rf*", "gh pr merge*", "terraform destroy*", "kubectl delete*"] and
-    (.permission.bash["*"] == "allow") and
-    (.permission.bash["git push*"] == "allow") and
-    (.permission.bash["git reset --hard*"] == "deny") and
-    (.permission.bash["git clean*"] == "deny") and
-    (.permission.bash["git checkout --*"] == "deny") and
-    (.permission.bash["rm -rf*"] == "deny") and
-    (.permission.bash["gh pr merge*"] == "deny") and
-    (.permission.bash["terraform destroy*"] == "deny") and
-    (.permission.bash["kubectl delete*"] == "ask")
+    (.permission.bash) as $bash |
+    ($bash | keys | sort) == (["*", "git status*", "git diff*", "git log*", "git show*", "git rev-parse*", "git ls-files*", "git check-ignore*", "make validate-opencode*", "make test-ai-agents*", "make lint*", "make ci*", "pytest*", "npm test*", "npm run test*", "pnpm test*", "yarn test*", "go test*", "cargo test*", "git push*", "git reset --hard*", "git clean*", "git checkout --*", "rm -rf*", "gh pr merge*", "terraform destroy*", "kubectl delete*", "command *", "true *", "devcontainer *", "git worktree *", "git ls-tree *", "printf *", "ansible-playbook *"] | sort) and
+    ($bash["*"] == "allow") and
+    (["command *", "true *", "devcontainer *", "git worktree *", "git status*", "git diff*", "git log*", "git show*", "git rev-parse*", "git ls-files*", "git check-ignore*", "git ls-tree *", "make validate-opencode*", "make test-ai-agents*", "make lint*", "make ci*", "pytest*", "npm test*", "npm run test*", "pnpm test*", "yarn test*", "go test*", "cargo test*", "git push*", "printf *", "ansible-playbook *"] | all(.[]; . as $key | $bash[$key] == "allow")) and
+    ($bash["git push*"] == "allow") and
+    ($bash["git reset --hard*"] == "deny") and
+    ($bash["git clean*"] == "deny") and
+    ($bash["git checkout --*"] == "deny") and
+    ($bash["rm -rf*"] == "deny") and
+    ($bash["gh pr merge*"] == "deny") and
+    ($bash["terraform destroy*"] == "deny") and
+    ($bash["kubectl delete*"] == "ask")
 ' "$resolved_file" >/dev/null || {
     printf 'global bash policy ordering is incorrect\n' >&2
     exit 1
