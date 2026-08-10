@@ -80,6 +80,31 @@ jq -e '(.plugin // []) | length == 0' "$resolved_file" >/dev/null || {
     exit 1
 }
 
+jq -e '
+    (.permission.bash | keys_unsorted) == ["*", "git status*", "git diff*", "git log*", "git show*", "git rev-parse*", "git ls-files*", "git check-ignore*", "make validate-opencode*", "make test-ai-agents*", "make lint*", "make ci*", "pytest*", "npm test*", "npm run test*", "pnpm test*", "yarn test*", "go test*", "cargo test*", "git push*", "git reset --hard*", "git clean*", "git checkout --*", "rm -rf*", "gh pr merge*", "terraform destroy*", "kubectl delete*"] and
+    (.permission.bash["*"] == "allow") and
+    (.permission.bash["git push*"] == "allow") and
+    (.permission.bash["git reset --hard*"] == "deny") and
+    (.permission.bash["git clean*"] == "deny") and
+    (.permission.bash["git checkout --*"] == "deny") and
+    (.permission.bash["rm -rf*"] == "deny") and
+    (.permission.bash["gh pr merge*"] == "deny") and
+    (.permission.bash["terraform destroy*"] == "deny") and
+    (.permission.bash["kubectl delete*"] == "ask")
+' "$resolved_file" >/dev/null || {
+    printf 'global bash policy ordering is incorrect\n' >&2
+    exit 1
+}
+
+jq -e '
+    (.permission.external_directory | keys_unsorted) == ["*", "~/Projects/**"] and
+    (.permission.external_directory["*"] == "ask") and
+    (.permission.external_directory["~/Projects/**"] == "allow")
+' "$resolved_file" >/dev/null || {
+    printf 'global command or external-directory policy is incorrect\n' >&2
+    exit 1
+}
+
 available_models_file="${tmp_dir}/models.txt"
 available_model_details_file="${tmp_dir}/models-verbose.txt"
 opencode models openai >"$available_models_file"
@@ -91,6 +116,15 @@ for agent in "${required_agents[@]}"; do
     [[ "$model" == openai/* ]] || { printf 'unsupported model provider for %s: %s\n' "$agent" "$model" >&2; exit 1; }
     [[ "$model" != *-fast ]] || { printf 'fast model prohibited for %s: %s\n' "$agent" "$model" >&2; exit 1; }
     [[ -n "$variant" ]] || { printf 'missing model variant for %s\n' "$agent" >&2; exit 1; }
+
+    jq -e --arg agent "$agent" '
+        (.agent[$agent].permission.external_directory | keys_unsorted) == ["*", "~/Projects/**"] and
+        (.agent[$agent].permission.external_directory["*"] == "ask") and
+        (.agent[$agent].permission.external_directory["~/Projects/**"] == "allow")
+    ' "$resolved_file" >/dev/null || {
+        printf 'agent external-directory policy incorrect: %s\n' "$agent" >&2
+        exit 1
+    }
 
     if ! rg -Fqx "$model" "$available_models_file"; then
         printf 'unrecognised model for %s: %s\n' "$agent" "$model" >&2
@@ -127,6 +161,44 @@ fi
 for agent in architect explorer reviewer test-runner; do
     jq -e '[.permission[]? | select(.permission == "edit" and .action == "allow")] | length == 0' "${tmp_dir}/${agent}.json" >/dev/null || {
         printf 'read-only agent has edit permission: %s\n' "$agent" >&2
+        exit 1
+    }
+done
+
+for agent in "${required_agents[@]}"; do
+    jq -e --arg home "$HOME" \
+        '
+            def pattern_matches($pattern; $actual):
+                ($pattern == $actual) or
+                ($pattern == ($home + "/Projects/**") and $actual == "~/Projects/**");
+            def final_index($rules; $permission; $pattern):
+                ([ $rules | to_entries[] | select(.value.permission == $permission and pattern_matches($pattern; .value.pattern)) | .key ] | last);
+            def final_action($rules; $permission; $pattern):
+                [ $rules[]? | select(.permission == $permission and pattern_matches($pattern; .pattern)) | .action ] | last;
+
+            (final_action(.permission; "external_directory"; ($home + "/Projects/**")) == "allow") and
+            (final_action(.permission; "external_directory"; "*") == "ask") and
+            (final_index(.permission; "external_directory"; "*") < final_index(.permission; "external_directory"; ($home + "/Projects/**"))) and
+            (final_action(.permission; "bash"; "*") == "allow") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "git push*")) and
+            (final_action(.permission; "bash"; "git push*") == "allow") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "git reset --hard*")) and
+            (final_action(.permission; "bash"; "git reset --hard*") == "deny") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "git clean*")) and
+            (final_action(.permission; "bash"; "git clean*") == "deny") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "git checkout --*")) and
+            (final_action(.permission; "bash"; "git checkout --*") == "deny") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "rm -rf*")) and
+            (final_action(.permission; "bash"; "rm -rf*") == "deny") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "gh pr merge*")) and
+            (final_action(.permission; "bash"; "gh pr merge*") == "deny") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "terraform destroy*")) and
+            (final_action(.permission; "bash"; "terraform destroy*") == "deny") and
+            (final_index(.permission; "bash"; "*") < final_index(.permission; "bash"; "kubectl delete*")) and
+            (final_action(.permission; "bash"; "kubectl delete*") == "ask")
+        ' \
+        "${tmp_dir}/${agent}.json" >/dev/null || {
+        printf 'agent final-action policy incorrect: %s\n' "$agent" >&2
         exit 1
     }
 done

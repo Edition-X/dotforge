@@ -54,7 +54,7 @@
       "*.env.example": "allow"
     },
     "bash": {
-      "*": "ask",
+      "*": "allow",
       "git status*": "allow",
       "git diff*": "allow",
       "git log*": "allow",
@@ -73,7 +73,7 @@
       "yarn test*": "allow",
       "go test*": "allow",
       "cargo test*": "allow",
-      "git push*": "deny",
+      "git push*": "allow",
       "git reset --hard*": "deny",
       "git clean*": "deny",
       "git checkout --*": "deny",
@@ -81,6 +81,10 @@
       "gh pr merge*": "deny",
       "terraform destroy*": "deny",
       "kubectl delete*": "ask"
+    },
+    "external_directory": {
+      "*": "ask",
+      "~/Projects/**": "allow"
     },
     "linear_create_attachment": "ask",
     "linear_create_attachment_from_upload": "ask",

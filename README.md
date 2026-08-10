@@ -125,14 +125,20 @@ environment.
 
 ### OpenCode
 
-OpenCode configuration is managed by existing `ai_agents` role. Source files
-live under `host_files/localhost/ai/opencode/`, model assignments live in
+OpenCode configuration is repo-managed by `ai_agents`. Source templates live
+under `roles/ai_agents/templates/`, model assignments live in
 `host_vars/localhost/opencode.yml`, and generated files deploy under
 `~/.config/opencode/`. Existing config is backed up once under
 `~/.ai-config-backup/opencode/`; auth, OAuth state, sessions, caches, package
 files, and user-owned agents or commands remain outside repository ownership.
-This repo's `opencode.jsonc` allows `git push`; global policy keeps pushes
-denied in other repositories.
+Normal bash commands, `git push`, and `~/Projects/**` are preapproved by repo
+policy. Other user-selected external directories prompt. Runtime OpenCode skill
+or tool-output directories may still carry internal allows. Destructive command
+patterns are guardrails, not a sandbox: exact text rules block the listed forms,
+but wrapper or option variants can still evade text-pattern matching. The
+current deny/ask list covers `git reset --hard`, `git clean`, `git checkout --`,
+`rm -rf`, `gh pr merge`, `terraform destroy`, and `kubectl delete` stays
+approval-gated.
 
 ```bash
 make ai                 # Apply shared AI and OpenCode configuration

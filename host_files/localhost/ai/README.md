@@ -56,6 +56,8 @@ are linked straight from it, so that repo stays their source of truth.
 OpenCode is managed by `make ai` or the full `make apply` path. Source files
 deploy into `~/.config/opencode/`; auth, sessions, caches, package files, and
 MCP OAuth state remain unmanaged. Restart OpenCode after applying changes.
+Templates live under `roles/ai_agents/templates`; OpenCode command source files
+live under `host_files/localhost/ai/opencode/commands`.
 
 Central model policy lives in `host_vars/localhost/opencode.yml`. Current
 assignments use `openai/gpt-5.6-terra` high for orchestration and hard debugging,

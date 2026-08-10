@@ -33,7 +33,9 @@ permission:
 {% else %}
   edit: allow
 {% endif %}
-  external_directory: ask
+  external_directory:
+    "*": ask
+    "~/Projects/**": allow
 {% if item.name in ['architect', 'explorer', 'reviewer', 'test-runner'] %}
   linear_save_*: deny
   notion_*: deny
