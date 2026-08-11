@@ -154,7 +154,11 @@ Restart OpenCode after applying configuration. Native commands:
 - `/review <changes or revision range>` — read-only review and deterministic checks.
 - `/debug-loop <failure or defect>` — reproduce, prove root cause, apply smallest fix, verify.
 - `/wayfinder <destination>` — explicit long-horizon decision mapping with the installed Wayfinder skill.
+- `/linear <request>` — complete Linear read/write operation owned by `documentation`, with inspection and approval gates.
+- `/plan <request>` — user-facing implementation or technical plan owned by `reviewer`; read-only, no verdict boilerplate.
 - `/grill <plan or idea>` — explicit one-question-at-a-time decision grilling; `/grilling` is an alias.
+
+OpenCode routing boundary: explicit `/linear` and `/plan` commands bind deterministically to existing specialists. Natural-language Linear requests are prompted to `documentation`; natural-language planning requests are prompted to `reviewer`. Non-documentation agents cannot call Linear MCP tools; the direct-API and shell-fallback prohibition remains prompt-enforced. `/wayfinder` remains orchestrator-owned because subagent depth is one: reviewer planning runs first, then documentation performs any Linear issue-tracker work as sibling tasks. This is prompted and permission-enforced routing, not a native semantic router.
 
 Model policy uses `openai/gpt-5.6-terra` high for orchestration and hard
 debugging, `openai/gpt-5.6-sol` high for architecture and independent review,

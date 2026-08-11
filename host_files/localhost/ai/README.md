@@ -74,7 +74,11 @@ Native commands:
 - `/review <changes or revision range>` — read-only review plus deterministic checks.
 - `/debug-loop <failure or defect>` — reproduce, prove root cause, fix, and verify.
 - `/wayfinder <destination>` — explicitly load Wayfinder for long-horizon decision mapping.
+- `/linear <request>` — delegate complete Linear reads or writes to `documentation`.
+- `/plan <request>` — delegate user-visible implementation or technical planning to `reviewer`.
 - `/grill <plan or idea>` — explicitly load the grilling skill; `/grilling` is an alias.
+
+Routing boundary: explicit commands bind deterministically to existing specialists. Natural-language Linear requests are prompted to `documentation`; user-visible plans are prompted to `reviewer`. Non-documentation agents cannot call Linear MCP tools; the direct-API and shell-fallback prohibition remains prompt-enforced. `/wayfinder` stays orchestrator-owned because subagent depth is one; it must delegate reviewer planning first, then documentation Linear issue-tracker work as sibling tasks. This is prompted and permission-enforced routing, not a native deterministic semantic router.
 
 Run `make validate-opencode` for config validation and `make test-ai-agents` for
 deployment idempotency checks. Existing files are backed up once under

@@ -49,7 +49,7 @@ required_agents=(
     test-runner documentation
 )
 required_commands=(
-    orchestrate implement-reviewed load-test-loop review debug-loop wayfinder grill grilling
+    orchestrate implement-reviewed load-test-loop review debug-loop wayfinder grill grilling linear plan
 )
 
 for agent in architect explorer worker-fast implementer debugger reviewer test-runner documentation; do
@@ -59,13 +59,29 @@ for agent in architect explorer worker-fast implementer debugger reviewer test-r
     }
 done
 
+for command_name in linear plan; do
+    expected_agent=$([[ "$command_name" == linear ]] && printf documentation || printf reviewer)
+    jq -e --arg command "$command_name" --arg agent "$expected_agent" \
+        '.command[$command].agent == $agent and .command[$command].subtask == true' \
+        "$resolved_file" >/dev/null || {
+        printf 'specialist command routing is incorrect: %s\n' "$command_name" >&2
+        exit 1
+    }
+done
+
 for command_name in "${required_commands[@]}"; do
     jq -e --arg command "$command_name" '.command[$command].template != null' "$resolved_file" >/dev/null || {
         printf 'missing command: %s\n' "$command_name" >&2
         exit 1
     }
-    jq -e --arg command "$command_name" '.command[$command].agent == "orchestrator"' "$resolved_file" >/dev/null || {
-        printf 'command does not use orchestrator: %s\n' "$command_name" >&2
+    expected_agent=orchestrator
+    case "$command_name" in
+        linear) expected_agent=documentation ;;
+        plan) expected_agent=reviewer ;;
+    esac
+    jq -e --arg command "$command_name" --arg agent "$expected_agent" \
+        '.command[$command].agent == $agent' "$resolved_file" >/dev/null || {
+        printf 'command uses unexpected agent: %s\n' "$command_name" >&2
         exit 1
     }
 done
@@ -95,6 +111,17 @@ jq -e '
     ($bash["kubectl delete*"] == "ask")
 ' "$resolved_file" >/dev/null || {
     printf 'global bash policy ordering is incorrect\n' >&2
+    exit 1
+}
+
+jq -e '
+    (.permission | keys_unsorted) as $keys |
+    (($keys | index("linear_*")) != null) and
+    (.permission["linear_*"] == "ask") and
+    (.permission.linear_save_issue == "allow") and
+    (.permission.linear_save_comment == "allow")
+' "$resolved_file" >/dev/null || {
+    printf 'global Linear policy ordering or routine actions are incorrect\n' >&2
     exit 1
 }
 
@@ -151,6 +178,36 @@ for agent in "${required_agents[@]}"; do
         OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1 \
         OPENCODE_PURE=1 \
         opencode debug agent "$agent" >"$agent_debug_file"
+done
+
+jq -e '
+    def matches_linear($rule; $permission):
+        ($rule.permission == $permission) or ($rule.permission == "linear_*");
+    def final_action($rules; $permission; $pattern):
+        [ $rules[]? | select(matches_linear(.; $permission) and .pattern == $pattern) | .action ] | last;
+    (final_action(.permission; "linear_get_issue"; "*") == "ask") and
+    (final_action(.permission; "linear_merge_diff"; "*") == "ask") and
+    (final_action(.permission; "linear_save_issue"; "*") == "allow") and
+    (final_action(.permission; "linear_save_comment"; "*") == "allow")
+' "${tmp_dir}/documentation.json" >/dev/null || {
+    printf 'documentation final Linear policy is incorrect\n' >&2
+    exit 1
+}
+
+for agent in orchestrator architect explorer worker-fast implementer debugger reviewer test-runner; do
+    jq -e '
+        def matches_linear($rule; $permission):
+            ($rule.permission == $permission) or ($rule.permission == "linear_*");
+        def final_action($rules; $permission; $pattern):
+            [ $rules[]? | select(matches_linear(.; $permission) and .pattern == $pattern) | .action ] | last;
+        (final_action(.permission; "linear_get_issue"; "*") == "deny") and
+        (final_action(.permission; "linear_merge_diff"; "*") == "deny") and
+        (final_action(.permission; "linear_save_issue"; "*") == "deny") and
+        (final_action(.permission; "linear_save_comment"; "*") == "deny")
+    ' "${tmp_dir}/${agent}.json" >/dev/null || {
+        printf 'non-documentation final Linear policy is incorrect: %s\n' "$agent" >&2
+        exit 1
+    }
 done
 
 if jq -e '.agent.orchestrator.mode == "primary" and ([.agent | to_entries[] | select(.key != "orchestrator") | .value.mode] | all(. == "subagent"))' "$resolved_file" >/dev/null; then

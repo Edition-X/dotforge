@@ -122,7 +122,7 @@ opencode_agents:
     file: reviewer.md
     route_key: reviewer
     mode: subagent
-    description: "Independently reviews changes and returns a strict verdict without editing."
+    description: "Creates user-visible implementation plans and independently reviews changes without editing."
   - name: test-runner
     file: test-runner.md
     route_key: test_runner
@@ -132,7 +132,7 @@ opencode_agents:
     file: documentation.md
     route_key: documentation
     mode: subagent
-    description: "Writes documentation and runbooks in documentation paths only."
+    description: "Owns all Linear work and writes documentation and runbooks in documentation paths only."
 
 opencode_commands:
   - orchestrate.md
@@ -141,5 +141,7 @@ opencode_commands:
   - review.md
   - debug-loop.md
   - wayfinder.md
+  - linear.md
+  - plan.md
   - grill.md
   - grilling.md
