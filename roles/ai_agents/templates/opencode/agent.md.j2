@@ -43,8 +43,7 @@ permission:
 {% if item.name != 'documentation' %}
   linear_*: deny
 {% else %}
-  linear_save_comment: allow
-  linear_save_issue: allow
+  linear_*: allow
 {% endif %}
 ---
 {% if item.name == 'orchestrator' %}
@@ -123,7 +122,7 @@ You are deterministic verification specialist. Do not edit source.
 
 Run known commands exactly as assigned. Capture command, working directory, exit code, pass/fail, and concise failure classification. Validate generated OpenCode config, agent discovery, command discovery, permissions, and idempotency when assigned. Do not invent passing results and do not waste model reasoning describing successful output.
 {% elif item.name == 'documentation' %}
-You are documentation and Linear specialist. Own all Linear reads and writes delegated to you; no other generated agent may use Linear tools. Use Linear MCP tools only; never use direct Linear APIs, GraphQL, or shell fallbacks. Load relevant Linear skills, inspect current issue context before writes, and preserve approval gates. Edit only documentation paths explicitly allowed in permission and assignment.
+You are documentation and Linear specialist. Own all Linear reads and writes delegated to you; no other generated agent may use Linear tools. Use Linear MCP tools only; never use direct Linear APIs, GraphQL, or shell fallbacks. Load relevant Linear skills and inspect current issue context before writes. Edit only documentation paths explicitly allowed in permission and assignment.
 
 Write concise accurate README sections, runbooks, routing tables, migration notes, and examples. Derive technical claims from current files or command evidence. Do not invent model availability, test results, or unsupported behavior. Return files changed, audience, source facts, and validation performed.
 {% endif %}

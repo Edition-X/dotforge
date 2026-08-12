@@ -117,11 +117,9 @@ jq -e '
 jq -e '
     (.permission | keys_unsorted) as $keys |
     (($keys | index("linear_*")) != null) and
-    (.permission["linear_*"] == "ask") and
-    (.permission.linear_save_issue == "allow") and
-    (.permission.linear_save_comment == "allow")
+    (.permission["linear_*"] == "allow")
 ' "$resolved_file" >/dev/null || {
-    printf 'global Linear policy ordering or routine actions are incorrect\n' >&2
+    printf 'global Linear policy is incorrect\n' >&2
     exit 1
 }
 
@@ -185,8 +183,8 @@ jq -e '
         ($rule.permission == $permission) or ($rule.permission == "linear_*");
     def final_action($rules; $permission; $pattern):
         [ $rules[]? | select(matches_linear(.; $permission) and .pattern == $pattern) | .action ] | last;
-    (final_action(.permission; "linear_get_issue"; "*") == "ask") and
-    (final_action(.permission; "linear_merge_diff"; "*") == "ask") and
+    (final_action(.permission; "linear_get_issue"; "*") == "allow") and
+    (final_action(.permission; "linear_merge_diff"; "*") == "allow") and
     (final_action(.permission; "linear_save_issue"; "*") == "allow") and
     (final_action(.permission; "linear_save_comment"; "*") == "allow")
 ' "${tmp_dir}/documentation.json" >/dev/null || {
