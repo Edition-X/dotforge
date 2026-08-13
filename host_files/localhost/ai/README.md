@@ -8,8 +8,11 @@ ansible-playbook site.yml --tags ai
 ```
 
 - `AGENTS.md` — one canonical instruction file, linked to `~/.claude/CLAUDE.md`,
-  `~/.codex/AGENTS.md`, `~/forge/AGENTS.md` and `~/.config/opencode/AGENTS.md`.
-- `skills/` — one skill set, linked into all four harnesses.
+  `~/.codex/AGENTS.md`, `~/forge/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and
+  `~/.config/devin/AGENTS.md` (Devin's own global-rules convention — it also
+  reads `~/.claude/CLAUDE.md` as a fallback, but this makes it explicit rather
+  than incidental).
+- `skills/` — one skill set, linked into all five harnesses.
 - OpenCode config, agents, commands, and routing policy are rendered by the
   `ai_agents` role from `host_vars/localhost/opencode.yml` and source files here.
 
@@ -40,7 +43,7 @@ re-copying from upstream, not by editing in place.
 | `setup-matt-pocock-skills` | [mattpocock/skills](https://github.com/mattpocock/skills) | MIT |
 
 Vendored rather than installed as a Claude Code plugin because the plugin route
-is Claude-only, and the point of this directory is that all four harnesses get
+is Claude-only, and the point of this directory is that all five harnesses get
 the same set. The tradeoff is that upstream updates are a manual re-copy.
 
 `wayfinder` depends on `grilling`, `domain-modeling`, `research` and

@@ -22,6 +22,7 @@ declare -a instruction_files=(
     "${HOME}/.codex/AGENTS.md"
     "${HOME}/forge/AGENTS.md"
     "${HOME}/.config/opencode/AGENTS.md"
+    "${HOME}/.config/devin/AGENTS.md"
 )
 
 declare -a skills_dirs=(
@@ -29,6 +30,7 @@ declare -a skills_dirs=(
     "${HOME}/.codex/skills"
     "${HOME}/forge/skills"
     "${HOME}/.config/opencode/skills"
+    "${HOME}/.config/devin/skills"
 )
 
 declare -a opencode_managed_files=(
