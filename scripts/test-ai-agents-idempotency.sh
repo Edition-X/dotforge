@@ -36,6 +36,18 @@ cat "$first_output"
 [[ -f "${backup_dir}/opencode/opencode.jsonc" ]] || { printf 'existing config was not backed up\n' >&2; exit 1; }
 [[ -f "${backup_dir}/opencode/orchestrator.md" ]] || { printf 'existing agent was not backed up\n' >&2; exit 1; }
 [[ -f "${backup_dir}/opencode/review.md" ]] || { printf 'existing command was not backed up\n' >&2; exit 1; }
+[[ -x "${test_home}/.local/bin/claude-work" ]] || { printf 'claude-work wrapper missing or not executable\n' >&2; exit 1; }
+[[ -d "${test_home}/.claude-work" ]] || { printf 'claude-work config directory missing\n' >&2; exit 1; }
+grep -Fq 'export CLAUDE_CONFIG_DIR="$HOME/.claude-work"' "${test_home}/.local/bin/claude-work" || {
+    printf 'claude-work wrapper does not set isolated config directory\n' >&2
+    exit 1
+}
+jq -e --arg binary "${test_home}/.local/bin/claude-work" \
+    '.providers.claudeAgent.binaryPath == $binary and (.providers.claudeAgent | has("homePath") | not)' \
+    "${test_home}/.t3/userdata/settings.json" >/dev/null || {
+    printf 'T3 Claude provider is not isolated through claude-work\n' >&2
+    exit 1
+}
 
 before_backup=$(shasum -a 256 "${backup_dir}/opencode/orchestrator.md")
 first_config=$(shasum -a 256 "${test_home}/.config/opencode/opencode.jsonc")

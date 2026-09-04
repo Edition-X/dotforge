@@ -26,6 +26,11 @@ homebrew_prefix: /opt/homebrew
 
 # Configuration file paths
 config_paths:
+  local_bin: "{{ user_dir }}/.local/bin"
+  claude_work_config: "{{ user_dir }}/.claude-work"
+  claude_work_executable: "{{ user_dir }}/.local/bin/claude-work"
+  t3_user_data_dir: "{{ user_dir }}/.t3/userdata"
+  t3_settings: "{{ user_dir }}/.t3/userdata/settings.json"
   ssh_config: "{{ ssh_dir }}/config"
   aliases: "{{ user_dir }}/.aliases"
   functions: "{{ user_dir }}/.functions"

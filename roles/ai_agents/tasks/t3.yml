@@ -1,0 +1,110 @@
+---
+- name: Claude work - Config directory
+  ansible.builtin.file:
+    path: "{{ config_paths.claude_work_config }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  tags:
+    - claude
+
+- name: Claude work - Bin directory
+  ansible.builtin.file:
+    path: "{{ config_paths.local_bin }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0755'
+  tags:
+    - claude
+
+- name: Claude work - Managed executable
+  ansible.builtin.file:
+    src: "{{ host_files_dir }}/bin/claude-work"
+    dest: "{{ config_paths.claude_work_executable }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+  tags:
+    - claude
+
+- name: T3 Code - User-data directory
+  ansible.builtin.file:
+    path: "{{ config_paths.t3_user_data_dir }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  tags:
+    - claude
+
+- name: T3 Code - Check settings file
+  ansible.builtin.stat:
+    path: "{{ config_paths.t3_settings }}"
+  register: ai_agents_t3_settings_stat
+  tags:
+    - claude
+
+- name: T3 Code - Read existing settings
+  ansible.builtin.slurp:
+    src: "{{ config_paths.t3_settings }}"
+  register: ai_agents_t3_settings_slurp
+  when: ai_agents_t3_settings_stat.stat.exists
+  no_log: true
+  tags:
+    - claude
+
+- name: T3 Code - Build preserved settings document
+  ansible.builtin.set_fact:
+    ai_agents_t3_settings_document: >-
+      {{ (ai_agents_t3_settings_slurp.content | b64decode | from_json)
+         if ai_agents_t3_settings_stat.stat.exists else {} }}
+  no_log: true
+  tags:
+    - claude
+
+- name: T3 Code - Preserve provider settings except homePath
+  ansible.builtin.set_fact:
+    ai_agents_t3_settings_providers: "{{ ai_agents_t3_settings_document.providers | default({}) }}"
+    ai_agents_t3_claude_settings: "{{ ai_agents_t3_settings_document.providers.claudeAgent | default({}) }}"
+  no_log: true
+  tags:
+    - claude
+
+- name: T3 Code - Remove Claude homePath override
+  ansible.builtin.set_fact:
+    ai_agents_t3_claude_settings_without_home_path: >-
+      {{ ai_agents_t3_claude_settings
+         | dict2items
+         | rejectattr('key', 'equalto', 'homePath')
+         | list
+         | items2dict }}
+  no_log: true
+  tags:
+    - claude
+
+- name: T3 Code - Set managed Claude executable path
+  ansible.builtin.set_fact:
+    ai_agents_t3_settings_document_desired: >-
+      {{ ai_agents_t3_settings_document
+         | combine({
+             'providers': ai_agents_t3_settings_providers
+               | combine({
+                   'claudeAgent': ai_agents_t3_claude_settings_without_home_path
+                     | combine({'binaryPath': config_paths.claude_work_executable})
+                 }, recursive=True)
+           }, recursive=True) }}
+  no_log: true
+  tags:
+    - claude
+
+- name: T3 Code - Install preserved settings with Claude override
+  ansible.builtin.copy:
+    content: "{{ ai_agents_t3_settings_document_desired | to_nice_json }}"
+    dest: "{{ config_paths.t3_settings }}"
+    mode: '0600'
+  no_log: true
+  tags:
+    - claude

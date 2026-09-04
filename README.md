@@ -71,7 +71,7 @@ The configuration is organized into specialized roles:
 | `common` | Creates required directories |
 | `ssh` | Manages SSH keys and configuration |
 | `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, Forge MCP/skills, and skhd |
-| `ai_agents` | Shared harness instructions and skills plus managed OpenCode agents, model routing, commands, permissions, and validation |
+| `ai_agents` | Shared harness instructions and skills plus managed OpenCode agents, model routing, commands, permissions, Claude profiles, T3 Code integration, and validation |
 | `neovim` | Configures Neovim editor |
 | `tmux` | Sets up tmux configuration |
 | `packages` | Applies the root `Brewfile` via `brew bundle` |
@@ -166,6 +166,22 @@ debugging, `openai/gpt-5.6-sol` high for architecture and independent review,
 `openai/gpt-5.4-mini` low for exploration, mechanical work, tests, and docs.
 No `*-fast` model IDs are configured. Change one assignment in
 `host_vars/localhost/opencode.yml`, run `make ai`, then restart OpenCode.
+
+### Claude profiles and T3 Code
+
+`claude` is the personal/default Claude Code profile. Its existing executable,
+authentication, and `~/.claude` state remain untouched. `claude-work` is a
+managed wrapper around that same executable; it sets `CLAUDE_CONFIG_DIR` to
+`~/.claude-work` and keeps work authentication separate. T3 Code's Claude
+provider invokes `claude-work` through `~/.t3/userdata/settings.json`.
+
+```bash
+claude             # personal/default profile
+claude-work        # isolated work profile used by T3 Code
+```
+
+Run `claude-work` once to authenticate work profile when needed. Restart T3
+Code after applying configuration changes.
 
 ### ⌨️ F-keys
 

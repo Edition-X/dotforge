@@ -20,8 +20,11 @@ Edit here, never in the harness directories. Those are links back to this
 directory, and `scripts/check-agent-config-drift.sh` reports it when they stop
 being.
 
-T3 Code needs no entry of its own: it drives the `claude` and `codex` binaries
-with default home paths, so it picks up whatever those two have.
+T3 Code uses the managed `~/.local/bin/claude-work` executable for its Claude
+provider. `claude` remains the personal/default profile and keeps using
+`~/.claude`; `claude-work` sets `CLAUDE_CONFIG_DIR` to `~/.claude-work`.
+T3's provider settings are preserved and updated by the `ai_agents` role in
+`~/.t3/userdata/settings.json`. T3 must be restarted after applying changes.
 
 ## Adding a skill
 

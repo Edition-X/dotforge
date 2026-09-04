@@ -435,3 +435,9 @@
   when: ai_agents_prune_unused | bool
   tags:
     - ai
+
+- name: T3 Code - Configure isolated Claude profile
+  ansible.builtin.include_tasks: t3.yml
+  tags:
+    - ai
+    - claude
