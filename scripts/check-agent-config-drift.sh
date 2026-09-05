@@ -53,6 +53,8 @@ declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/commands/review.md"
     "${HOME}/.config/opencode/commands/debug-loop.md"
     "${HOME}/.config/opencode/commands/wayfinder.md"
+    "${HOME}/.config/opencode/commands/linear.md"
+    "${HOME}/.config/opencode/commands/plan.md"
     "${HOME}/.config/opencode/commands/grill.md"
     "${HOME}/.config/opencode/commands/grilling.md"
 )
@@ -88,6 +90,44 @@ if [[ -e "${HOME}/.config/opencode/AGENTS.md" ]]; then
     for f in "${opencode_managed_files[@]}"; do
         [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed OpenCode setup")
     done
+fi
+
+# --- Arcane MCP registration -------------------------------------------
+# Every harness must launch arcane through the installed binary. Keep in
+# step with ai_arcane_bin in group_vars/macbooks.yml.
+arcane_bin="${HOME}/.local/bin/arcane"
+
+check_mcp_command() {
+    local label="$1" actual="$2"
+    if [[ -z "${actual}" ]]; then
+        drift+=("${label}: arcane MCP not registered")
+    elif [[ "${actual}" != "${arcane_bin}" ]]; then
+        drift+=("${label}: arcane MCP command is '${actual}', expected '${arcane_bin}'")
+    fi
+}
+
+if command -v jq >/dev/null 2>&1; then
+    if [[ -f "${HOME}/forge/.mcp.json" ]]; then
+        check_mcp_command "Forge" "$(jq -r '.mcpServers.arcane.command // empty' "${HOME}/forge/.mcp.json")"
+    fi
+    if [[ -f "${HOME}/.config/opencode/opencode.jsonc" ]]; then
+        # opencode.jsonc may contain full-line comments; strip only lines whose
+        # first non-blank content is "//" so "https://" values survive.
+        check_mcp_command "OpenCode" "$(sed -E 's|^[[:space:]]*//.*$||' "${HOME}/.config/opencode/opencode.jsonc" | jq -r '.mcp.arcane.command[0] // empty')"
+    fi
+fi
+if [[ -f "${HOME}/.codex/config.toml" ]]; then
+    check_mcp_command "Codex" "$(awk '/^\[mcp_servers\.arcane\]/{f=1;next} /^\[/{f=0} f && /^command/{gsub(/.*= *"|"$/,""); print; exit}' "${HOME}/.codex/config.toml")"
+fi
+if command -v claude >/dev/null 2>&1; then
+    # Personal profile state is $HOME/.claude.json, read only when
+    # CLAUDE_CONFIG_DIR is unset. The work profile needs it set.
+    check_mcp_command "Claude (personal)" \
+        "$(env -u CLAUDE_CONFIG_DIR claude mcp get arcane 2>/dev/null | awk -F': ' '/^ *Command:/{print $2; exit}')"
+    if [[ -d "${HOME}/.claude-work" ]]; then
+        check_mcp_command "Claude (work)" \
+            "$(env CLAUDE_CONFIG_DIR="${HOME}/.claude-work" claude mcp get arcane 2>/dev/null | awk -F': ' '/^ *Command:/{print $2; exit}')"
+    fi
 fi
 
 if (( ${#drift[@]} > 0 )); then
