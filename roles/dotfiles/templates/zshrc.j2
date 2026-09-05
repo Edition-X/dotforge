@@ -5,6 +5,10 @@
 #  / /_\__ \ | | | | | (__
 # /____|___/_| |_|_|  \___|
 
+# uv tools, claude-work shim, arcane. Managed here so installers do not
+# have to hand-edit this file.
+export PATH="{{ config_paths.local_bin }}:$PATH"
+
 plugins=(virtualenv)
 DEFAULT_USER={{ osx_username | default(ansible_user_id) }}
 POWERLEVEL9K_MODE='nerdfont-complete'
