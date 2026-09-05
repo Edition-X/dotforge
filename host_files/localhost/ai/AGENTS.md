@@ -56,16 +56,20 @@ Call `memory_save` when any of these happens, without being asked:
 | Non-obvious insight worth keeping | `learning` |
 | Durable project knowledge | `context` |
 | Notable spike or experiment result | `poc` |
-| Significant feature, migration, or release shipped | `milestone` |
+| Feature merged to main, migration completed, or release shipped | `milestone` |
 
-**Every git commit is a save trigger.** Save the decision or bug from that commit before
-moving to the next task. One focused memory per commit beats a dump at session end.
+**A commit is a save trigger only when it carries a decision or a bug fix.** Save the
+decision or the bug, not the commit. Opening a PR, pushing, tagging a branch as ready, or
+updating a ticket are not memories; git and Linear already hold them.
 
 For `decision` and `bug`, put the full picture in `details` — options considered, tradeoffs,
 follow-up.
 
 Never save: routine file reads, searches, or commands; API trivia; duplicates; secrets or
 credentials.
+
+Before saving, run `memory_search` on the title. If a near-identical memory exists,
+call `memory_update` on it instead of saving a duplicate.
 
 ### Journeys
 
@@ -81,8 +85,10 @@ evaluation, spike, migration, CI or performance investigation. Attach memories v
 
 ### Project name
 
-The current working directory name, unless the user says otherwise. When working across
-repos, save against the repo actually being changed.
+Do not pass `project` to Arcane tools. Arcane resolves it from the git remote of the
+working directory, so worktrees, renamed checkouts, and underscore/hyphen variants all
+land on one project. Pass `project` only when the user names one, or when saving
+knowledge about a different repo than the one you are working in.
 
 ## Planning Large Work
 
