@@ -156,6 +156,44 @@
   tags:
     - ai
 
+- name: AI agents - Find deployed skill links
+  ansible.builtin.find:
+    paths: "{{ item.skills }}"
+    file_type: link
+    depth: 1
+  loop: "{{ ai_harnesses }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_deployed_skill_links
+  tags: [ai]
+
+# Ansible's `is exists` test does not follow symlinks, so it cannot tell a
+# dangling link from a live one. stat with follow=true can.
+- name: AI agents - Stat unmanaged skill links
+  ansible.builtin.stat:
+    path: "{{ item.1.path }}"
+    follow: true
+  loop: "{{ ai_agents_deployed_skill_links.results | subelements('files', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.1.path }}"
+  when:
+    - item.1.path | basename not in ai_agents_skills
+    - item.1.path | basename not in ai_external_skills
+  register: ai_agents_unmanaged_skill_links
+  tags: [ai]
+
+- name: AI agents - Remove skill links whose target is gone
+  ansible.builtin.file:
+    path: "{{ item.item.1.path }}"
+    state: absent
+  loop: "{{ ai_agents_unmanaged_skill_links.results }}"
+  loop_control:
+    label: "{{ item.item.1.path if item.item is defined else 'skipped' }}"
+  when:
+    - item.skipped is not defined
+    - not item.stat.exists
+  tags: [ai]
+
 # Linked to the repo that owns them, so edits in Projects/paperclip take effect
 # for every harness without a re-apply.
 - name: Harness - Externally owned skills
