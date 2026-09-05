@@ -19,6 +19,7 @@ ai_dir="${repo_root}/host_files/localhost/ai"
 # Keep in step with ai_harnesses in group_vars/macbooks.yml.
 declare -a instruction_files=(
     "${HOME}/.claude/CLAUDE.md"
+    "${HOME}/.claude-work/CLAUDE.md"
     "${HOME}/.codex/AGENTS.md"
     "${HOME}/forge/AGENTS.md"
     "${HOME}/.config/opencode/AGENTS.md"
@@ -27,6 +28,7 @@ declare -a instruction_files=(
 
 declare -a skills_dirs=(
     "${HOME}/.claude/skills"
+    "${HOME}/.claude-work/skills"
     "${HOME}/.codex/skills"
     "${HOME}/forge/skills"
     "${HOME}/.config/opencode/skills"
