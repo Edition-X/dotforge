@@ -307,7 +307,6 @@ go "golang.org/x/tools/gopls"
 
 ## uv tools ##
 uv "arcane", source: "file:///Users/dkelly/Projects/arcane"
-uv "echovault", source: "git+https://github.com/mraza007/echovault.git"
 uv "localstack"
 uv "mlx-audio", with: ["misaki", "numpy<2", "spacy<4"]
 
