@@ -62,6 +62,23 @@ config_paths:
 ai_source_dir: "{{ host_files_dir }}/ai"
 ai_backup_dir: "{{ user_dir }}/.ai-config-backup"
 
+# Arcane MCP server binary. Every harness must use this exact path.
+ai_arcane_bin: "{{ config_paths.local_bin }}/arcane"
+
+# Claude Code profiles that receive managed MCP registrations and hooks.
+# config_dir holds settings.json, CLAUDE.md and skills. MCP state lives in
+# .claude.json, which for the personal profile is $HOME/.claude.json, NOT
+# ~/.claude/.claude.json, so the personal profile must run `claude` with
+# CLAUDE_CONFIG_DIR *unset* (the invoking shell may have it set, e.g. under
+# claude-work). claude_cmd encodes that per profile.
+ai_claude_profiles:
+  - name: personal
+    config_dir: "{{ user_dir }}/.claude"
+    claude_cmd: "env -u CLAUDE_CONFIG_DIR claude"
+  - name: work
+    config_dir: "{{ config_paths.claude_work_config }}"
+    claude_cmd: "env CLAUDE_CONFIG_DIR={{ config_paths.claude_work_config }} claude"
+
 ai_harnesses:
   - name: Claude Code
     dir: "{{ user_dir }}/.claude"
