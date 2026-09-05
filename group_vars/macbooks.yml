@@ -79,6 +79,20 @@ ai_claude_profiles:
     config_dir: "{{ config_paths.claude_work_config }}"
     claude_cmd: "env CLAUDE_CONFIG_DIR={{ config_paths.claude_work_config }} claude"
 
+# Managed Claude Code hooks. This list REPLACES the SessionStart list in each
+# profile's settings.json; all other settings keys are preserved.
+ai_claude_hooks:
+  SessionStart:
+    - matcher: "startup|resume|clear|compact"
+      hooks:
+        - type: command
+          command: "{{ ai_arcane_bin }} context --project 2>/dev/null || true"
+          timeout: 15
+
+# Tool permissions every Claude profile must pre-approve.
+ai_claude_permission_allow:
+  - mcp__arcane
+
 ai_harnesses:
   - name: Claude Code
     dir: "{{ user_dir }}/.claude"

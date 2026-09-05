@@ -1,0 +1,59 @@
+---
+# Merges managed hooks into each Claude profile's settings.json while
+# preserving every other key Dan has set by hand.
+
+- name: Claude settings - Check settings file
+  ansible.builtin.stat:
+    path: "{{ item.config_dir }}/settings.json"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_claude_settings_stat
+  tags: [ai, claude]
+
+- name: Claude settings - Read existing settings
+  ansible.builtin.slurp:
+    src: "{{ item.stat.path }}"
+  loop: "{{ ai_agents_claude_settings_stat.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.stat.exists
+  register: ai_agents_claude_settings_raw
+  no_log: true
+  tags: [ai, claude]
+
+- name: Claude settings - Build merged document
+  ansible.builtin.set_fact:
+    ai_agents_claude_settings_desired: >-
+      {{ ai_agents_claude_settings_desired | default({}) | combine({
+           item.item.item.name: (
+             _existing | combine({'hooks': ai_claude_hooks}, recursive=True)
+                       | combine({'permissions': {'allow':
+                           _existing_allow + (ai_claude_permission_allow | difference(_existing_allow))
+                         }}, recursive=True)
+           )
+         }) }}
+  vars:
+    _existing: "{{ (item.content | b64decode | from_json) if (item.content is defined) else {} }}"
+    # Order-preserving union: keep the existing list's order untouched and
+    # append only genuinely new entries. The `union` filter goes via a Python
+    # set and its iteration order depends on per-process hash randomization,
+    # so it reorders this list on every run and the settings task never
+    # reaches "no changes" on a second apply.
+    _existing_allow: "{{ (_existing.permissions | default({})).allow | default([]) }}"
+  loop: "{{ ai_agents_claude_settings_raw.results }}"
+  loop_control:
+    label: "{{ item.item.item.name }}"
+  no_log: true
+  tags: [ai, claude]
+
+- name: Claude settings - Install merged settings
+  ansible.builtin.copy:
+    content: "{{ ai_agents_claude_settings_desired[item.name] | to_nice_json }}"
+    dest: "{{ item.config_dir }}/settings.json"
+    mode: "0600"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  tags: [ai, claude]

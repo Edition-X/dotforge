@@ -485,3 +485,9 @@
   tags:
     - ai
     - claude
+
+- name: Claude settings - Manage hooks and permissions
+  ansible.builtin.include_tasks: claude_settings.yml
+  tags:
+    - ai
+    - claude
