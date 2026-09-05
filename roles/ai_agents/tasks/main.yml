@@ -479,3 +479,9 @@
   tags:
     - ai
     - claude
+
+- name: Claude MCP - Manage arcane registration
+  ansible.builtin.include_tasks: claude_mcp.yml
+  tags:
+    - ai
+    - claude
