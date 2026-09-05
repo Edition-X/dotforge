@@ -67,6 +67,10 @@ ai_harnesses:
     dir: "{{ user_dir }}/.claude"
     instructions: "{{ user_dir }}/.claude/CLAUDE.md"
     skills: "{{ user_dir }}/.claude/skills"
+  - name: Claude Code (work)
+    dir: "{{ config_paths.claude_work_config }}"
+    instructions: "{{ config_paths.claude_work_config }}/CLAUDE.md"
+    skills: "{{ config_paths.claude_work_config }}/skills"
   - name: Codex
     dir: "{{ user_dir }}/.codex"
     instructions: "{{ user_dir }}/.codex/AGENTS.md"

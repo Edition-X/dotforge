@@ -8,11 +8,11 @@ ansible-playbook site.yml --tags ai
 ```
 
 - `AGENTS.md` — one canonical instruction file, linked to `~/.claude/CLAUDE.md`,
-  `~/.codex/AGENTS.md`, `~/forge/AGENTS.md`, `~/.config/opencode/AGENTS.md`, and
-  `~/.config/devin/AGENTS.md` (Devin's own global-rules convention — it also
-  reads `~/.claude/CLAUDE.md` as a fallback, but this makes it explicit rather
-  than incidental).
-- `skills/` — one skill set, linked into all five harnesses.
+  `~/.claude-work/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/forge/AGENTS.md`,
+  `~/.config/opencode/AGENTS.md`, and `~/.config/devin/AGENTS.md` (Devin's own
+  global-rules convention — it also reads `~/.claude/CLAUDE.md` as a fallback,
+  but this makes it explicit rather than incidental).
+- `skills/` — one skill set, linked into all six harnesses.
 - OpenCode config, agents, commands, and routing policy are rendered by the
   `ai_agents` role from `host_vars/localhost/opencode.yml` and source files here.
 
@@ -23,8 +23,10 @@ being.
 T3 Code uses the managed `~/.local/bin/claude-work` executable for its Claude
 provider. `claude` remains the personal/default profile and keeps using
 `~/.claude`; `claude-work` sets `CLAUDE_CONFIG_DIR` to `~/.claude-work`.
-T3's provider settings are preserved and updated by the `ai_agents` role in
-`~/.t3/userdata/settings.json`. T3 must be restarted after applying changes.
+The work profile is a harness like any other: it receives the same
+`AGENTS.md` and skills as the personal profile. T3's provider settings are
+preserved and updated by the `ai_agents` role in `~/.t3/userdata/settings.json`.
+T3 must be restarted after applying changes.
 
 ## Adding a skill
 
