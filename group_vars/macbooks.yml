@@ -78,7 +78,7 @@ ai_codex_mcp_servers:
     url: "{{ mcp_gateway_url }}"
     http_headers:
       Authorization: "Bearer {{ mcp_gateway_sunrise_token }}"
-ai_codex_mcp_remove: [linear, notion, grafana]
+ai_codex_mcp_remove: [linear, notion, grafana, figma]
 
 # Claude Code profiles that receive managed MCP registrations and hooks.
 # config_dir holds settings.json, CLAUDE.md and skills. MCP state lives in
