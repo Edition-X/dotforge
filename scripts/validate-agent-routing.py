@@ -72,16 +72,21 @@ REQUIRED_OPENAI_IDS = (
 REQUIRED_PROVIDER_IDS = REQUIRED_CLAUDE_IDS + REQUIRED_OPENAI_IDS
 
 # Every one of REQUIRED_PROVIDER_IDS must appear only in models.yml, never in
-# these paths. At this point in the rollout host_vars/localhost/opencode.yml
-# and scripts/check-opencode-source.sh still legitimately contain model IDs
-# (R3 removes them), and docs/ holds the playbook itself, so neither is
-# scanned here. R3 extends this list to group_vars/macbooks.yml,
-# host_vars/localhost/opencode.yml and roles/ai_agents/templates/ once those
-# stop carrying legitimate IDs of their own.
+# these paths. docs/ holds the playbook itself (which legitimately names
+# provider IDs) and is untracked, so it is not scanned here.
+#
+# R3 (OpenCode lead-worker migration) removed opencode_agent_models from
+# host_vars/localhost/opencode.yml and the model IDs from
+# scripts/check-opencode-source.sh, so both now carry no provider ID of their
+# own and are added below alongside group_vars/macbooks.yml and
+# roles/ai_agents/templates/, as promised when this tuple was first scoped.
 LEAKED_ID_SCAN_PATHS = (
     ROUTING_DIR / "prompts",
     REPO_ROOT / "host_files/localhost/ai/skills/execute-playbook",
     AGENTS_FILE,
+    REPO_ROOT / "group_vars/macbooks.yml",
+    REPO_ROOT / "host_vars/localhost/opencode.yml",
+    REPO_ROOT / "roles/ai_agents/templates",
 )
 
 # Expected role topology. Anything not listed for a given mapping takes the

@@ -3,12 +3,12 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-routing_file="${repo_root}/host_vars/localhost/opencode.yml"
+routing_file="${repo_root}/host_files/localhost/ai/routing/models.yml"
 required_models=(
-    'openai/gpt-5.6-terra'
-    'openai/gpt-5.6-sol'
-    'openai/gpt-5.6-luna'
-    'openai/gpt-5.4-mini'
+    'gpt-5.6-terra'
+    'gpt-5.6-sol'
+    'gpt-5.6-luna'
+    'gpt-5.4-mini'
 )
 
 for model in "${required_models[@]}"; do
@@ -25,7 +25,7 @@ fi
 
 for command_file in \
     orchestrate.md implement-reviewed.md load-test-loop.md review.md debug-loop.md \
-    wayfinder.md linear.md plan.md grill.md grilling.md; do
+    wayfinder.md linear.md plan.md grill.md grilling.md execute-playbook.md; do
     [[ -f "${repo_root}/host_files/localhost/ai/opencode/commands/${command_file}" ]] || {
         printf 'missing OpenCode command source: %s\n' "$command_file" >&2
         exit 1

@@ -33,15 +33,16 @@ repos:
         entry: scripts/check-opencode-source.sh
         language: script
         pass_filenames: false
+        # A single unbroken line: YAML's folded (>) scalar only folds lines at
+        # the block's own indentation into spaces. Any line indented further
+        # than the opening "^(" (as each alternative was here) is kept as a
+        # *literal* line instead — the parsed string then carries an actual
+        # "\n  " before every alternative, which can never match a bare file
+        # path, so this hook never selected any file for check-opencode-source
+        # to run against, regardless of how many paths were listed here. Keep
+        # this on one line so every alternative folds correctly.
         files: >-
-          ^(
-            AGENTS\.md|
-            group_vars/macbooks\.yml|
-            host_vars/localhost/opencode\.yml|
-            host_files/localhost/ai/(AGENTS\.md|README\.md|opencode/.*)|
-            roles/ai_agents/(defaults/main\.yml|tasks/main\.yml|templates/.*)|
-            scripts/validate-opencode-config\.sh
-          )$
+          ^(AGENTS\.md|group_vars/macbooks\.yml|host_vars/localhost/opencode\.yml|host_files/localhost/ai/(AGENTS\.md|README\.md|opencode/.*)|host_files/localhost/ai/routing/.*|roles/ai_agents/(defaults/main\.yml|tasks/main\.yml|templates/.*)|scripts/validate-opencode-config\.sh)$
 
       - id: validate-agent-routing
         name: validate canonical agent routing policy
@@ -49,11 +50,7 @@ repos:
         language: script
         pass_filenames: false
         files: >-
-          ^(
-            host_files/localhost/ai/routing/.*|
-            host_files/localhost/ai/skills/execute-playbook/.*|
-            scripts/validate-agent-routing\.py
-          )$
+          ^(host_files/localhost/ai/routing/.*|host_files/localhost/ai/skills/execute-playbook/.*|scripts/validate-agent-routing\.py)$
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

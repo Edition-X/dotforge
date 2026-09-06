@@ -37,13 +37,9 @@ declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/opencode.jsonc"
     "${HOME}/.config/opencode/ROUTING.md"
     "${HOME}/.config/opencode/agents/orchestrator.md"
-    "${HOME}/.config/opencode/agents/architect.md"
-    "${HOME}/.config/opencode/agents/explorer.md"
-    "${HOME}/.config/opencode/agents/worker-fast.md"
-    "${HOME}/.config/opencode/agents/implementer.md"
-    "${HOME}/.config/opencode/agents/debugger.md"
-    "${HOME}/.config/opencode/agents/reviewer.md"
-    "${HOME}/.config/opencode/agents/test-runner.md"
+    "${HOME}/.config/opencode/agents/worker.md"
+    "${HOME}/.config/opencode/agents/verifier.md"
+    "${HOME}/.config/opencode/agents/rescue.md"
     "${HOME}/.config/opencode/agents/documentation.md"
     "${HOME}/.config/opencode/commands/orchestrate.md"
     "${HOME}/.config/opencode/commands/implement-reviewed.md"
@@ -55,6 +51,7 @@ declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/commands/plan.md"
     "${HOME}/.config/opencode/commands/grill.md"
     "${HOME}/.config/opencode/commands/grilling.md"
+    "${HOME}/.config/opencode/commands/execute-playbook.md"
 )
 
 drift=()

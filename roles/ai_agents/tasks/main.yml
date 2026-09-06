@@ -320,6 +320,58 @@
   tags:
     - ai
 
+- name: OpenCode - Retired agents backup directory
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}/opencode/retired"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  check_mode: false
+  tags:
+    - ai
+
+- name: OpenCode - Stat existing retired agents
+  ansible.builtin.stat:
+    path: "{{ config_paths.opencode_agents }}/{{ item }}"
+  loop: "{{ opencode_retired_agents }}"
+  register: ai_agents_opencode_existing_retired_agents
+  tags:
+    - ai
+
+# Backed up once each: force:false skips a retired file whose backup already
+# exists under .../opencode/retired/, so a second apply neither re-copies nor
+# reports changed.
+- name: OpenCode - Back up retired agents not already preserved
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/opencode/retired/{{ item.item }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_opencode_existing_retired_agents.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - item.stat.exists
+    - item.stat.isreg
+  tags:
+    - ai
+
+# Only these exact retired filenames are ever removed; the agents directory
+# itself is never swept, so any user-owned agent file is untouched.
+- name: OpenCode - Remove retired agent files
+  ansible.builtin.file:
+    path: "{{ config_paths.opencode_agents }}/{{ item }}"
+    state: absent
+  loop: "{{ opencode_retired_agents }}"
+  loop_control:
+    label: "{{ item }}"
+  tags:
+    - ai
+
 - name: OpenCode - Stage and validate managed configuration
   tags:
     - ai
