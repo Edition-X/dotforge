@@ -4,6 +4,13 @@
 # file drift silently and then get clobbered by the next apply, whereas a link
 # makes any local tweak show up as a git diff in this repo.
 
+# Runs first: fail before rendering anything if the canonical routing source
+# (host_files/localhost/ai/routing/) is malformed.
+- name: Routing - Load and validate canonical policy
+  ansible.builtin.include_tasks: routing.yml
+  tags:
+    - ai
+
 # Discovered rather than listed, so adding a skill is just adding a directory
 # under host_files/localhost/ai/skills/ — no role edit needed.
 - name: Discover repo-owned skills
