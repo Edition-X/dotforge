@@ -202,21 +202,6 @@ repo file, only in the runtime config files below (each `0600`).
 
   Copy `<token>` from `~/.config/mcp-gateway/sunrise/token`. The M5 drift
   checker flags this file until it matches.
-- **Devin** (`~/.config/devin/mcp_config.json`) — **hand-managed, not
-  templated**, for the same app-owned reason. Replace its hosted `linear` and
-  `notion` entries with:
-
-  ```json
-  {
-    "mcp-sunrise": {
-      "url": "http://127.0.0.1:8080/mcp",
-      "headers": { "Authorization": "Bearer <token>" }
-    }
-  }
-  ```
-
-  Copy `<token>` from `~/.config/mcp-gateway/sunrise/token`. The M5 drift
-  checker flags this file until it matches.
 
 ### OpenCode
 

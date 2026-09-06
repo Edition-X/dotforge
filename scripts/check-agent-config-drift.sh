@@ -23,7 +23,6 @@ declare -a instruction_files=(
     "${HOME}/.codex/AGENTS.md"
     "${HOME}/forge/AGENTS.md"
     "${HOME}/.config/opencode/AGENTS.md"
-    "${HOME}/.config/devin/AGENTS.md"
 )
 
 declare -a skills_dirs=(
@@ -32,7 +31,6 @@ declare -a skills_dirs=(
     "${HOME}/.codex/skills"
     "${HOME}/forge/skills"
     "${HOME}/.config/opencode/skills"
-    "${HOME}/.config/devin/skills"
 )
 
 declare -a opencode_managed_files=(
@@ -221,14 +219,6 @@ if [[ -f "${HOME}/.codex/config.toml" ]]; then
     for stale in linear notion grafana; do
         grep -qE "^\[mcp_servers\.${stale}\]" "${HOME}/.codex/config.toml" &&
             drift+=("Codex: stale mcp_servers.${stale} entry, should route through mcp-sunrise")
-    done
-fi
-
-if [[ -f "${HOME}/.config/devin/mcp_config.json" ]] && command -v jq >/dev/null 2>&1; then
-    check_mcp_sunrise_command "Devin" "$(jq -r '.mcpServers["mcp-sunrise"].url // empty' "${HOME}/.config/devin/mcp_config.json")"
-    for stale in linear notion grafana; do
-        jq -e --arg s "$stale" '.mcpServers[$s] // empty | length > 0' "${HOME}/.config/devin/mcp_config.json" >/dev/null 2>&1 &&
-            drift+=("Devin: stale mcpServers.${stale} entry, should route through mcp-sunrise")
     done
 fi
 
