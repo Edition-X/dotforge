@@ -1,6 +1,6 @@
 ---
 name: macbook
-description: Make any change to this Mac go through the macbook-pro repo instead of by hand — installing, removing or upgrading an app, CLI, font or tool; changing shell, git, terminal (ghostty), skhd, neovim, tmux or ssh config; changing anything about the AI harnesses (Claude, Codex, OpenCode, Forge, T3), their instructions, skills, MCP servers, hooks, permissions or the MCP gateway; or anything else managed by the macbook-pro repo. Use when Dan says "install", "uninstall", "remove", "add to my mac", "update my dotfiles", "change my zshrc", "add an MCP", "my Claude/Codex/OpenCode config", or names any tool, app, or harness setting he wants changed on this machine.
+description: Make any change to this Mac go through the macbook-pro repo instead of by hand — installing, removing or upgrading an app, CLI, font or tool; changing shell, git, terminal (ghostty), skhd, neovim, tmux or ssh config; changing AI harness (Claude, Codex, OpenCode, Forge, T3) instructions, skills, MCP servers, hooks, permissions, or the MCP gateway. Use when Dan says "install", "uninstall", "remove", "add to my mac", "update my dotfiles", "change my zshrc", "add an MCP", "my Claude/Codex/OpenCode config", or names any tool, app, or harness setting he wants changed on this machine.
 ---
 
 # Macbook
@@ -33,6 +33,10 @@ Confirm the mapping against the real tasks before writing anything down — `gro
 and `roles/*/tasks/main.yml` are the source of truth, this table is a pointer to them.
 
 ## 2. The process
+
+First check whether the request is already satisfied (`brew list <name>`, `grep` the
+Brewfile, `claude mcp get`, and so on). If it is, say so with the evidence and stop:
+no branch, no commit for a zero-diff change.
 
 Run these in order. Do not skip the verify step or the second dry run.
 

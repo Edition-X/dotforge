@@ -100,6 +100,18 @@ foggy, rather than waiting to be asked for it by name.
 First use in a given repo needs `/setup-matt-pocock-skills` run once, to record which issue
 tracker that repo uses. Without it, wayfinder falls back to local markdown under `.scratch/`.
 
+## Everyday work — use the skill
+
+These requests have a fixed procedure. Load the skill first, then follow it.
+
+| Request | Skill |
+|---|---|
+| Install, remove or change anything on this Mac, dotfiles, harness config, MCP servers | `macbook` |
+| Change Arcane's code, release it, or update it on this Mac | `arcane-dev` |
+| Anything about a Sunrise robot cell (moon, mars, bg4, IPC, Orin, RTC) or running commands on one | `sunrise-cells` |
+
+Do not improvise these from memory. If a skill and this file disagree, the skill wins for that task.
+
 ## Safety
 
 - `trash` over `rm`. Recoverable beats gone.
