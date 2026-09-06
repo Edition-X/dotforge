@@ -1,0 +1,72 @@
+# Canonical, provider-neutral workflow policy: roles, limits, and the exact
+# handoff contract every role returns. Harness renderers compile this into
+# native agent/command definitions; see models.yml for provider model IDs.
+schema_version: 1
+
+# Escalation trip-wires shared by every harness.
+max_parallel_workers: 3
+correction_limit: 1
+identical_failure_limit: 2
+rescue_limit: 1
+
+roles:
+  # Lead. Reviews and merges; never a normal ticket-implementation route.
+  orchestrator:
+    mode: primary
+    tier: lead
+    prompt: prompts/orchestrator.md
+    read_only: false
+    normal_assignment: false
+    may_dispatch: [worker, verifier, rescue, documentation]
+    # orchestrator.limits.claude_max_turns is null because no Claude primary
+    # agent is rendered for this role (R4 decision) — Claude keeps its normal
+    # root selected at the lead tier instead of a custom orchestrator agent.
+    limits: {opencode_steps: 32, claude_max_turns: null}
+
+  # Worker. Owns one whole ticket: branch, edit, verify, commit, memory.
+  worker:
+    mode: subagent
+    tier: worker
+    prompt: prompts/worker.md
+    read_only: false
+    normal_assignment: true
+    may_dispatch: []
+    limits: {opencode_steps: 32, claude_max_turns: 40}
+
+  # Verifier. Read-only; checks an already-integrated result, never implements.
+  verifier:
+    mode: subagent
+    tier: worker
+    prompt: prompts/verifier.md
+    read_only: true
+    normal_assignment: true
+    may_dispatch: []
+    limits: {opencode_steps: 16, claude_max_turns: 24}
+
+  # Rescue. Direct dispatch only, after a repeated similar failure trip-wire.
+  rescue:
+    mode: subagent
+    tier: rescue
+    prompt: prompts/rescue.md
+    read_only: false
+    normal_assignment: false
+    may_dispatch: []
+    limits: {opencode_steps: 32, claude_max_turns: 40}
+
+  # Documentation. Auxiliary role: docs/Markdown edits and tracker tools only.
+  documentation:
+    mode: subagent
+    tier: worker
+    prompt: prompts/documentation.md
+    read_only: false
+    normal_assignment: true
+    may_dispatch: []
+    limits: {opencode_steps: 16, claude_max_turns: 24}
+
+# The only statuses any role may return in a handoff.
+statuses: [COMPLETE, CORRECTION_REQUIRED, HANDOFF_REQUIRED, BLOCKED_AUTHORITY, BLOCKED_TRANSIENT]
+
+# The exact, complete set of fields every handoff evidence block carries.
+evidence_fields:
+  [status, ticket, branch, commit, files, checks, failure_fingerprint,
+   deviations, last_safe_state, recommended_next, unresolved_risks]
