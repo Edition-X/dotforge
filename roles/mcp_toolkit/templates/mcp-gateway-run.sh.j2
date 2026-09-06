@@ -30,11 +30,13 @@ export MCP_GATEWAY_AUTH_TOKEN
 # --static is deliberately NOT used: static mode reaches image servers via
 # socat to the container hostname (mcp-grafana:4444), which the host cannot
 # resolve, so every image-type server fails with "initialize: EOF". Without
-# it the gateway drives image servers over stdio, which works; --long-lived
-# keeps their containers up between calls.
+# it the gateway drives image servers over stdio, which works.
+# --long-lived is NOT used either: it keeps one container per MCP client
+# session and never reaps them, so every harness session leaked a Grafana
+# container. Per-call containers (docker run --rm) cost ~1 s per call and
+# leave nothing behind.
 exec {{ mcp_toolkit_docker_bin }} mcp gateway run \
   --profile {{ mcp_toolkit_profile }} \
   --transport streaming \
   --host {{ mcp_gateway_host }} \
-  --port {{ mcp_gateway_port }} \
-  --long-lived
+  --port {{ mcp_gateway_port }}
