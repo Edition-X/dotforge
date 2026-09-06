@@ -61,6 +61,26 @@ declare -a opencode_managed_files=(
 
 drift=()
 
+# --- MCP gateway liveness -------------------------------------------------
+# Cheap and time-sensitive (launchd's KeepAlive restarts a killed gateway in
+# well under a minute), so check it before the slower per-harness CLI calls
+# below have a chance to eat the detection window.
+mcp_gateway_url="http://127.0.0.1:8080/mcp"
+mcp_gateway_label="com.dkelly.mcp-gateway-sunrise"
+
+if command -v curl >/dev/null 2>&1; then
+    gateway_status=$(curl -s -o /dev/null -w '%{http_code}' "${mcp_gateway_url}" 2>/dev/null)
+    if [[ "${gateway_status}" != "401" && "${gateway_status}" != "403" ]]; then
+        drift+=("mcp-sunrise gateway: not answering on 127.0.0.1:8080")
+    fi
+fi
+
+if command -v launchctl >/dev/null 2>&1; then
+    if ! launchctl print "gui/$(id -u)/${mcp_gateway_label}" >/dev/null 2>&1; then
+        drift+=("mcp-sunrise gateway: launchd service ${mcp_gateway_label} not loaded")
+    fi
+fi
+
 for f in "${instruction_files[@]}"; do
     if [[ ! -e "$f" ]]; then
         [[ -d "$(dirname "$f")" ]] && drift+=("${f/#$HOME/\~} is missing; harness dir exists but was never provisioned")
@@ -133,6 +153,104 @@ if command -v claude >/dev/null 2>&1; then
         check_mcp_command "Claude (work)" \
             "$(env CLAUDE_CONFIG_DIR="${HOME}/.claude-work" claude mcp get arcane 2>/dev/null | awk -F': ' '/^ *Command:/{print $2; exit}')"
     fi
+fi
+
+# --- MCP gateway profile, secrets and old Grafana MCP -------------------
+# Gateway liveness (curl/launchctl) is checked near the top of this script,
+# before the slower per-harness CLI calls, so a killed gateway is still
+# caught inside launchd's KeepAlive restart window.
+mcp_gateway_profile_export="${HOME}/.config/mcp-gateway/sunrise/profile.export.yaml"
+
+if command -v docker >/dev/null 2>&1; then
+    if [[ -f "${mcp_gateway_profile_export}" ]]; then
+        mcp_toolkit_drift_dir=$(mktemp -d)
+        if docker mcp profile export sunrise "${mcp_toolkit_drift_dir}/profile.export.yaml" >/dev/null 2>&1 &&
+            ! diff -q "${mcp_toolkit_drift_dir}/profile.export.yaml" "${mcp_gateway_profile_export}" >/dev/null 2>&1; then
+            drift+=("mcp-sunrise profile: docker mcp profile export sunrise no longer matches ${mcp_gateway_profile_export/#$HOME/\~}")
+        fi
+        trash "${mcp_toolkit_drift_dir}"
+    else
+        drift+=("mcp-sunrise profile: ${mcp_gateway_profile_export/#$HOME/\~} is missing")
+    fi
+
+    secret_list=$(docker mcp secret ls 2>/dev/null)
+    echo "${secret_list}" | grep -q 'grafana\.api_key' || drift+=("mcp-sunrise secrets: grafana.api_key not present, run docker mcp secret set")
+
+    oauth_list=$(docker mcp oauth ls 2>/dev/null)
+    for provider in linear notion-remote; do
+        echo "${oauth_list}" | grep -qE "^${provider}[[:space:]]*\|[[:space:]]*authorized" ||
+            drift+=("${provider}: run docker mcp oauth authorize ${provider}")
+    done
+
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q grafana-local-mcp; then
+        drift+=("old Grafana MCP: grafana-local-mcp container is still running, retire it")
+    fi
+fi
+
+check_mcp_sunrise_command() {
+    local label="$1" actual="$2"
+    if [[ -z "${actual}" ]]; then
+        drift+=("${label}: mcp-sunrise not registered")
+    elif [[ "${actual}" != "${mcp_gateway_url}" ]]; then
+        drift+=("${label}: mcp-sunrise URL is '${actual}', expected '${mcp_gateway_url}'")
+    fi
+}
+
+if command -v jq >/dev/null 2>&1; then
+    if [[ -f "${HOME}/forge/.mcp.json" ]]; then
+        check_mcp_sunrise_command "Forge" "$(jq -r '.mcpServers["mcp-sunrise"].url // empty' "${HOME}/forge/.mcp.json")"
+        for stale in linear notion grafana; do
+            jq -e --arg s "$stale" '.mcpServers[$s] // empty | length > 0' "${HOME}/forge/.mcp.json" >/dev/null 2>&1 &&
+                drift+=("Forge: stale mcpServers.${stale} entry, should route through mcp-sunrise")
+        done
+    fi
+    if [[ -f "${HOME}/.config/opencode/opencode.jsonc" ]]; then
+        opencode_stripped=$(sed -E 's|^[[:space:]]*//.*$||' "${HOME}/.config/opencode/opencode.jsonc")
+        check_mcp_sunrise_command "OpenCode" "$(echo "${opencode_stripped}" | jq -r '.mcp["mcp-sunrise"].url // empty')"
+        for stale in linear notion grafana; do
+            echo "${opencode_stripped}" | jq -e --arg s "$stale" '.mcp[$s] // empty | length > 0' >/dev/null 2>&1 &&
+                drift+=("OpenCode: stale mcp.${stale} entry, should route through mcp-sunrise")
+        done
+    fi
+fi
+
+if [[ -f "${HOME}/.codex/config.toml" ]]; then
+    check_mcp_sunrise_command "Codex" "$(awk '/^\[mcp_servers\.mcp-sunrise\]/{f=1;next} /^\[/{f=0} f && /^url/{gsub(/.*= *"|"$/,""); print; exit}' "${HOME}/.codex/config.toml")"
+    for stale in linear notion grafana; do
+        grep -qE "^\[mcp_servers\.${stale}\]" "${HOME}/.codex/config.toml" &&
+            drift+=("Codex: stale mcp_servers.${stale} entry, should route through mcp-sunrise")
+    done
+fi
+
+if [[ -f "${HOME}/.config/devin/mcp_config.json" ]] && command -v jq >/dev/null 2>&1; then
+    check_mcp_sunrise_command "Devin" "$(jq -r '.mcpServers["mcp-sunrise"].url // empty' "${HOME}/.config/devin/mcp_config.json")"
+    for stale in linear notion grafana; do
+        jq -e --arg s "$stale" '.mcpServers[$s] // empty | length > 0' "${HOME}/.config/devin/mcp_config.json" >/dev/null 2>&1 &&
+            drift+=("Devin: stale mcpServers.${stale} entry, should route through mcp-sunrise")
+    done
+fi
+
+if command -v claude >/dev/null 2>&1; then
+    check_mcp_sunrise_command "Claude (personal)" \
+        "$(env -u CLAUDE_CONFIG_DIR claude mcp get mcp-sunrise 2>/dev/null | awk -F': ' '/^ *URL:/{print $2; exit}')"
+    if [[ -d "${HOME}/.claude-work" ]]; then
+        check_mcp_sunrise_command "Claude (work)" \
+            "$(env CLAUDE_CONFIG_DIR="${HOME}/.claude-work" claude mcp get mcp-sunrise 2>/dev/null | awk -F': ' '/^ *URL:/{print $2; exit}')"
+    fi
+    for profile_env in "" "${HOME}/.claude-work"; do
+        label="Claude (personal)"
+        cmd=(env -u CLAUDE_CONFIG_DIR claude mcp list)
+        if [[ -n "${profile_env}" ]]; then
+            label="Claude (work)"
+            cmd=(env CLAUDE_CONFIG_DIR="${profile_env}" claude mcp list)
+        fi
+        [[ "${label}" == "Claude (work)" && ! -d "${HOME}/.claude-work" ]] && continue
+        claude_list=$("${cmd[@]}" 2>/dev/null)
+        for stale in notion grafana; do
+            echo "${claude_list}" | grep -qE "^${stale}:" &&
+                drift+=("${label}: stale ${stale} MCP entry, should route through mcp-sunrise")
+        done
+    done
 fi
 
 # --- Arcane MCP Brewfile pin -------------------------------------------
