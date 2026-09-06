@@ -296,3 +296,122 @@
   changed_when: false
   check_mode: false
   tags: [mcp]
+
+# --- Gateway service: launchd, bearer token, run.sh ------------------------
+# One long-running gateway process for the sunrise profile on loopback,
+# always up while Docker Desktop runs. launchd has no PATH, so run.sh needs
+# the docker binary's absolute path baked in — resolved here with
+# `command -v docker` rather than hardcoded, since Docker Desktop's install
+# location isn't guaranteed. KeepAlive plus the run.sh exit-75 path (Docker
+# not yet up) gives "wait for Docker, then run forever" with no separate
+# watchdog process, unlike the older Grafana_local_mcp launchd timer.
+
+- name: Gateway - Require mcp_gateway_sunrise_token in the vault
+  ansible.builtin.assert:
+    that: mcp_gateway_sunrise_token is defined
+    fail_msg: >-
+      mcp_gateway_sunrise_token is missing from host_vars/localhost/vault.yml.
+      Generate one with `openssl rand -hex 32 | pbcopy`, then
+      `source venv/bin/activate; unset ANSIBLE_VAULT_PASSWORD_FILE;
+      ansible-vault edit host_vars/localhost/vault.yml` and paste it in as
+      `mcp_gateway_sunrise_token: <value>`. Re-run make mcp after.
+    success_msg: "mcp_gateway_sunrise_token present"
+  tags: [mcp]
+
+- name: Gateway - Resolve the docker binary's absolute path
+  ansible.builtin.shell:
+    cmd: command -v docker
+    executable: /bin/sh
+  register: mcp_toolkit_docker_bin_result
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Gateway - Record the docker binary path as a fact
+  ansible.builtin.set_fact:
+    mcp_toolkit_docker_bin: "{{ mcp_toolkit_docker_bin_result.stdout | trim }}"
+  tags: [mcp]
+
+- name: Gateway - Resolve the socat binary's absolute path
+  # The gateway process shells out to a bare `socat` to bridge stdio to
+  # image-type MCP servers (e.g. grafana); confirmed missing under launchd's
+  # empty PATH during M2 testing (`exec: "socat": executable file not found
+  # in $PATH`), so run.sh must put its directory on PATH explicitly.
+  ansible.builtin.shell:
+    cmd: command -v socat
+    executable: /bin/sh
+  register: mcp_toolkit_socat_bin_result
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Gateway - Record the socat binary path as a fact
+  ansible.builtin.set_fact:
+    mcp_toolkit_socat_bin: "{{ mcp_toolkit_socat_bin_result.stdout | trim }}"
+  tags: [mcp]
+
+- name: Gateway - Record the invoking user's uid
+  ansible.builtin.command:
+    argv: [id, -u]
+  register: mcp_toolkit_uid_result
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Gateway - Record uid as a fact
+  ansible.builtin.set_fact:
+    mcp_toolkit_launchd_uid: "{{ mcp_toolkit_uid_result.stdout | trim }}"
+  tags: [mcp]
+
+- name: Gateway - Write the bearer token
+  ansible.builtin.copy:
+    content: "{{ mcp_gateway_sunrise_token }}"
+    dest: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}/token"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  no_log: true
+  tags: [mcp]
+
+- name: Gateway - Template run.sh
+  ansible.builtin.template:
+    src: mcp-gateway-run.sh.j2
+    dest: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}/run.sh"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  register: mcp_toolkit_run_script
+  tags: [mcp]
+
+- name: Gateway - Template the launchd plist
+  ansible.builtin.template:
+    src: com.dkelly.mcp-gateway-sunrise.plist.j2
+    dest: "{{ user_dir }}/Library/LaunchAgents/com.dkelly.mcp-gateway-{{ mcp_toolkit_profile }}.plist"
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  register: mcp_toolkit_plist
+  tags: [mcp]
+
+- name: Gateway - Reload the launchd service when run.sh or the plist changed
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - bootout
+      - "gui/{{ mcp_toolkit_launchd_uid }}"
+      - "{{ user_dir }}/Library/LaunchAgents/com.dkelly.mcp-gateway-{{ mcp_toolkit_profile }}.plist"
+  when: mcp_toolkit_run_script.changed or mcp_toolkit_plist.changed
+  changed_when: true
+  failed_when: false
+  tags: [mcp]
+
+- name: Gateway - Bootstrap the launchd service when run.sh or the plist changed
+  ansible.builtin.command:
+    argv:
+      - launchctl
+      - bootstrap
+      - "gui/{{ mcp_toolkit_launchd_uid }}"
+      - "{{ user_dir }}/Library/LaunchAgents/com.dkelly.mcp-gateway-{{ mcp_toolkit_profile }}.plist"
+  when: mcp_toolkit_run_script.changed or mcp_toolkit_plist.changed
+  changed_when: true
+  tags: [mcp]
