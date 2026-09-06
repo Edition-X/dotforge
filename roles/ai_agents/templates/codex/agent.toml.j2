@@ -1,0 +1,35 @@
+{# Renders one native Codex custom agent from the canonical, provider-neutral
+   routing policy (host_files/localhost/ai/routing/). `agent` comes from
+   codex_agents in group_vars/macbooks.yml and carries only name/file/role/
+   description; model, effort and sandbox mode all resolve from
+   ai_routing_models / ai_routing_workflow so nothing here is hardcoded per
+   agent, mirroring roles/ai_agents/templates/claude/agent.md.j2 and
+   opencode/agent.md.j2.
+
+   developer_instructions uses a TOML literal multi-line string ('''...'''):
+   a literal string is taken verbatim, with no backslash or quote escaping,
+   which is exactly what is needed to embed the execute-playbook procedure
+   and this role's prompt byte-for-byte without hand-rolled concatenation.
+   The only thing a literal string forbids is the delimiter sequence '''
+   itself appearing in the content; roles/ai_agents/tasks/codex_agents.yml
+   asserts the routing source never contains it before this template ever
+   renders. Every other field is a short scalar, escaped through Jinja's
+   to_json filter (TOML basic-string escaping is a superset of JSON's), so
+   nothing here concatenates unescaped text.
+#}
+{% set role = ai_routing_workflow.roles[agent.role] %}
+{% set tier = ai_routing_models.tiers[role.tier] %}
+name = {{ agent.name | to_json }}
+description = {{ agent.description | to_json }}
+model = {{ tier.openai.model | to_json }}
+{% if tier.openai.effort %}
+model_reasoning_effort = {{ tier.openai.effort | to_json }}
+{% endif %}
+sandbox_mode = {{ ('read-only' if role.read_only else 'workspace-write') | to_json }}
+developer_instructions = '''
+{{ (lookup('file', ai_source_dir ~ '/skills/execute-playbook/SKILL.md') | regex_replace('(?s)^---.*?---\n', '')) | trim }}
+
+---
+
+{{ lookup('file', ai_source_dir ~ '/routing/' ~ role.prompt) | trim }}
+'''

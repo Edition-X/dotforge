@@ -239,6 +239,57 @@ claude_agents:
     role: documentation
     description: "Owns all Linear work and writes documentation and runbooks in documentation paths only."
 
+# Native Codex custom agents, rendered into ~/.codex/agents/. T3 Codex inherits
+# ~/.codex, so this list needs no separate T3 entry (see ai_harnesses).
+#
+# Each entry's `role` is the canonical routing role (host_files/localhost/ai/
+# routing/workflow.yml); the renderer resolves that role's tier, prompt and
+# sandbox mode from workflow.yml and models.yml. No model ID appears here.
+# Managed by exact filename only; the agents/ directory itself is never
+# swept, so any other user-owned agent file is left untouched. No custom
+# `orchestrator` is rendered here, for the same reason as Claude (R4): normal
+# Codex sessions use the root CLI at the lead tier via
+# scripts/codex-agent-settings-sync.py's top-level model/effort, not a
+# custom primary agent.
+codex_agents:
+  - name: worker
+    file: worker.toml
+    role: worker
+    description: "Owns one whole ticket end to end: branch, edit, verify, commit, memory."
+  - name: verifier
+    file: verifier.toml
+    role: verifier
+    description: "Read-only. Checks an already-integrated result; never implements or delegates."
+  - name: rescue
+    file: rescue.toml
+    role: rescue
+    description: "Direct lead dispatch only, after a repeated similar failure trip-wire; never the default path."
+  - name: documentation
+    file: documentation.toml
+    role: documentation
+    description: "Owns all Linear work and writes documentation and runbooks in documentation paths only."
+
+# Managed keys in Codex's app-owned config.toml (ChatGPT desktop): the CLI
+# root model/effort, and default subagent selection/concurrency for the
+# native agents above. scripts/codex-agent-settings-sync.py replaces only
+# these exact top-level and agents.* keys; every other section (mcp_servers,
+# [projects.*] trust levels, plugins, marketplaces, desktop settings) is
+# untouched. Kept in sync with tiers.lead/tiers.worker in
+# host_files/localhost/ai/routing/models.yml.
+ai_codex_agent_defaults:
+  model: "{{ ai_routing_models.tiers.lead.openai.model }}"
+  model_reasoning_effort: "{{ ai_routing_models.tiers.lead.openai.effort }}"
+  agents:
+    enabled: true
+    # Literal, not templated: workflow.yml's max_parallel_workers is an int and
+    # Ansible templating always stringifies scalars, which would break the
+    # sync script's TOML integer write. This is not a leaked provider ID (only
+    # model strings are scanned for), so a literal here is safe and kept in
+    # step with max_parallel_workers by comment, not by template.
+    max_concurrent_threads_per_session: 3
+    default_subagent_model: "{{ ai_routing_models.tiers.worker.openai.model }}"
+    default_subagent_reasoning_effort: "{{ ai_routing_models.tiers.worker.openai.effort }}"
+
 # Docker MCP Toolkit: one gateway serving Grafana, Notion and Linear to every
 # harness over loopback. Secrets come from the vault and go into the macOS
 # Keychain through Docker Desktop; they never touch harness configs.

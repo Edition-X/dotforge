@@ -52,6 +52,14 @@ repos:
         files: >-
           ^(host_files/localhost/ai/routing/.*|host_files/localhost/ai/skills/execute-playbook/.*|scripts/validate-agent-routing\.py)$
 
+      - id: test-codex-agent-settings-sync
+        name: test surgical Codex agent config.toml sync
+        entry: scripts/test-codex-agent-settings-sync.sh
+        language: script
+        pass_filenames: false
+        files: >-
+          ^(scripts/codex-agent-settings-sync\.py|scripts/test-codex-agent-settings-sync\.sh)$
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
