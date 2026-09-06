@@ -306,8 +306,7 @@ go "github.com/bootdotdev/bootdev"
 go "golang.org/x/tools/gopls"
 
 ## uv tools ##
-uv "arcane", source: "file:///Users/dkelly/Projects/arcane"
-uv "echovault", source: "git+https://github.com/mraza007/echovault.git"
+uv "arcane-mcp", source: "git+https://github.com/Edition-X/arcane.git@v0.2.0-beta.18"
 uv "localstack"
 uv "mlx-audio", with: ["misaki", "numpy<2", "spacy<4"]
 

@@ -62,11 +62,54 @@ config_paths:
 ai_source_dir: "{{ host_files_dir }}/ai"
 ai_backup_dir: "{{ user_dir }}/.ai-config-backup"
 
+# Arcane MCP server binary. Every harness must use this exact path.
+ai_arcane_bin: "{{ config_paths.local_bin }}/arcane"
+
+# Claude Code profiles that receive managed MCP registrations and hooks.
+# config_dir holds settings.json, CLAUDE.md and skills. MCP state lives in
+# .claude.json: $HOME/.claude.json for the personal profile, and
+# <CLAUDE_CONFIG_DIR>/.claude.json for the work profile. claude_argv pins
+# both to user_dir so the idempotency test's fixture home never leaks into
+# the real one, and is a list so paths with spaces survive.
+ai_claude_profiles:
+  - name: personal
+    config_dir: "{{ user_dir }}/.claude"
+    claude_argv:
+      - env
+      - -u
+      - CLAUDE_CONFIG_DIR
+      - "HOME={{ user_dir }}"
+      - claude
+  - name: work
+    config_dir: "{{ config_paths.claude_work_config }}"
+    claude_argv:
+      - env
+      - "CLAUDE_CONFIG_DIR={{ config_paths.claude_work_config }}"
+      - claude
+
+# Managed Claude Code hooks. This list REPLACES the SessionStart list in each
+# profile's settings.json; all other settings keys are preserved.
+ai_claude_hooks:
+  SessionStart:
+    - matcher: "startup|resume|clear|compact"
+      hooks:
+        - type: command
+          command: "{{ ai_arcane_bin }} context --project 2>/dev/null || true"
+          timeout: 15
+
+# Tool permissions every Claude profile must pre-approve.
+ai_claude_permission_allow:
+  - mcp__arcane
+
 ai_harnesses:
   - name: Claude Code
     dir: "{{ user_dir }}/.claude"
     instructions: "{{ user_dir }}/.claude/CLAUDE.md"
     skills: "{{ user_dir }}/.claude/skills"
+  - name: Claude Code (work)
+    dir: "{{ config_paths.claude_work_config }}"
+    instructions: "{{ config_paths.claude_work_config }}/CLAUDE.md"
+    skills: "{{ config_paths.claude_work_config }}/skills"
   - name: Codex
     dir: "{{ user_dir }}/.codex"
     instructions: "{{ user_dir }}/.codex/AGENTS.md"

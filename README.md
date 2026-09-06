@@ -173,7 +173,9 @@ No `*-fast` model IDs are configured. Change one assignment in
 authentication, and `~/.claude` state remain untouched. `claude-work` is a
 managed wrapper around that same executable; it sets `CLAUDE_CONFIG_DIR` to
 `~/.claude-work` and keeps work authentication separate. T3 Code's Claude
-provider invokes `claude-work` through `~/.t3/userdata/settings.json`.
+provider invokes `claude-work` through `~/.t3/userdata/settings.json`. The work
+profile is a member of `ai_harnesses` like every other harness, so it receives
+the same `AGENTS.md` instructions and skills as the personal profile.
 
 ```bash
 claude             # personal/default profile

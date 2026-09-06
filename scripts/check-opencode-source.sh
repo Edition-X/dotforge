@@ -25,7 +25,7 @@ fi
 
 for command_file in \
     orchestrate.md implement-reviewed.md load-test-loop.md review.md debug-loop.md \
-    wayfinder.md grill.md grilling.md; do
+    wayfinder.md linear.md plan.md grill.md grilling.md; do
     [[ -f "${repo_root}/host_files/localhost/ai/opencode/commands/${command_file}" ]] || {
         printf 'missing OpenCode command source: %s\n' "$command_file" >&2
         exit 1
