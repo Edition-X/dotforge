@@ -1,0 +1,9 @@
+---
+# Forces every managed secret to be `secret rm` + re-`set` even when
+# `docker mcp secret ls` already shows the name. Off by default because
+# `secret set` is not idempotent (it errors on an existing key) and rotation
+# is a deliberate, occasional action, not something a routine `make mcp`
+# should do.
+#
+#   make mcp RUN_ARGS='-e mcp_toolkit_rotate_secrets=true'
+mcp_toolkit_rotate_secrets: false

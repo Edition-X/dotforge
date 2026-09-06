@@ -49,6 +49,13 @@ tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
 ai: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags ai)
 
+# Docker MCP Toolkit: profile, secrets, features and the Grafana tool
+# allowlist for the shared `sunrise` gateway. mcp-test (gateway smoke test)
+# arrives in M2 alongside the launchd service it exercises.
+.PHONY: mcp
+mcp: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags mcp $(RUN_ARGS))
+
 .PHONY: packages
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)

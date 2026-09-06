@@ -72,6 +72,7 @@ The configuration is organized into specialized roles:
 | `ssh` | Manages SSH keys and configuration |
 | `dotfiles` | Shell config (`.zshrc`, `.aliases`, `.functions`, env vars and secrets), git config, Ghostty, Forge MCP/skills, and skhd |
 | `ai_agents` | Shared harness instructions and skills plus managed OpenCode agents, model routing, commands, permissions, Claude profiles, T3 Code integration, and validation |
+| `mcp_toolkit` | Docker MCP Toolkit `sunrise` profile: features, Grafana secret, server membership, Grafana read-only tool allowlist, profile export |
 | `neovim` | Configures Neovim editor |
 | `tmux` | Sets up tmux configuration |
 | `packages` | Applies the root `Brewfile` via `brew bundle` |
@@ -88,6 +89,7 @@ make tmux       # tmux config only
 make packages   # Install missing packages
 make upgrade    # Install missing packages AND upgrade outdated ones
 make ai         # Shared AI harness and OpenCode configuration only
+make mcp        # Docker MCP Toolkit profile/secrets/features only
 ```
 
 ### 📦 Packages
@@ -122,6 +124,43 @@ Things worth knowing:
 Python packages are *not* managed here. Machine-wide tools belong in the
 Brewfile; anything project-specific belongs to that project's own uv/poetry
 environment.
+
+## MCP gateway
+
+The `mcp_toolkit` role converges the Docker MCP Toolkit's `sunrise` profile —
+one gateway, on this Mac, intended to serve Grafana, Notion and Linear over
+MCP Streamable HTTP to every AI harness. It manages:
+
+- **Features**: enables `tool-name-prefix`, disables `dynamic-tools`.
+- **Secrets**: sets `grafana.api_key` from the vault the first time it is
+  missing from `docker mcp secret ls`; never overwrites an existing value
+  unless `mcp_toolkit_rotate_secrets=true` is passed explicitly.
+- **Profile membership**: adds `grafana`, `notion-remote` and `linear` to the
+  `sunrise` profile (`docker mcp profile server add`), and sets
+  `grafana.url` from the vault.
+- **Tool allowlist**: restricts Grafana to a fixed read-only set of tools
+  (dashboards, datasources, Prometheus/Loki/Pyroscope queries, alerting and
+  on-call reads, Sift investigations) — no `create_*`/`update_*`/alert
+  management. Notion and Linear, both hosted, keep every tool.
+- **Export**: writes `docker mcp profile export sunrise` to
+  `~/.config/mcp-gateway/sunrise/profile.export.yaml` (0600) for a later
+  drift checker to diff against.
+
+Linear and Notion authenticate via OAuth-DCR, authorized once by hand
+(`docker mcp oauth authorize <provider>`) — the toolkit's alternative
+personal-access-token secret path was found not to work for Linear in this
+toolkit version, so no vault key is used for either. The role only verifies
+`docker mcp oauth ls` shows both `authorized` and fails with the exact
+command to run if not.
+
+No secret value is ever templated into a harness config — the API key lives
+in the macOS Keychain via Docker Desktop, and every harness will eventually
+point at the gateway's HTTP endpoint instead of holding its own credentials.
+
+```bash
+make mcp                                          # converge the sunrise profile
+make mcp RUN_ARGS='-e mcp_toolkit_rotate_secrets=true'   # force-rotate grafana.api_key
+```
 
 ### OpenCode
 
