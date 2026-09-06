@@ -1,0 +1,40 @@
+#!/bin/sh
+# Managed by Ansible (roles/mcp_toolkit). Runs the Docker MCP gateway for
+# profile {{ mcp_toolkit_profile }} on loopback with bearer auth.
+#
+# launchd invokes this with no PATH at all. `docker mcp gateway run` itself
+# is invoked below by absolute path, but the gateway process in turn shells
+# out to bare command names it expects to find on PATH: `socat` (bridges
+# stdio to image-type MCP servers, e.g. grafana — confirmed by M2 testing;
+# without this PATH, image-type servers fail with `exec: "socat": executable
+# file not found in $PATH` and remote-type servers still work since they
+# don't need it) and `docker-credential-desktop` (the Keychain credential
+# helper for `docker mcp secret`/OAuth token lookups; without this PATH,
+# docker falls back to a no-op `docker-credential-notfound` helper). Both
+# resolved locations are set explicitly here rather than left to whatever
+# PATH launchd happens to hand the process.
+set -eu
+
+PATH="{{ mcp_toolkit_docker_bin | dirname }}:{{ mcp_toolkit_socat_bin | dirname }}:/usr/bin:/bin"
+export PATH
+
+TOKEN_FILE="{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}/token"
+[ -s "$TOKEN_FILE" ] || { echo "mcp-gateway: token file missing" >&2; exit 78; }
+
+# Docker Desktop may not be up yet; exit non-zero so launchd (KeepAlive) retries.
+{{ mcp_toolkit_docker_bin }} info >/dev/null 2>&1 || exit 75
+
+MCP_GATEWAY_AUTH_TOKEN="$(cat "$TOKEN_FILE")"
+export MCP_GATEWAY_AUTH_TOKEN
+
+# --static is deliberately NOT used: static mode reaches image servers via
+# socat to the container hostname (mcp-grafana:4444), which the host cannot
+# resolve, so every image-type server fails with "initialize: EOF". Without
+# it the gateway drives image servers over stdio, which works; --long-lived
+# keeps their containers up between calls.
+exec {{ mcp_toolkit_docker_bin }} mcp gateway run \
+  --profile {{ mcp_toolkit_profile }} \
+  --transport streaming \
+  --host {{ mcp_gateway_host }} \
+  --port {{ mcp_gateway_port }} \
+  --long-lived

@@ -56,6 +56,12 @@ ai: $(PYTHON_VIRTUAL_ENVIRONMENT)
 mcp: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags mcp $(RUN_ARGS))
 
+# Gateway smoke test: initialize, tools/list, and one read-only call per
+# server against the running launchd-managed gateway (make mcp starts it).
+.PHONY: mcp-test
+mcp-test:
+	@./scripts/mcp-gateway-smoke.sh
+
 .PHONY: packages
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
