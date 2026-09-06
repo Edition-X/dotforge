@@ -5,12 +5,21 @@
 #
 # Idempotency: `claude mcp get arcane` prints the current registration. We
 # only remove and re-add when it is missing or points at the wrong command.
-# Each profile's claude_cmd sets or unsets CLAUDE_CONFIG_DIR explicitly, so
-# the result does not depend on the shell that runs ansible.
+# Each profile's claude_argv pins HOME or CLAUDE_CONFIG_DIR to user_dir, so
+# neither the invoking shell nor the test fixture can redirect the write.
+
+- name: Claude MCP - Locate claude binary
+  ansible.builtin.command:
+    argv: [command, -v, claude]
+  register: ai_agents_claude_binary
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  tags: [ai, claude]
 
 - name: Claude MCP - Inspect arcane registration
   ansible.builtin.command:
-    cmd: "{{ item.claude_cmd }} mcp get arcane"
+    argv: "{{ item.claude_argv + ['mcp', 'get', 'arcane'] }}"
   loop: "{{ ai_claude_profiles }}"
   loop_control:
     label: "{{ item.name }}"
@@ -18,15 +27,18 @@
   failed_when: false
   changed_when: false
   check_mode: false
+  when: ai_agents_claude_binary.rc == 0
   tags: [ai, claude]
 
 - name: Claude MCP - Remove stale arcane registration
   ansible.builtin.command:
-    cmd: "{{ item.item.claude_cmd }} mcp remove --scope user arcane"
-  loop: "{{ ai_agents_claude_mcp_current.results }}"
+    argv: "{{ item.item.claude_argv + ['mcp', 'remove', '--scope', 'user', 'arcane'] }}"
+  loop: "{{ ai_agents_claude_mcp_current.results | default([]) }}"
   loop_control:
-    label: "{{ item.item.name }}"
+    label: "{{ item.item.name | default('skipped') }}"
   when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
     - item.rc == 0
     - '("Command: " ~ ai_arcane_bin) not in item.stdout'
   changed_when: true
@@ -34,10 +46,16 @@
 
 - name: Claude MCP - Register arcane
   ansible.builtin.command:
-    cmd: "{{ item.item.claude_cmd }} mcp add --scope user --transport stdio arcane -- {{ ai_arcane_bin }} mcp"
-  loop: "{{ ai_agents_claude_mcp_current.results }}"
+    argv: >-
+      {{ item.item.claude_argv +
+         ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', 'arcane',
+          '--', ai_arcane_bin, 'mcp'] }}
+  loop: "{{ ai_agents_claude_mcp_current.results | default([]) }}"
   loop_control:
-    label: "{{ item.item.name }}"
-  when: 'item.rc != 0 or ("Command: " ~ ai_arcane_bin) not in item.stdout'
+    label: "{{ item.item.name | default('skipped') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - 'item.rc != 0 or ("Command: " ~ ai_arcane_bin) not in item.stdout'
   changed_when: true
   tags: [ai, claude]
