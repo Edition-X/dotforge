@@ -100,6 +100,7 @@ ai_claude_hooks:
 # Tool permissions every Claude profile must pre-approve.
 ai_claude_permission_allow:
   - mcp__arcane
+  - mcp__mcp-sunrise
 
 ai_harnesses:
   - name: Claude Code
@@ -197,3 +198,59 @@ opencode_commands:
   - plan.md
   - grill.md
   - grilling.md
+
+# Docker MCP Toolkit: one gateway serving Grafana, Notion and Linear to every
+# harness over loopback. Secrets come from the vault and go into the macOS
+# Keychain through Docker Desktop; they never touch harness configs.
+mcp_toolkit_profile: sunrise
+mcp_toolkit_servers: [grafana, notion-remote, linear]
+mcp_toolkit_features_enabled: [tool-name-prefix]
+mcp_toolkit_features_disabled: [dynamic-tools]
+mcp_toolkit_grafana_read_tools:
+  - search_dashboards
+  - get_dashboard_by_uid
+  - get_dashboard_summary
+  - get_dashboard_panel_queries
+  - get_dashboard_property
+  - list_datasources
+  - get_datasource
+  - query_prometheus
+  - query_prometheus_histogram
+  - list_prometheus_metric_names
+  - list_prometheus_metric_metadata
+  - list_prometheus_label_names
+  - list_prometheus_label_values
+  - query_loki_logs
+  - query_loki_stats
+  - query_loki_patterns
+  - list_loki_label_names
+  - list_loki_label_values
+  - list_alert_groups
+  - get_alert_group
+  - list_incidents
+  - get_incident
+  - search_folders
+  - get_annotations
+  - get_annotation_tags
+  - generate_deeplink
+  - get_panel_image
+  - list_oncall_schedules
+  - list_oncall_users
+  - list_oncall_teams
+  - get_current_oncall_users
+  - get_oncall_shift
+  - list_sift_investigations
+  - get_sift_investigation
+  - get_sift_analysis
+  - find_error_pattern_logs
+  - find_slow_requests
+  - query_pyroscope
+  - list_pyroscope_label_names
+  - list_pyroscope_label_values
+  - list_pyroscope_profile_types
+  - get_assertions
+mcp_gateway_host: 127.0.0.1
+# One gateway process per profile. sunrise is work; a later personal profile
+# gets its own port (8081), label, token and harness entry.
+mcp_gateway_port: 8080
+mcp_gateway_url: "http://{{ mcp_gateway_host }}:{{ mcp_gateway_port }}/mcp"

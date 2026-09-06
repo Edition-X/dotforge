@@ -49,6 +49,19 @@ tmux: $(PYTHON_VIRTUAL_ENVIRONMENT)
 ai: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags ai)
 
+# Docker MCP Toolkit: profile, secrets, features and the Grafana tool
+# allowlist for the shared `sunrise` gateway. mcp-test (gateway smoke test)
+# arrives in M2 alongside the launchd service it exercises.
+.PHONY: mcp
+mcp: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags mcp $(RUN_ARGS))
+
+# Gateway smoke test: initialize, tools/list, and one read-only call per
+# server against the running launchd-managed gateway (make mcp starts it).
+.PHONY: mcp-test
+mcp-test:
+	@./scripts/mcp-gateway-smoke.sh
+
 .PHONY: packages
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
@@ -59,10 +72,13 @@ packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 upgrade: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages -e "brew_upgrade=true")
 
-# Package drift, straight from brew with no Ansible in the way.
+# Package drift, straight from brew with no Ansible in the way, plus the
+# advisory agent-config/MCP-gateway drift checker (harness links, gateway
+# health, profile export, secrets, oauth, harness wiring).
 .PHONY: drift
 drift:
 	@brew bundle check --file=Brewfile --verbose --no-upgrade || true
+	@./scripts/check-agent-config-drift.sh
 
 # Rewrite the Brewfile from what is actually installed. Review the diff before
 # committing — dump loses the grouping comments.

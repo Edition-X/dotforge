@@ -267,8 +267,46 @@ for agent in architect explorer worker-fast implementer debugger reviewer test-r
     }
 done
 
+# The gateway entry legitimately carries a bearer token at
+# mcp["mcp-sunrise"].headers.Authorization; every other Bearer-shaped string
+# anywhere in the config tree is still a hard failure. Assert the one
+# allowed path has the expected shape, then redact its value before the
+# blanket secret scan below so it doesn't trip the same rule it is exempt
+# from.
+#
+# These two assertions read the staged $config_file directly rather than
+# $resolved_file: `opencode debug config` merges in whatever is already
+# installed at the real (non-staged) $HOME/.config/opencode/opencode.jsonc
+# regardless of OPENCODE_CONFIG_DIR, so right up until this staged file is
+# actually deployed, $resolved_file can still carry the old grafana/linear/
+# notion oauth entries from the file being replaced. The staged file itself
+# has no comments, so plain `jq` parses it directly.
+mcp_gateway_url_expected="${MCP_GATEWAY_URL:-http://127.0.0.1:8080/mcp}"
+
+jq -e --arg url "$mcp_gateway_url_expected" '
+    .mcp["mcp-sunrise"].url == $url and
+    (.mcp["mcp-sunrise"].headers.Authorization // "" | test("^Bearer .+"))
+' "$config_file" >/dev/null || {
+    printf 'mcp-sunrise entry missing, wrong URL, or missing bearer header\n' >&2
+    exit 1
+}
+
+jq -e '[.mcp[]? | select(has("oauth")) | select((.oauth // false) != false)] | length == 0' "$config_file" >/dev/null || {
+    printf 'unexpected oauth object remains on an mcp server entry\n' >&2
+    exit 1
+}
+
+mcp_sunrise_auth=$(jq -r '.mcp["mcp-sunrise"].headers.Authorization // empty' "$config_file")
+redacted_config_file="${tmp_dir}/config.redacted.jsonc"
+if [[ -n "$mcp_sunrise_auth" ]]; then
+    escaped_auth=$(printf '%s' "$mcp_sunrise_auth" | sed -e 's/[\/&]/\\&/g')
+    sed "s/${escaped_auth}/<redacted>/g" "$config_file" >"$redacted_config_file"
+else
+    cp "$config_file" "$redacted_config_file"
+fi
+
 managed_scan_paths=(
-    "$config_file"
+    "$redacted_config_file"
     "${config_dir}/ROUTING.md"
     "${config_dir}/agents"
     "${config_dir}/commands"

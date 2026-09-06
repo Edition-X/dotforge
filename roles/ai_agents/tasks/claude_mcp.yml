@@ -59,3 +59,93 @@
     - 'item.rc != 0 or ("Command: " ~ ai_arcane_bin) not in item.stdout'
   changed_when: true
   tags: [ai, claude]
+
+# mcp-sunrise: the gateway entry that replaced the per-harness grafana,
+# notion and linear registrations. `claude mcp get` prints header values in
+# clear text, so the inspect task is no_log as well as the add task.
+#
+# Idempotency: re-add when the registration is missing or the URL differs
+# from mcp_gateway_url (e.g. the gateway port changes). A token rotation
+# with the same URL is not detected here; re-run `claude mcp remove
+# mcp-sunrise -s user` by hand after rotating the token if that matters.
+
+- name: Claude MCP - Inspect mcp-sunrise registration
+  ansible.builtin.command:
+    argv: "{{ item.claude_argv + ['mcp', 'get', 'mcp-sunrise'] }}"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_claude_mcp_sunrise_current
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: ai_agents_claude_binary.rc == 0
+  tags: [ai, claude]
+
+- name: Claude MCP - Remove stale mcp-sunrise registration
+  ansible.builtin.command:
+    argv: "{{ item.item.claude_argv + ['mcp', 'remove', '--scope', 'user', 'mcp-sunrise'] }}"
+  loop: "{{ ai_agents_claude_mcp_sunrise_current.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('skipped') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - item.rc == 0
+    - >-
+      ("URL: " ~ mcp_gateway_url) not in item.stdout
+      or ("Authorization: Bearer " ~ mcp_gateway_sunrise_token) not in item.stdout
+  changed_when: true
+  no_log: true
+  tags: [ai, claude]
+
+- name: Claude MCP - Register mcp-sunrise
+  ansible.builtin.command:
+    argv: >-
+      {{ item.item.claude_argv +
+         ['mcp', 'add', '--scope', 'user', '--transport', 'http', 'mcp-sunrise',
+          mcp_gateway_url, '--header', 'Authorization: Bearer ' ~ mcp_gateway_sunrise_token] }}
+  loop: "{{ ai_agents_claude_mcp_sunrise_current.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('skipped') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - >-
+      item.rc != 0
+      or ("URL: " ~ mcp_gateway_url) not in item.stdout
+      or ("Authorization: Bearer " ~ mcp_gateway_sunrise_token) not in item.stdout
+  changed_when: true
+  no_log: true
+  tags: [ai, claude]
+
+# The gateway replaces these direct, per-server registrations. Only the
+# personal profile ever had them, but both profiles are checked so this
+# stays correct if that changes.
+
+- name: Claude MCP - Inspect legacy notion/grafana registrations
+  ansible.builtin.command:
+    argv: "{{ item.0.claude_argv + ['mcp', 'get', item.1] }}"
+  loop: "{{ ai_claude_profiles | product(['notion', 'grafana']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+  register: ai_agents_claude_mcp_legacy_current
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  when: ai_agents_claude_binary.rc == 0
+  tags: [ai, claude]
+
+- name: Claude MCP - Remove legacy notion/grafana registrations
+  ansible.builtin.command:
+    argv: "{{ item.item.0.claude_argv + ['mcp', 'remove', '--scope', 'user', item.item.1] }}"
+  loop: "{{ ai_agents_claude_mcp_legacy_current.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.0.name | default('skipped') }}/{{ item.item.1 | default('') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - item.rc == 0
+  changed_when: true
+  tags: [ai, claude]

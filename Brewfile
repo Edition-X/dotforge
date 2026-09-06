@@ -68,6 +68,9 @@ brew "glow"
 brew "tag"
 # Mac App Store CLI — drives the `mas` entries at the end of this file
 brew "mas"
+# Multipurpose relay; the Docker MCP gateway shells out to it to bridge stdio
+# to image-type MCP servers (e.g. grafana) — required for `docker mcp gateway run`
+brew "socat"
 # Terminal multiplexer
 brew "tmux"
 # Ambitious Vim-fork focused on extensibility and agility
