@@ -62,7 +62,10 @@ declare -a opencode_managed_files=(
 drift=()
 
 for f in "${instruction_files[@]}"; do
-    [[ -e "$f" ]] || continue
+    if [[ ! -e "$f" ]]; then
+        [[ -d "$(dirname "$f")" ]] && drift+=("${f/#$HOME/\~} is missing; harness dir exists but was never provisioned")
+        continue
+    fi
     if [[ ! -L "$f" ]]; then
         drift+=("${f/#$HOME/\~} is a real file, not a link into this repo")
     elif [[ "$(readlink "$f")" != "${ai_dir}/AGENTS.md" ]]; then
@@ -109,6 +112,8 @@ check_mcp_command() {
 if command -v jq >/dev/null 2>&1; then
     if [[ -f "${HOME}/forge/.mcp.json" ]]; then
         check_mcp_command "Forge" "$(jq -r '.mcpServers.arcane.command // empty' "${HOME}/forge/.mcp.json")"
+    elif [[ -d "${HOME}/forge" ]]; then
+        drift+=("Forge: .mcp.json missing")
     fi
     if [[ -f "${HOME}/.config/opencode/opencode.jsonc" ]]; then
         # opencode.jsonc may contain full-line comments; strip only lines whose

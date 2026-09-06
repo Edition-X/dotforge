@@ -67,17 +67,25 @@ ai_arcane_bin: "{{ config_paths.local_bin }}/arcane"
 
 # Claude Code profiles that receive managed MCP registrations and hooks.
 # config_dir holds settings.json, CLAUDE.md and skills. MCP state lives in
-# .claude.json, which for the personal profile is $HOME/.claude.json, NOT
-# ~/.claude/.claude.json, so the personal profile must run `claude` with
-# CLAUDE_CONFIG_DIR *unset* (the invoking shell may have it set, e.g. under
-# claude-work). claude_cmd encodes that per profile.
+# .claude.json: $HOME/.claude.json for the personal profile, and
+# <CLAUDE_CONFIG_DIR>/.claude.json for the work profile. claude_argv pins
+# both to user_dir so the idempotency test's fixture home never leaks into
+# the real one, and is a list so paths with spaces survive.
 ai_claude_profiles:
   - name: personal
     config_dir: "{{ user_dir }}/.claude"
-    claude_cmd: "env -u CLAUDE_CONFIG_DIR claude"
+    claude_argv:
+      - env
+      - -u
+      - CLAUDE_CONFIG_DIR
+      - "HOME={{ user_dir }}"
+      - claude
   - name: work
     config_dir: "{{ config_paths.claude_work_config }}"
-    claude_cmd: "env CLAUDE_CONFIG_DIR={{ config_paths.claude_work_config }} claude"
+    claude_argv:
+      - env
+      - "CLAUDE_CONFIG_DIR={{ config_paths.claude_work_config }}"
+      - claude
 
 # Managed Claude Code hooks. This list REPLACES the SessionStart list in each
 # profile's settings.json; all other settings keys are preserved.
