@@ -95,6 +95,9 @@
   ansible.builtin.command:
     argv: [docker, mcp, secret, set, "grafana.api_key"]
     stdin: "{{ grafana_service_account_token }}"
+    # Ansible appends a newline to stdin by default; `secret set` stores it
+    # verbatim and Grafana then rejects the Authorization header.
+    stdin_add_newline: false
   when: (not mcp_toolkit_grafana_secret_present) or mcp_toolkit_rotate_secrets
   no_log: true
   changed_when: true
