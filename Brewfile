@@ -306,7 +306,7 @@ go "github.com/bootdotdev/bootdev"
 go "golang.org/x/tools/gopls"
 
 ## uv tools ##
-uv "arcane-mcp", source: "git+https://github.com/Edition-X/arcane.git@v0.2.0-beta.18"
+uv "arcane-mcp", source: "git+https://github.com/Edition-X/arcane.git@v0.2.0-beta.19"
 uv "localstack"
 uv "mlx-audio", with: ["misaki", "numpy<2", "spacy<4"]
 
