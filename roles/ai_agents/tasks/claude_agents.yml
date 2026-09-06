@@ -1,0 +1,107 @@
+---
+# Renders the four native Claude Code subagents (worker, verifier, rescue,
+# documentation) into both ai_claude_profiles' agents_dir from the canonical
+# routing policy. No custom `orchestrator` is rendered: the T3 run this
+# reproduces used Claude's normal root selected at the lead tier (Fable
+# medium) with explicit Sonnet workers instead of a custom primary agent.
+#
+# Managed by exact filename only, mirroring the OpenCode agents block: a
+# colliding non-managed file is backed up once, then overwritten. The
+# agents/ directory itself is never swept, so any other user-owned agent
+# file is left untouched.
+
+- name: Claude agents - Backup directory
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}/claude/{{ item.name }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  check_mode: false
+  tags: [ai, claude]
+
+- name: Claude agents - Stat migration marker
+  ansible.builtin.stat:
+    path: "{{ ai_backup_dir }}/claude/{{ item.name }}/.managed"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_claude_agents_backup_marker
+  tags: [ai, claude]
+
+- name: Claude agents - Agents directory
+  ansible.builtin.file:
+    path: "{{ item.agents_dir }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: [ai, claude]
+
+- name: Claude agents - Stat existing managed agent files
+  ansible.builtin.stat:
+    path: "{{ item.0.agents_dir }}/{{ item.1.file }}"
+  loop: "{{ ai_claude_profiles | product(claude_agents) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1.name }}"
+  register: ai_agents_claude_agents_existing
+  tags: [ai, claude]
+
+# force:false alone would let a file created *after* the first apply (i.e.
+# genuinely user-owned, not merely pre-existing) also dodge backup on some
+# future re-collision; gating on the per-profile migration marker instead
+# means only the true pre-managed content is ever preserved, exactly once.
+- name: Claude agents - Back up colliding non-managed agent files
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/claude/{{ item.item.0.name }}/{{ item.item.1.file }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_claude_agents_existing.results }}"
+  loop_control:
+    label: "{{ item.item.0.name }}/{{ item.item.1.name }}"
+  vars:
+    _profile_marker: >-
+      {{ ai_agents_claude_agents_backup_marker.results
+         | selectattr('item.name', 'equalto', item.item.0.name)
+         | map(attribute='stat.exists') | first }}
+  when:
+    - item.stat.exists
+    - item.stat.isreg
+    - not _profile_marker
+  tags: [ai, claude]
+
+- name: Claude agents - Install rendered agents
+  ansible.builtin.template:
+    src: claude/agent.md.j2
+    dest: "{{ profile.agents_dir }}/{{ agent.file }}"
+    mode: '0644'
+  vars:
+    profile: "{{ item.0 }}"
+    agent: "{{ item.1 }}"
+  loop: "{{ ai_claude_profiles | product(claude_agents) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1.name }}"
+  tags: [ai, claude]
+
+- name: Claude agents - Mark migration backup complete
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}/claude/{{ item.item.name }}/.managed"
+    state: touch
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_claude_agents_backup_marker.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: not item.stat.exists
+  tags: [ai, claude]
