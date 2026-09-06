@@ -92,6 +92,7 @@ dump:
 lint: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-lint)
 	@$(call activate, yamllint .)
+	@./scripts/check-skills.sh
 
 .PHONY: setup-git-hooks
 setup-git-hooks: $(PYTHON_VIRTUAL_ENVIRONMENT)
