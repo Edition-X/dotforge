@@ -1,9 +1,17 @@
 ---
-description: Reproduce a failure, prove root cause, apply the smallest fix, and verify without repeating unchanged attempts.
+description: Reproduce a failure, prove root cause, apply the smallest fix through a worker, and verify without repeating unchanged attempts.
 agent: orchestrator
 ---
 Debug failure or observed defect: `$ARGUMENTS`.
 
-Capture exact failing command, environment, expected behavior, observed behavior, and previous attempts. Delegate reproduction to `test-runner` when deterministic and root-cause analysis to `debugger`. Require evidence separating observations, hypotheses, experiments, root cause, fix, and verification. Apply smallest justified fix through `implementer` only after root cause is demonstrated; use `architect` when boundaries or production safety are involved.
+Capture the exact failing command, environment, expected behavior, observed behavior, and
+any previous attempts. Delegate reproduction, root-cause evidence, and the smallest
+justified fix as one whole ticket to `worker`: require it to separate observations,
+hypotheses, experiments, demonstrated root cause, fix, and verification. Apply the fix only
+after root cause is demonstrated, not before.
 
-Allow one focused correction to same approach. If it fails again, escalate instead of repeating. Inspect actual diff, rerun focused and relevant broader checks, and report failures honestly. Do not change unrelated files or perform remote/destructive actions.
+Allow one focused correction to the same worker if the first attempt fails. A second
+materially similar failure (same failure_fingerprint) goes to a fresh `rescue` dispatch
+instead of a third attempt on the same approach. Inspect the actual diff yourself, rerun
+focused and relevant broader checks, and report failures honestly. Do not change unrelated
+files or perform remote/destructive actions.
