@@ -157,6 +157,11 @@ No secret value is ever templated into a harness config — the API key lives
 in the macOS Keychain via Docker Desktop, and every harness will eventually
 point at the gateway's HTTP endpoint instead of holding its own credentials.
 
+`~/Projects/Grafana_local_mcp` (the standalone compose stack and launchd
+watchdog that used to serve Grafana on `127.0.0.1:8000`) is superseded by the
+gateway's `grafana` server; its container and launchd job have been stopped,
+but the repo itself is left for Dan to archive or delete by hand.
+
 ```bash
 make mcp                                          # converge the sunrise profile
 make mcp RUN_ARGS='-e mcp_toolkit_rotate_secrets=true'   # force-rotate grafana.api_key
