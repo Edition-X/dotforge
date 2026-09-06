@@ -1,0 +1,298 @@
+---
+# Converges the Docker MCP Toolkit's `sunrise` profile: features, the
+# Grafana secret, server membership, the Grafana read-only tool allowlist,
+# and a profile export for the drift checker. Everything goes through the
+# `docker mcp` CLI (syntax pinned in docs/research/mcp-toolkit-cli-2026-09.md
+# from M0) — nothing here templates `~/.docker/mcp/*` directly, since that
+# state moved to a SQLite store the CLI owns.
+#
+# Every mutating task is guarded by an inspect task immediately above it, so
+# a second `make mcp` is changed=0. Inspect tasks carry `check_mode: false`
+# so they run for real even under `make check` and give the conditionals
+# below accurate state to reason about.
+
+- name: MCP Toolkit - Confirm Docker is running
+  ansible.builtin.command:
+    argv: [docker, info]
+  register: mcp_toolkit_docker_info
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: MCP Toolkit - Fail fast when Docker is not running
+  ansible.builtin.fail:
+    msg: >-
+      Docker is not running (`docker info` exited {{ mcp_toolkit_docker_info.rc }}).
+      Start Docker Desktop, then re-run make mcp.
+  when: mcp_toolkit_docker_info.rc != 0
+  tags: [mcp]
+
+- name: MCP Toolkit - Confirm toolkit CLI is present
+  ansible.builtin.command:
+    argv: [docker, mcp, version]
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+# --- Features ---------------------------------------------------------
+
+- name: Features - Inspect current state
+  ansible.builtin.command:
+    argv: [docker, mcp, feature, list]
+  register: mcp_toolkit_features_current
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Features - Enable required features
+  ansible.builtin.command:
+    argv: [docker, mcp, feature, enable, "{{ item }}"]
+  loop: "{{ mcp_toolkit_features_enabled }}"
+  when: (mcp_toolkit_features_current.stdout | regex_search(item ~ '\s+disabled')) is not none
+  changed_when: true
+  tags: [mcp]
+
+- name: Features - Disable required features
+  ansible.builtin.command:
+    argv: [docker, mcp, feature, disable, "{{ item }}"]
+  loop: "{{ mcp_toolkit_features_disabled }}"
+  when: (mcp_toolkit_features_current.stdout | regex_search(item ~ '\s+enabled')) is not none
+  changed_when: true
+  tags: [mcp]
+
+# --- Secrets ------------------------------------------------------------
+# `docker mcp secret set` is NOT idempotent: it errors if the key already
+# exists. So a plain "set" can never be the guard — check `secret ls` first,
+# and only `rm` + re-`set` when the value is missing, or when a rotation was
+# explicitly requested via mcp_toolkit_rotate_secrets. Values never touch
+# stdout/logs: no_log covers the set task, and the value only ever flows
+# from the vault into the command's stdin.
+
+- name: Secrets - Inspect current state
+  ansible.builtin.command:
+    argv: [docker, mcp, secret, ls]
+  register: mcp_toolkit_secrets_current
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Secrets - Determine whether grafana.api_key needs (re)setting
+  ansible.builtin.set_fact:
+    mcp_toolkit_grafana_secret_present: "{{ 'grafana.api_key' in mcp_toolkit_secrets_current.stdout }}"
+  tags: [mcp]
+
+- name: Secrets - Remove grafana.api_key before rotating
+  ansible.builtin.command:
+    argv: [docker, mcp, secret, rm, "grafana.api_key"]
+  when:
+    - mcp_toolkit_grafana_secret_present
+    - mcp_toolkit_rotate_secrets
+  changed_when: true
+  tags: [mcp]
+
+- name: Secrets - Set grafana.api_key
+  ansible.builtin.command:
+    argv: [docker, mcp, secret, set, "grafana.api_key"]
+    stdin: "{{ grafana_service_account_token }}"
+  when: (not mcp_toolkit_grafana_secret_present) or mcp_toolkit_rotate_secrets
+  no_log: true
+  changed_when: true
+  tags: [mcp]
+
+# --- OAuth ----------------------------------------------------------------
+# Linear and Notion use OAuth-DCR, not a vault secret (decided 2026-09-06
+# after M0 found the toolkit never reaches the catalog's PAT fallback for
+# Linear). Both are authorized out-of-band by Dan; this role only verifies.
+
+- name: OAuth - Inspect authorization state
+  ansible.builtin.command:
+    argv: [docker, mcp, oauth, ls]
+  register: mcp_toolkit_oauth_current
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: OAuth - Require linear authorized
+  ansible.builtin.assert:
+    that: mcp_toolkit_oauth_current.stdout is regex('linear\s*\|\s*authorized')
+    fail_msg: >-
+      Run: docker mcp oauth authorize linear (sign in to the Sunrise Robotics
+      workspace), then re-run make mcp.
+    success_msg: "linear authorized"
+  tags: [mcp]
+
+- name: OAuth - Require notion-remote authorized
+  ansible.builtin.assert:
+    that: mcp_toolkit_oauth_current.stdout is regex('notion-remote\s*\|\s*authorized')
+    fail_msg: >-
+      Run: docker mcp oauth authorize notion-remote (sign in to the Sunrise
+      Robotics workspace), then re-run make mcp.
+    success_msg: "notion-remote authorized"
+  tags: [mcp]
+
+# --- Profile: existence and server membership ------------------------------
+
+- name: Profile - Inspect existing profiles
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, ls]
+  register: mcp_toolkit_profiles_current
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Profile - Create profile
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, create, --name, "{{ mcp_toolkit_profile }}", --id, "{{ mcp_toolkit_profile }}"]
+  when: mcp_toolkit_profile not in mcp_toolkit_profiles_current.stdout
+  changed_when: true
+  tags: [mcp]
+
+- name: Profile - Inspect current servers (pre-add)
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, show, "{{ mcp_toolkit_profile }}", --format, json]
+  register: mcp_toolkit_profile_pre
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Profile - Record current server names
+  ansible.builtin.set_fact:
+    mcp_toolkit_profile_servers: >-
+      {{
+        (mcp_toolkit_profile_pre.stdout | from_json).servers
+        | map(attribute='snapshot') | map(attribute='server') | map(attribute='name')
+        | list
+      }}
+  tags: [mcp]
+
+- name: Profile - Add missing servers
+  ansible.builtin.command:
+    argv:
+      [
+        docker, mcp, profile, server, add, "{{ mcp_toolkit_profile }}",
+        --server, "catalog://mcp/docker-mcp-catalog/{{ item }}",
+      ]
+  loop: "{{ mcp_toolkit_servers }}"
+  when: item not in mcp_toolkit_profile_servers
+  changed_when: true
+  tags: [mcp]
+
+# --- Profile: grafana.url config ------------------------------------------
+
+- name: Profile - Inspect grafana.url config value
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, config, "{{ mcp_toolkit_profile }}", --get, grafana.url]
+  register: mcp_toolkit_grafana_url_current
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Profile - Set grafana.url config value
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, config, "{{ mcp_toolkit_profile }}", --set, "grafana.url={{ grafana_url }}"]
+  when: (mcp_toolkit_grafana_url_current.stdout | trim | regex_replace('^grafana\.url=', '')) != grafana_url
+  changed_when: true
+  tags: [mcp]
+
+# --- Profile: Grafana read-only tool allowlist -----------------------------
+# Re-inspects after the server-add/config steps above, since the pre-add
+# snapshot has no grafana entry yet on a first run.
+
+- name: Profile - Inspect current server snapshot (post-add)
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, show, "{{ mcp_toolkit_profile }}", --format, json]
+  register: mcp_toolkit_profile_post
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Profile - Record current grafana tool allowlist
+  ansible.builtin.set_fact:
+    mcp_toolkit_grafana_tools_current: >-
+      {{
+        (
+          (mcp_toolkit_profile_post.stdout | from_json).servers
+          | selectattr('snapshot.server.name', 'equalto', 'grafana')
+          | map(attribute='tools') | list | first | default([], true)
+        ) | default([], true) | sort
+      }}
+  tags: [mcp]
+
+- name: Profile - Determine whether the grafana allowlist needs reapplying
+  ansible.builtin.set_fact:
+    mcp_toolkit_grafana_tools_need_apply: >-
+      {{ mcp_toolkit_grafana_tools_current != (mcp_toolkit_grafana_read_tools | sort) }}
+  tags: [mcp]
+
+- name: Profile - Disable all grafana tools before reapplying the allowlist
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, tools, "{{ mcp_toolkit_profile }}", --disable-all, grafana]
+  when: mcp_toolkit_grafana_tools_need_apply
+  changed_when: true
+  tags: [mcp]
+
+- name: Profile - Enable each allowlisted grafana tool
+  ansible.builtin.command:
+    argv: [docker, mcp, profile, tools, "{{ mcp_toolkit_profile }}", --enable, "grafana.{{ item }}"]
+  loop: "{{ mcp_toolkit_grafana_read_tools }}"
+  when: mcp_toolkit_grafana_tools_need_apply
+  changed_when: true
+  tags: [mcp]
+
+# --- Export -----------------------------------------------------------
+# A snapshot for the drift checker (M5) to diff against later. Written via
+# a staged temp file + copy so Ansible's own diff decides "changed", rather
+# than trusting the CLI (which always exits 0 and rewrites the file).
+
+- name: Export - Create staging directory
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: mcp-toolkit-export-
+  register: mcp_toolkit_export_stage
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Export - Write profile snapshot to staging
+  ansible.builtin.command:
+    argv:
+      [
+        docker, mcp, profile, export, "{{ mcp_toolkit_profile }}",
+        "{{ mcp_toolkit_export_stage.path }}/profile.export.yaml",
+      ]
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
+
+- name: Export - Config directory
+  ansible.builtin.file:
+    path: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  # Created even under --check, so the install task below (which needs the
+  # destination directory to already exist) has somewhere to aim. Same idiom
+  # as ai_agents' migration backup directory.
+  check_mode: false
+  tags: [mcp]
+
+- name: Export - Install profile snapshot
+  ansible.builtin.copy:
+    src: "{{ mcp_toolkit_export_stage.path }}/profile.export.yaml"
+    dest: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}/profile.export.yaml"
+    remote_src: true
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  tags: [mcp]
+
+- name: Export - Remove staging directory
+  ansible.builtin.file:
+    path: "{{ mcp_toolkit_export_stage.path }}"
+    state: absent
+  changed_when: false
+  check_mode: false
+  tags: [mcp]
