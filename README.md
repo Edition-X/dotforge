@@ -189,19 +189,15 @@ repo file, only in the runtime config files below (each `0600`).
 - **Forge** (`~/forge/.mcp.json`, role-templated): `mcp-sunrise` with a `url`
   and `headers.Authorization`, replacing its `linear`, `notion` and `grafana`
   entries. `arcane` is untouched.
-- **Codex CLI** (`~/.codex/config.toml`) — **hand-managed, not templated**.
-  Codex's config file is app-owned; Ansible never writes it. `config.toml`
-  does support a literal `http_headers` map, so replace Codex's existing
-  `linear`, `notion`, `grafana` entries with:
-
-  ```toml
-  [mcp_servers.mcp-sunrise]
-  url = "http://127.0.0.1:8080/mcp"
-  http_headers = { Authorization = "Bearer <token>" }
-  ```
-
-  Copy `<token>` from `~/.config/mcp-gateway/sunrise/token`. The M5 drift
-  checker flags this file until it matches.
+- **Codex CLI** (`~/.codex/config.toml`) — managed by
+  `roles/ai_agents/tasks/codex_mcp.yml` via `scripts/codex-mcp-sync.py`. The
+  file is otherwise app-owned (ChatGPT desktop), so the sync script uses
+  `tomlkit` to surgically replace only the `arcane` and `mcp-sunrise`
+  `mcp_servers` entries and remove `linear`, `notion`, `grafana`, leaving
+  every other section (other servers, `[projects.*]` trust levels, plugins,
+  marketplaces, desktop settings) byte-for-byte untouched. A one-time backup
+  of the pre-sync file is kept at
+  `~/.ai-config-backup/codex-config.toml.pre-mcp-sync`.
 
 ### OpenCode
 

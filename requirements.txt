@@ -5,3 +5,7 @@ ansible
 ansible-lint>=25.11.0
 pre-commit>=3.5.0
 yamllint>=1.33.0
+# Format-preserving TOML editor for scripts/codex-mcp-sync.py: Codex's
+# config.toml is owned by the ChatGPT desktop app, so the sync script must
+# round-trip comments/formatting for every section it does not touch.
+tomlkit>=0.13

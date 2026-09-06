@@ -1,0 +1,64 @@
+---
+# Manages the [mcp_servers.*] entries in Codex's config.toml that this repo
+# owns (arcane, mcp-sunrise) and removes the ones it retires (linear, notion,
+# grafana). Everything else in the file — other hand-managed servers
+# (figma, playwright, node_repl), [projects.*] trust levels, plugins,
+# marketplaces, desktop settings — belongs to the ChatGPT desktop app and
+# must survive byte-for-byte. scripts/codex-mcp-sync.py does the surgical
+# merge with tomlkit, a format-preserving TOML library, so untouched sections
+# round-trip unchanged.
+#
+# Codex is optional on any given machine, so this whole file is a no-op when
+# ~/.codex/config.toml does not exist rather than an error.
+
+- name: Codex MCP - Stat config.toml
+  ansible.builtin.stat:
+    path: "{{ user_dir }}/.codex/config.toml"
+  register: ai_agents_codex_config
+  check_mode: false
+  tags: [ai, codex]
+
+- name: Codex MCP - Skip when Codex is not installed
+  ansible.builtin.debug:
+    msg: "{{ user_dir }}/.codex/config.toml not present; skipping Codex MCP sync."
+  when: not ai_agents_codex_config.stat.exists
+  tags: [ai, codex]
+
+- name: Codex MCP - Back up config.toml before the first sync
+  ansible.builtin.copy:
+    src: "{{ user_dir }}/.codex/config.toml"
+    dest: "{{ ai_backup_dir }}/codex-config.toml.pre-mcp-sync"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  when: ai_agents_codex_config.stat.exists
+  tags: [ai, codex]
+
+# stdin carries the desired server definitions (including the gateway bearer
+# token) so it never appears on the command line or in `ps`. no_log covers
+# the whole task since the rendered argv and stdin both flow from
+# ai_codex_mcp_servers, which contains the token.
+- name: Codex MCP - Sync managed mcp_servers entries
+  ansible.builtin.command:
+    argv: >-
+      {{
+        [
+          project_dir ~ '/scripts/codex-mcp-sync.py',
+          '--config', user_dir ~ '/.codex/config.toml',
+          '--desired', '-',
+          '--remove', ai_codex_mcp_remove | join(',')
+        ]
+        + (['--check'] if ansible_check_mode else [])
+      }}
+    stdin: "{{ ai_codex_mcp_servers | to_json }}"
+    stdin_add_newline: false
+  register: ai_agents_codex_mcp_sync
+  when: ai_agents_codex_config.stat.exists
+  # Careful: "changed" is a substring of "unchanged", so this must match the
+  # trimmed line exactly rather than testing containment.
+  changed_when: "ai_agents_codex_mcp_sync.stdout | trim == 'changed'"
+  check_mode: false
+  no_log: true
+  tags: [ai, codex]

@@ -488,6 +488,12 @@
     - ai
     - claude
 
+- name: Codex MCP - Manage mcp_servers entries
+  ansible.builtin.include_tasks: codex_mcp.yml
+  tags:
+    - ai
+    - codex
+
 - name: Claude settings - Manage hooks and permissions
   ansible.builtin.include_tasks: claude_settings.yml
   tags:
