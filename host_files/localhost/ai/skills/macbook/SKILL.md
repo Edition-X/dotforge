@@ -1,6 +1,6 @@
 ---
 name: macbook
-description: Make any change to this Mac go through the macbook-pro repo instead of by hand — installing, removing or upgrading an app, CLI, font or tool; changing shell, git, terminal (ghostty), skhd, neovim, tmux or ssh config; changing anything about the AI harnesses (Claude, Codex, OpenCode, Forge, T3), their instructions, skills, MCP servers, hooks, permissions or the MCP gateway; or anything else managed by the macbook-pro repo. Use when Dan says "install", "uninstall", "remove", "add to my mac", "update my dotfiles", "change my zshrc", "add an MCP", "my Claude/Codex/OpenCode config", or names any tool, app, or harness setting he wants changed on this machine.
+description: Make any change to this Mac go through the macbook-pro repo instead of by hand — installing, removing or upgrading an app, CLI, font or tool; changing shell, git, terminal (ghostty), skhd, neovim, tmux or ssh config; changing AI harness (Claude, Codex, OpenCode, Forge, T3) instructions, skills, MCP servers, hooks, permissions, or the MCP gateway. Use when Dan says "install", "uninstall", "remove", "add to my mac", "update my dotfiles", "change my zshrc", "add an MCP", "my Claude/Codex/OpenCode config", or names any tool, app, or harness setting he wants changed on this machine.
 ---
 
 # Macbook
