@@ -93,7 +93,9 @@
     - ai_agents_claude_binary.rc == 0
     - item.skipped is not defined
     - item.rc == 0
-    - '("URL: " ~ mcp_gateway_url) not in item.stdout'
+    - >-
+      ("URL: " ~ mcp_gateway_url) not in item.stdout
+      or ("Authorization: Bearer " ~ mcp_gateway_sunrise_token) not in item.stdout
   changed_when: true
   no_log: true
   tags: [ai, claude]
@@ -110,7 +112,10 @@
   when:
     - ai_agents_claude_binary.rc == 0
     - item.skipped is not defined
-    - 'item.rc != 0 or ("URL: " ~ mcp_gateway_url) not in item.stdout'
+    - >-
+      item.rc != 0
+      or ("URL: " ~ mcp_gateway_url) not in item.stdout
+      or ("Authorization: Bearer " ~ mcp_gateway_sunrise_token) not in item.stdout
   changed_when: true
   no_log: true
   tags: [ai, claude]
