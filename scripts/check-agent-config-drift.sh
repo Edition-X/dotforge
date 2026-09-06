@@ -135,6 +135,18 @@ if command -v claude >/dev/null 2>&1; then
     fi
 fi
 
+# --- Arcane MCP Brewfile pin -------------------------------------------
+# Catches an installed arcane-mcp that no longer matches the Brewfile pin
+# (e.g. after a manual `uv tool upgrade` or before running `make packages`
+# following an automated Brewfile bump). `brew bundle check` only names
+# individual packages with --verbose; without it, the output never mentions
+# "arcane" even when arcane-mcp is the one unsatisfied dependency.
+if command -v brew >/dev/null 2>&1; then
+    if brew bundle check --file="${repo_root}/Brewfile" --no-upgrade --verbose 2>&1 | grep -qi arcane; then
+        drift+=("arcane-mcp: installed version does not match the Brewfile pin; run make packages")
+    fi
+fi
+
 if (( ${#drift[@]} > 0 )); then
     echo "agent config drift — these are not links into this repo:"
     printf '  - %s\n' "${drift[@]}"
