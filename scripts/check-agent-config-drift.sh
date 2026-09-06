@@ -165,7 +165,9 @@ if command -v docker >/dev/null 2>&1; then
     if [[ -f "${mcp_gateway_profile_export}" ]]; then
         mcp_toolkit_drift_dir=$(mktemp -d)
         if docker mcp profile export sunrise "${mcp_toolkit_drift_dir}/profile.export.yaml" >/dev/null 2>&1 &&
-            ! diff -q "${mcp_toolkit_drift_dir}/profile.export.yaml" "${mcp_gateway_profile_export}" >/dev/null 2>&1; then
+            # `profile export` serialises the servers list in non-deterministic order,
+            # so compare sorted lines rather than raw files.
+            ! diff -q <(sort "${mcp_toolkit_drift_dir}/profile.export.yaml") <(sort "${mcp_gateway_profile_export}") >/dev/null 2>&1; then
             drift+=("mcp-sunrise profile: docker mcp profile export sunrise no longer matches ${mcp_gateway_profile_export/#$HOME/\~}")
         fi
         trash "${mcp_toolkit_drift_dir}"
