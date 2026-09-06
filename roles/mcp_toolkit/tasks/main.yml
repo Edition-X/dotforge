@@ -373,6 +373,7 @@
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0600'
+  register: mcp_toolkit_token_file
   no_log: true
   tags: [mcp]
 
@@ -396,25 +397,27 @@
   register: mcp_toolkit_plist
   tags: [mcp]
 
-- name: Gateway - Reload the launchd service when run.sh or the plist changed
+# The gateway reads the token once at start, so a rotated token file needs a
+# restart too, not only run.sh or plist changes.
+- name: Gateway - Reload the launchd service when run.sh, the plist or the token changed
   ansible.builtin.command:
     argv:
       - launchctl
       - bootout
       - "gui/{{ mcp_toolkit_launchd_uid }}"
       - "{{ user_dir }}/Library/LaunchAgents/com.dkelly.mcp-gateway-{{ mcp_toolkit_profile }}.plist"
-  when: mcp_toolkit_run_script.changed or mcp_toolkit_plist.changed
+  when: mcp_toolkit_run_script.changed or mcp_toolkit_plist.changed or mcp_toolkit_token_file.changed
   changed_when: true
   failed_when: false
   tags: [mcp]
 
-- name: Gateway - Bootstrap the launchd service when run.sh or the plist changed
+- name: Gateway - Bootstrap the launchd service when run.sh, the plist or the token changed
   ansible.builtin.command:
     argv:
       - launchctl
       - bootstrap
       - "gui/{{ mcp_toolkit_launchd_uid }}"
       - "{{ user_dir }}/Library/LaunchAgents/com.dkelly.mcp-gateway-{{ mcp_toolkit_profile }}.plist"
-  when: mcp_toolkit_run_script.changed or mcp_toolkit_plist.changed
+  when: mcp_toolkit_run_script.changed or mcp_toolkit_plist.changed or mcp_toolkit_token_file.changed
   changed_when: true
   tags: [mcp]
