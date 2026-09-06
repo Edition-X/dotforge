@@ -34,6 +34,10 @@ and `roles/*/tasks/main.yml` are the source of truth, this table is a pointer to
 
 ## 2. The process
 
+First check whether the request is already satisfied (`brew list <name>`, `grep` the
+Brewfile, `claude mcp get`, and so on). If it is, say so with the evidence and stop:
+no branch, no commit for a zero-diff change.
+
 Run these in order. Do not skip the verify step or the second dry run.
 
 ```bash
