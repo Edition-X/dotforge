@@ -20,7 +20,6 @@ CASKS=(
     claude
     cmux
     crossover
-    cursor
     discord
     firefox
     ghostty

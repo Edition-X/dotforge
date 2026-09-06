@@ -8,11 +8,9 @@ ansible-playbook site.yml --tags ai
 ```
 
 - `AGENTS.md` — one canonical instruction file, linked to `~/.claude/CLAUDE.md`,
-  `~/.claude-work/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/forge/AGENTS.md`,
-  `~/.config/opencode/AGENTS.md`, and `~/.config/devin/AGENTS.md` (Devin's own
-  global-rules convention — it also reads `~/.claude/CLAUDE.md` as a fallback,
-  but this makes it explicit rather than incidental).
-- `skills/` — one skill set, linked into all six harnesses.
+  `~/.claude-work/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/forge/AGENTS.md`, and
+  `~/.config/opencode/AGENTS.md`.
+- `skills/` — one skill set, linked into all five harnesses.
 - OpenCode config, agents, commands, and routing policy are rendered by the
   `ai_agents` role from `host_vars/localhost/opencode.yml` and source files here.
 

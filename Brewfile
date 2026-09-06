@@ -220,7 +220,6 @@ brew "pipes-sh"
 brew "neofetch"
 
 ## Casks — editors and terminals ##
-cask "cursor"
 cask "visual-studio-code"
 cask "ghostty"
 cask "cmux"
@@ -240,7 +239,6 @@ cask "ngrok/ngrok/ngrok"
 # AI agents and assistants
 cask "claude"
 cask "chatgpt-classic"
-cask "devin-desktop"
 cask "t3-code"
 # Design
 cask "figma"

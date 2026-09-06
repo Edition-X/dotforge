@@ -6,3 +6,4 @@ ai_agents_prune_unused: false
 
 ai_agents_unused_instructions:
   - "{{ user_dir }}/.gemini/GEMINI.md"
+  - "{{ user_dir }}/.config/devin/AGENTS.md"

@@ -123,10 +123,6 @@ ai_harnesses:
     dir: "{{ user_dir }}/.config/opencode"
     instructions: "{{ user_dir }}/.config/opencode/AGENTS.md"
     skills: "{{ user_dir }}/.config/opencode/skills"
-  - name: Devin
-    dir: "{{ user_dir }}/.config/devin"
-    instructions: "{{ user_dir }}/.config/devin/AGENTS.md"
-    skills: "{{ user_dir }}/.config/devin/skills"
 
 # Skills owned by another repo. Linked to that repo rather than vendored here,
 # so the owning repo stays the single source of truth and edits there take
