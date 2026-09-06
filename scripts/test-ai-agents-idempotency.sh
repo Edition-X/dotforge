@@ -61,6 +61,28 @@ jq -e --arg binary "${test_home}/.local/bin/claude-work" \
     exit 1
 }
 
+# Both Claude profiles must receive byte-identical rendered agents: same
+# canonical routing policy, same tier resolution, no profile-specific drift.
+for agent in worker verifier rescue documentation; do
+    personal_agent="${test_home}/.claude/agents/${agent}.md"
+    work_agent="${test_home}/.claude-work/agents/${agent}.md"
+    [[ -f "${personal_agent}" ]] || { printf 'Claude personal agent missing: %s\n' "$agent" >&2; exit 1; }
+    [[ -f "${work_agent}" ]] || { printf 'Claude work agent missing: %s\n' "$agent" >&2; exit 1; }
+    diff -q "${personal_agent}" "${work_agent}" >/dev/null || {
+        printf 'Claude personal/work agent differs: %s\n' "$agent" >&2
+        exit 1
+    }
+done
+
+jq -e '.model == "claude-fable-5-1" and .effortLevel == "medium"' "${test_home}/.claude/settings.json" >/dev/null || {
+    printf 'Claude personal settings missing managed model/effortLevel\n' >&2
+    exit 1
+}
+jq -e '.model == "claude-fable-5-1" and .effortLevel == "medium"' "${test_home}/.claude-work/settings.json" >/dev/null || {
+    printf 'Claude work settings missing managed model/effortLevel\n' >&2
+    exit 1
+}
+
 before_backup=$(shasum -a 256 "${backup_dir}/opencode/orchestrator.md")
 before_retired_backup=$(shasum -a 256 "${backup_dir}/opencode/retired/architect.md")
 first_config=$(shasum -a 256 "${test_home}/.config/opencode/opencode.jsonc")

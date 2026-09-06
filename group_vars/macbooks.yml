@@ -89,6 +89,7 @@ ai_codex_mcp_remove: [linear, notion, grafana, figma]
 ai_claude_profiles:
   - name: personal
     config_dir: "{{ user_dir }}/.claude"
+    agents_dir: "{{ user_dir }}/.claude/agents"
     claude_argv:
       - env
       - -u
@@ -97,6 +98,7 @@ ai_claude_profiles:
       - claude
   - name: work
     config_dir: "{{ config_paths.claude_work_config }}"
+    agents_dir: "{{ config_paths.claude_work_config }}/agents"
     claude_argv:
       - env
       - "CLAUDE_CONFIG_DIR={{ config_paths.claude_work_config }}"
@@ -207,6 +209,35 @@ opencode_commands:
   - grill.md
   - grilling.md
   - execute-playbook.md
+
+# Native Claude Code subagents, rendered into both ai_claude_profiles'
+# agents_dir. No custom `orchestrator` is rendered here: the T3 run this
+# reproduces used Claude's normal root selected at the lead tier (Fable
+# medium) with explicit Sonnet workers, not a custom primary agent (see
+# workflow.yml roles.orchestrator and its claude_max_turns: null note).
+#
+# Each entry's `role` is the canonical routing role (host_files/localhost/ai/
+# routing/workflow.yml); the renderer resolves that role's tier, prompt and
+# claude_max_turns from workflow.yml and models.yml. No model ID appears here.
+# Managed by exact filename only; the agents/ directory itself is never
+# swept, so any other user-owned agent file is left untouched.
+claude_agents:
+  - name: worker
+    file: worker.md
+    role: worker
+    description: "Owns one whole ticket end to end: branch, edit, verify, commit, memory."
+  - name: verifier
+    file: verifier.md
+    role: verifier
+    description: "Read-only. Checks an already-integrated result; never implements or delegates."
+  - name: rescue
+    file: rescue.md
+    role: rescue
+    description: "Direct lead dispatch only, after a repeated similar failure trip-wire; never the default path."
+  - name: documentation
+    file: documentation.md
+    role: documentation
+    description: "Owns all Linear work and writes documentation and runbooks in documentation paths only."
 
 # Docker MCP Toolkit: one gateway serving Grafana, Notion and Linear to every
 # harness over loopback. Secrets come from the vault and go into the macOS

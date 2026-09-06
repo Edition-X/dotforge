@@ -1,0 +1,24 @@
+{# Renders one native Claude Code subagent from the canonical, provider-neutral
+   routing policy (host_files/localhost/ai/routing/). `agent` comes from
+   claude_agents in group_vars/macbooks.yml and carries only name/file/role/
+   description; model, effort, maxTurns and permission mode all resolve from
+   ai_routing_models / ai_routing_workflow so nothing here is hardcoded per
+   agent. execute-playbook is preloaded through the `skills` key, so the body
+   below carries only this role's prompt rather than the full procedure. #}
+{% set role = ai_routing_workflow.roles[agent.role] %}
+{% set tier = ai_routing_models.tiers[role.tier] %}
+---
+name: {{ agent.name }}
+description: {{ agent.description }}
+model: {{ tier.anthropic.model }}
+{% if tier.anthropic.effort %}
+effort: {{ tier.anthropic.effort }}
+{% endif %}
+maxTurns: {{ role.limits.claude_max_turns }}
+{% if role.read_only %}
+permissionMode: plan
+{% endif %}
+skills:
+  - execute-playbook
+---
+{{ lookup('file', ai_source_dir ~ '/routing/' ~ role.prompt) | trim }}

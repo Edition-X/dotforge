@@ -33,6 +33,17 @@ declare -a skills_dirs=(
     "${HOME}/.config/opencode/skills"
 )
 
+declare -a claude_agent_files=(
+    "${HOME}/.claude/agents/worker.md"
+    "${HOME}/.claude/agents/verifier.md"
+    "${HOME}/.claude/agents/rescue.md"
+    "${HOME}/.claude/agents/documentation.md"
+    "${HOME}/.claude-work/agents/worker.md"
+    "${HOME}/.claude-work/agents/verifier.md"
+    "${HOME}/.claude-work/agents/rescue.md"
+    "${HOME}/.claude-work/agents/documentation.md"
+)
+
 declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/opencode.jsonc"
     "${HOME}/.config/opencode/ROUTING.md"
@@ -107,6 +118,15 @@ done < <(find "$ai_dir/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
 if [[ -e "${HOME}/.config/opencode/AGENTS.md" ]]; then
     for f in "${opencode_managed_files[@]}"; do
         [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed OpenCode setup")
+    done
+fi
+
+# Generated Claude subagent files, same rationale as the OpenCode block above:
+# not symlinks, so only checked for presence once the profile is provisioned.
+if [[ -e "${HOME}/.claude/CLAUDE.md" ]]; then
+    for f in "${claude_agent_files[@]}"; do
+        [[ "$f" == *"/.claude-work/"* && ! -d "${HOME}/.claude-work" ]] && continue
+        [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed Claude agents")
     done
 fi
 
