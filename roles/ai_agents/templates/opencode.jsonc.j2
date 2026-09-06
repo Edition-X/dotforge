@@ -21,26 +21,11 @@
       "command": ["{{ user_dir }}/.local/bin/arcane", "mcp"],
       "enabled": true
     },
-    "grafana": {
+    "mcp-sunrise": {
       "type": "remote",
-      "url": "http://127.0.0.1:8000/mcp",
+      "url": "{{ mcp_gateway_url }}",
+      "headers": { "Authorization": "Bearer {{ mcp_gateway_sunrise_token }}" },
       "oauth": false,
-      "enabled": true,
-      "timeout": 30000
-    },
-    "linear": {
-      "type": "remote",
-      "url": "https://mcp.linear.app/mcp",
-      "oauth": {
-        "scope": "read write"
-      },
-      "enabled": true,
-      "timeout": 30000
-    },
-    "notion": {
-      "type": "remote",
-      "url": "https://mcp.notion.com/mcp",
-      "oauth": {},
       "enabled": true,
       "timeout": 30000
     }

@@ -162,6 +162,57 @@ make mcp                                          # converge the sunrise profile
 make mcp RUN_ARGS='-e mcp_toolkit_rotate_secrets=true'   # force-rotate grafana.api_key
 ```
 
+### Harness wiring
+
+Every harness that can send a custom HTTP header points at the gateway
+through one `mcp-sunrise` entry instead of separate `grafana`/`notion`/
+`linear` registrations. The bearer token is `mcp_gateway_sunrise_token`
+(vault-managed) and is rendered with `no_log: true`; it never appears in a
+repo file, only in the runtime config files below (each `0600`).
+
+- **OpenCode** (`~/.config/opencode/opencode.jsonc`, role-templated): a
+  `mcp-sunrise` entry of `type: "remote"`, `url: mcp_gateway_url`, and a
+  `headers.Authorization` bearer header. `scripts/validate-opencode-config.sh`
+  asserts the URL and header shape and that no `mcp.*.oauth` object remains,
+  and redacts the one legitimate bearer value before its blanket secret scan.
+- **Claude Code** (both `personal` and `work` profiles): registered via
+  `claude mcp add --scope user --transport http mcp-sunrise <url> --header
+  "Authorization: Bearer <token>"` (see `roles/ai_agents/tasks/claude_mcp.yml`).
+  The personal profile's old direct `notion` and `grafana` registrations are
+  removed the same way. `mcp__mcp-sunrise` is pre-approved via
+  `ai_claude_permission_allow` in `group_vars/macbooks.yml`.
+- **Forge** (`~/forge/.mcp.json`, role-templated): `mcp-sunrise` with a `url`
+  and `headers.Authorization`, replacing its `linear`, `notion` and `grafana`
+  entries. `arcane` is untouched.
+- **Codex CLI** (`~/.codex/config.toml`) — **hand-managed, not templated**.
+  Codex's config file is app-owned; Ansible never writes it. `config.toml`
+  does support a literal `http_headers` map, so replace Codex's existing
+  `linear`, `notion`, `grafana` entries with:
+
+  ```toml
+  [mcp_servers.mcp-sunrise]
+  url = "http://127.0.0.1:8080/mcp"
+  http_headers = { Authorization = "Bearer <token>" }
+  ```
+
+  Copy `<token>` from `~/.config/mcp-gateway/sunrise/token`. The M5 drift
+  checker flags this file until it matches.
+- **Devin** (`~/.config/devin/mcp_config.json`) — **hand-managed, not
+  templated**, for the same app-owned reason. Replace its hosted `linear` and
+  `notion` entries with:
+
+  ```json
+  {
+    "mcp-sunrise": {
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+  ```
+
+  Copy `<token>` from `~/.config/mcp-gateway/sunrise/token`. The M5 drift
+  checker flags this file until it matches.
+
 ### OpenCode
 
 OpenCode configuration is repo-managed by `ai_agents`. Source templates live

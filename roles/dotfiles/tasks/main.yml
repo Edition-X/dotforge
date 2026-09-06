@@ -177,6 +177,7 @@
     owner: "{{ ansible_user_uid | quote }}"
     group: "{{ ansible_user_gid | quote }}"
     mode: '0600'
+  no_log: true
   tags:
     - dot
     - forge

@@ -343,6 +343,7 @@
         mode: '0600'
       check_mode: false
       changed_when: false
+      no_log: true
 
     - name: OpenCode - Stage routing documentation
       ansible.builtin.template:
@@ -417,6 +418,7 @@
         owner: "{{ ansible_user_uid | quote }}"
         group: "{{ ansible_user_gid | quote }}"
         mode: '0600'
+      no_log: true
 
     - name: OpenCode - Install validated routing documentation
       ansible.builtin.copy:

@@ -100,6 +100,7 @@ ai_claude_hooks:
 # Tool permissions every Claude profile must pre-approve.
 ai_claude_permission_allow:
   - mcp__arcane
+  - mcp__mcp-sunrise
 
 ai_harnesses:
   - name: Claude Code
