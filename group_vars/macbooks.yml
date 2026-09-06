@@ -65,6 +65,21 @@ ai_backup_dir: "{{ user_dir }}/.ai-config-backup"
 # Arcane MCP server binary. Every harness must use this exact path.
 ai_arcane_bin: "{{ config_paths.local_bin }}/arcane"
 
+# Codex's config.toml is app-owned (ChatGPT desktop): roles/ai_agents/tasks/codex_mcp.yml
+# only ever touches these mcp_servers.* entries via scripts/codex-mcp-sync.py,
+# leaving every other section (other servers, [projects.*] trust levels,
+# plugins, marketplaces, desktop settings) untouched. The token is a Jinja
+# reference to the vault, resolved at runtime; it is never a literal here.
+ai_codex_mcp_servers:
+  arcane:
+    command: "{{ ai_arcane_bin }}"
+    args: ["mcp"]
+  mcp-sunrise:
+    url: "{{ mcp_gateway_url }}"
+    http_headers:
+      Authorization: "Bearer {{ mcp_gateway_sunrise_token }}"
+ai_codex_mcp_remove: [linear, notion, grafana]
+
 # Claude Code profiles that receive managed MCP registrations and hooks.
 # config_dir holds settings.json, CLAUDE.md and skills. MCP state lives in
 # .claude.json: $HOME/.claude.json for the personal profile, and
