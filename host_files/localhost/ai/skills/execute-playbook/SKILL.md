@@ -14,7 +14,7 @@ ever disagree, fix the disagreement rather than picking one silently.
 
 ## Roles
 
-Five roles, defined by tier in `workflow.yml`:
+Six roles, defined by tier in `workflow.yml`:
 
 - **lead** (orchestrator) — reads the playbook, owns the ticket ledger, reviews real diffs
   and check evidence, merges, and never implements a ticket itself.
