@@ -24,6 +24,10 @@ fi
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
+# Canonical, provider-neutral routing policy -- same source check-agent-config-
+# drift.sh's policy-marker check reads. Never hardcode a model id here.
+routing_dir="${repo_root}/host_files/localhost/ai/routing"
+
 timeout_s=300
 self_test=0
 harness_arg=""
@@ -309,6 +313,48 @@ print("keys=" + ",".join(keys) + " spawned=" + str(spawned))
 
 # --- Codex --------------------------------------------------------------------
 
+# Resolves the worker tier's OpenAI model/effort from the canonical routing
+# policy (models.yml + workflow.yml), the same files and the same graceful-
+# degradation style check-agent-config-drift.sh's policy-marker check uses:
+# every precondition below is reported as a single-line failure to the caller
+# (via return 1 + stderr) rather than a bash traceback, since bash 3.2, a
+# missing python3, missing PyYAML, missing policy files, or malformed YAML are
+# all normal states on some machine, not this script's bug.
+resolve_codex_worker_model() {
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "python3 not found on PATH" >&2
+        return 1
+    fi
+    if ! python3 -c 'import yaml' >/dev/null 2>&1; then
+        echo "$(command -v python3) has no PyYAML installed" >&2
+        return 1
+    fi
+    if [[ ! -f "${routing_dir}/models.yml" || ! -f "${routing_dir}/workflow.yml" ]]; then
+        echo "${routing_dir}/models.yml or workflow.yml missing" >&2
+        return 1
+    fi
+    local resolved
+    if ! resolved=$(python3 - "${routing_dir}/models.yml" "${routing_dir}/workflow.yml" 2>&1 <<'PY'
+import sys
+import yaml
+
+models_path, workflow_path = sys.argv[1], sys.argv[2]
+models = yaml.safe_load(open(models_path))
+workflow = yaml.safe_load(open(workflow_path))
+
+tier_name = workflow["roles"]["worker"]["tier"]
+tier = models["tiers"][tier_name]
+openai = tier["openai"]
+print(openai["model"])
+print(openai.get("effort") or "")
+PY
+    ); then
+        echo "routing policy YAML failed to parse (models.yml/workflow.yml): ${resolved}" >&2
+        return 1
+    fi
+    printf '%s\n' "$resolved"
+}
+
 check_codex() {
     local harness="codex"
     local out="${log_dir}/codex.jsonl" err="${log_dir}/codex.err"
@@ -326,36 +372,77 @@ check_codex() {
         fail_line "$harness" "codex exec exited $rc: $(tail -c 300 "$err")"
         return
     fi
-    # Look for a spawn/completion style event first; only fall back to
-    # inspecting the on-disk rollout transcript (read-only, no extra call)
-    # when that event line does not itself carry a model field.
-    local spawn_line
-    spawn_line=$(grep -iE '"type":"[^"]*(turn|agent|spawn|subagent)[^"]*"' "$out" | head -n1)
-    if [[ -z "$spawn_line" ]]; then
-        fail_line "$harness" "no spawn/completion event found in --json output"
-        return
-    fi
-    if [[ "$spawn_line" == *'"model"'* ]]; then
-        pass_line "$harness" "spawn/completion event carries model: ${spawn_line:0:200}"
-        return
-    fi
+
+    # The parent (lead) rollout's own "model" field is the LEAD's model, not
+    # the worker's -- proving worker-tier routing means following the parent's
+    # SubAgentActivity to the child (worker) rollout and reading *its* model.
     local session_id
     session_id=$(grep -oE '"(session_id|conversation_id|thread_id)":"[a-f0-9-]+"' "$out" | head -n1 | cut -d'"' -f4)
     if [[ -z "$session_id" ]]; then
-        fail_line "$harness" "spawn/completion event has no model and no session id to inspect: ${spawn_line:0:200}"
+        fail_line "$harness" "no session id found in codex exec --json output to locate the parent rollout"
         return
     fi
     local rollout
     rollout=$(find "${HOME}/.codex/sessions" -type f -name "*${session_id}*" 2>/dev/null | head -n1)
     if [[ -z "$rollout" ]]; then
-        fail_line "$harness" "no on-disk rollout found for session $session_id to confirm model"
+        fail_line "$harness" "no on-disk rollout found for session $session_id"
         return
     fi
-    if grep -q '"model"' "$rollout" 2>/dev/null; then
-        pass_line "$harness" "spawn/completion event $session_id; model confirmed via on-disk rollout $rollout"
-    else
-        fail_line "$harness" "on-disk rollout $rollout has no model field"
+
+    codex_verify_worker_delegation "$harness" "$rollout"
+}
+
+# Split out so the offline fixture check (used by this ticket's own
+# verification, never by a live run) can call the same parsing logic against
+# an on-disk rollout pair without re-running `codex exec`.
+codex_verify_worker_delegation() {
+    local harness="$1" rollout="$2"
+
+    local subagent_lines
+    subagent_lines=$(grep -F '"type":"SubAgentActivity"' "$rollout" 2>/dev/null)
+    if [[ -z "$subagent_lines" ]]; then
+        fail_line "$harness" "no SubAgentActivity found in parent rollout $rollout -- worker delegation cannot be confirmed"
+        return
     fi
+    local agent_thread_id
+    agent_thread_id=$(grep -oE '"agent_thread_id":"[a-f0-9-]+"' <<<"$subagent_lines" | tail -n1 | cut -d'"' -f4)
+    if [[ -z "$agent_thread_id" ]]; then
+        fail_line "$harness" "SubAgentActivity in $rollout has no agent_thread_id"
+        return
+    fi
+
+    if ! grep -qF '\"agent_type\":\"worker\"' "$rollout"; then
+        fail_line "$harness" "spawn_agent call in $rollout does not carry agent_type=worker"
+        return
+    fi
+
+    local child_rollout
+    child_rollout=$(find "${HOME}/.codex/sessions" -type f -name "*${agent_thread_id}*" ! -path "$rollout" 2>/dev/null | head -n1)
+    if [[ -z "$child_rollout" ]]; then
+        fail_line "$harness" "SubAgentActivity names child thread $agent_thread_id but no rollout file was found for it under ~/.codex/sessions"
+        return
+    fi
+
+    local worker_policy
+    if ! worker_policy=$(resolve_codex_worker_model 2>&1); then
+        fail_line "$harness" "cannot resolve expected worker model from routing policy: $worker_policy"
+        return
+    fi
+    local expected_model
+    expected_model=$(sed -n '1p' <<<"$worker_policy")
+    if [[ -z "$expected_model" ]]; then
+        fail_line "$harness" "routing policy resolved no worker model for openai"
+        return
+    fi
+
+    if ! grep -qF "\"model\":\"${expected_model}\"" "$child_rollout"; then
+        local observed
+        observed=$(grep -oE '"model":"[^"]*"' "$child_rollout" | sort -u | tr '\n' ' ')
+        fail_line "$harness" "child rollout $child_rollout (thread $agent_thread_id) never shows expected worker model \"${expected_model}\"; models actually observed: ${observed:-none}"
+        return
+    fi
+
+    pass_line "$harness" "SubAgentActivity child thread ${agent_thread_id}; child rollout $child_rollout confirms worker model \"${expected_model}\""
 }
 
 # --- Forge ----------------------------------------------------------------------
