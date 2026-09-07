@@ -88,11 +88,11 @@ for agent in worker verifier rescue documentation; do
     }
 done
 
-jq -e '.model == "claude-fable-5-1" and .effortLevel == "medium"' "${test_home}/.claude/settings.json" >/dev/null || {
+jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.claude/settings.json" >/dev/null || {
     printf 'Claude personal settings missing managed model/effortLevel\n' >&2
     exit 1
 }
-jq -e '.model == "claude-fable-5-1" and .effortLevel == "medium"' "${test_home}/.claude-work/settings.json" >/dev/null || {
+jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.claude-work/settings.json" >/dev/null || {
     printf 'Claude work settings missing managed model/effortLevel\n' >&2
     exit 1
 }

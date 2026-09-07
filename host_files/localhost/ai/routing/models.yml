@@ -35,10 +35,15 @@ tiers:
     openai: {model: gpt-5.6-terra, effort: high}
     anthropic: {model: claude-opus-5, effort: high}
   # Normal lead: planning, review, correction, merge. Never implements a ticket.
+  # anthropic stays medium here, mirroring gpt-5.6-sol medium on the OpenAI side,
+  # so rescue (high) remains a real step up from lead instead of a lateral move.
   lead:
     openai: {model: gpt-5.6-sol, effort: medium}
-    anthropic: {model: claude-fable-5-1, effort: medium}
+    anthropic: {model: claude-opus-5, effort: medium}
   # Direct escalation after a repeated, materially similar worker failure.
+  # anthropic stays high here, mirroring gpt-5.6-sol high on the OpenAI side.
+  # This now duplicates tiers.senior.anthropic (also claude-opus-5 high) —
+  # accepted and intentional, not a bug to fix by adding a new tier.
   rescue:
     openai: {model: gpt-5.6-sol, effort: high}
-    anthropic: {model: claude-fable-5-1, effort: high}
+    anthropic: {model: claude-opus-5, effort: high}
