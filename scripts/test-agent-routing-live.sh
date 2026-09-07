@@ -60,10 +60,10 @@ or a pre-commit hook. See docs/playbooks/cross-harness-lead-worker-routing.md
 (R7) for the full behavior contract.
 
 Prints one "PASS harness: evidence", "FAIL harness: reason" or
-"UNAVAILABLE harness: reason" line per requested harness, plus one fixed T3
-informational block (two manual prompts and a read-only evidence query --
-T3 threads cannot be created non-interactively, so this script only prints
-them; it never drives the T3 UI or writes to T3's SQLite state).
+"UNAVAILABLE harness: reason" line per requested harness. T3 Code has no row:
+it owns no routing config of its own (just a binaryPath to claude-work, plus
+the shared ~/.codex tree), so the claude-work and codex rows already cover it
+and its inheritance is asserted statically instead.
 
 Exit code is non-zero if any requested harness result is FAIL or UNAVAILABLE.
 EOF
@@ -477,32 +477,20 @@ check_forge() {
     pass_line "$harness" "reduced-mode answer received (no native custom-agent delegation claimed): $(head -c 200 "$out" | tr '\n' ' ')"
 }
 
-# --- T3 (print-only, behavior 8) ---------------------------------------------
-
-print_t3_info() {
-    cat <<'EOF'
-
-T3 (informational only -- cannot be created non-interactively; never automated):
-
-  Manual prompt, fresh T3 Claude thread:
-    Read-only routing canary. Return your role, configured model tier, and the
-    first README heading. Do not edit any file.
-
-  Manual prompt, fresh T3 Codex thread:
-    Read-only routing canary. Return your role, configured model tier, and the
-    first README heading. Do not edit any file.
-EOF
-    local db="${HOME}/.t3/userdata/state.sqlite"
-    if [[ -f "$db" ]]; then
-        echo "  Read-only evidence query (run by hand after a manual thread above):"
-        echo "    sqlite3 -readonly '${db}' \\"
-        echo "      \"select t.thread_id, t.title, r.provider_name, r.status, r.last_seen_at"
-        echo "       from projection_threads t join provider_session_runtime r on r.thread_id = t.thread_id"
-        echo "       order by t.updated_at desc limit 5;\""
-    else
-        echo "  T3 state.sqlite not found at ${db}; skip the evidence query."
-    fi
-}
+# --- T3 -----------------------------------------------------------------------
+# T3 Code has no live row here, deliberately. Its entire provider config is a
+# binaryPath pointing at claude-work (no homePath, no model, no agent
+# definitions): it reaches Claude by executing that binary and Codex by reading
+# the shared ~/.codex tree. So the claude-work and codex rows above already
+# exercise every code path a T3 session would, and a manual T3 thread would
+# mostly demonstrate that the operator did not override model/effort in the T3
+# composer that session -- a fact about the operator, not about this repo.
+#
+# The inheritance that genuinely can drift is asserted statically instead, and
+# those checks must be kept: scripts/check-agent-config-drift.sh plus the
+# binaryPath/no-homePath jq assertion, and scripts/test-ai-agents-idempotency.sh
+# proving the inherited Claude work-profile and Codex agent files are
+# byte-identical across two applies.
 
 # --- dispatch -----------------------------------------------------------------
 
@@ -546,8 +534,6 @@ else
     assert_worktree_unchanged "$harness_arg"
 fi
 
-print_t3_info
-
 printf '\n'
 for line in "${result_lines[@]}"; do
     printf '%s\n' "$line"
@@ -556,9 +542,8 @@ done
 # --- post-flight worktree guard (behavior 10), final backstop ---------------
 # Per-harness attribution already happened in assert_worktree_unchanged above;
 # this is a final check against the original pre-run baseline in case
-# anything slipped past it (e.g. a mutation during print_t3_info's read-only
-# T3 query, which runs no harness command but is cheap insurance to also
-# cover here).
+# anything slipped past it -- cheap insurance covering the whole run, not just
+# the per-harness windows.
 
 after_status=$(capture_status)
 if [[ "$before_status" != "$after_status" ]]; then

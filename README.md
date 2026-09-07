@@ -270,7 +270,7 @@ drift. Summary:
 | OpenCode | Full native lead (`orchestrator`) / worker / verifier / rescue, plus command-only `documentation` |
 | Claude Code (personal + work) | Full native worker / verifier / rescue / documentation; root profile selected at lead tier (Opus 5 medium) is the lead, no custom orchestrator agent |
 | Codex CLI | Full native worker / verifier / rescue / documentation; root CLI pinned to lead tier is the lead |
-| T3 Code (Claude and Codex providers) | Inherited from `claude-work` and `~/.codex` respectively; no duplicate T3 agent definitions |
+| T3 Code (Claude and Codex providers) | Inherited from `claude-work` and `~/.codex` respectively; no duplicate T3 agent definitions, and no live canary row — inheritance is verified statically |
 | Forge 2.13.21 | Shared instructions and skill only; built-in Forge/Muse/Sage agents remain Forge-owned, no native Luna/Sonnet worker |
 
 ### Claude profiles and T3 Code
@@ -317,9 +317,10 @@ depleted, which affects every openai-backed harness — OpenCode, Codex, and
 Forge, since `forge agent list` confirms Forge's built-in agents also run on
 Codex — or an Anthropic per-request spend cap) and is never printed as `PASS`.
 It still makes the overall exit code non-zero, because no routing evidence was
-actually obtained. T3 cannot be driven non-interactively, so the script only
-prints the two manual T3 prompts and a read-only evidence query; it never
-automates the T3 UI or writes to T3's SQLite state. `--self-test` relaxes the
+actually obtained. T3 Code has no row of its own: it owns no routing config
+beyond a `binaryPath` to `claude-work` plus the shared `~/.codex` tree, so the
+`claude-work` and `codex` rows already exercise every path a T3 session would,
+and its inheritance is asserted statically instead. `--self-test` relaxes the
 pre/post worktree check to also allow this runner's own pending changes, for
 verifying the script against itself.
 

@@ -80,8 +80,8 @@ full procedure.
 | Claude Code (personal, `~/.claude`) | Root/default profile, selected at Opus 5 medium | Native subagents under `~/.claude/agents/*.md` | Full native support; no custom `orchestrator` agent — the root profile *is* the lead. |
 | Claude Code (work, `~/.claude-work`) | Same as personal | Native subagents under `~/.claude-work/agents/*.md`, byte-identical to personal | Same policy, isolated auth/state; this is what T3 Code's Claude provider runs. |
 | Codex CLI (`~/.codex`) | Root CLI, `config.toml` top-level `model`/`model_reasoning_effort` pinned to lead tier | Native subagents under `~/.codex/agents/*.toml` | Full native support; `agents.default_subagent_model`/`default_subagent_reasoning_effort` in `config.toml` default new subagent threads to the worker tier. |
-| T3 Code (Claude provider) | Inherited: same root profile as `claude-work` | Inherited: same files as Claude work profile | No duplicate T3 agent definitions. T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
-| T3 Code (Codex provider) | Inherited: same `~/.codex` as the CLI | Inherited: same `~/.codex/agents/*.toml` | No separate T3 entry needed; T3's Codex provider reads the same app-owned `config.toml`. |
+| T3 Code (Claude provider) | Inherited: same root profile as `claude-work` | Inherited: same files as Claude work profile | No duplicate T3 agent definitions, and no live canary row (see below). T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
+| T3 Code (Codex provider) | Inherited: same `~/.codex` as the CLI | Inherited: same `~/.codex/agents/*.toml` | No separate T3 entry needed, and no live canary row (see below); T3's Codex provider reads the same app-owned `config.toml`. |
 | Forge 2.13.21 | N/A — Forge-owned built-in agents (Forge, Muse, Sage) | N/A | Shared `AGENTS.md` instructions and skills only. Forge 2.13.21 exposes no supported custom-agent authoring surface (`forge agent` only lists the three built-ins, no create/config subcommand), so it cannot host a native Luna worker. Do not claim parity with the other four harnesses. |
 
 ### Documentation exception and Linear boundary
@@ -97,6 +97,27 @@ worker — must delegate Linear reads and writes to `documentation` rather than
 calling Linear MCP tools directly. Do not fold Linear access into the general
 worker role; that would widen the permission boundary the split exists to
 hold.
+
+### Why T3 has no live canary row
+
+`scripts/test-agent-routing-live.sh` deliberately has no `t3` harness. T3 Code
+owns no routing configuration of its own: `~/.t3/userdata/settings.json` sets
+`providers.claudeAgent.binaryPath` to `~/.local/bin/claude-work` and nothing
+else — no `homePath`, no model, no agent definitions — and its Codex provider
+reads the shared `~/.codex` tree. T3 therefore reaches Claude by executing
+`claude-work` and Codex by reading `~/.codex`, so the `claude-work` and `codex`
+canary rows already exercise every code path a T3 session would.
+
+A manual T3 thread would mostly demonstrate that the operator did not override
+model/effort in the composer for that session — a fact about the operator, not
+about this repo (see the next section). The inheritance that genuinely can
+drift is asserted statically instead, and those checks must be kept:
+
+- `scripts/check-agent-config-drift.sh` — managed Claude/Codex agent files
+  exist and still carry the policy's model/effort.
+- The `binaryPath` / absence-of-`homePath` assertion on T3's settings.
+- `scripts/test-ai-agents-idempotency.sh` — the inherited Claude work-profile
+  and Codex agent files are byte-identical across two applies.
 
 ### T3 composer and CLI-flag overrides
 
