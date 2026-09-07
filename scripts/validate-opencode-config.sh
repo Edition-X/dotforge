@@ -44,12 +44,12 @@ fi
 
 jq empty "$resolved_file" >/dev/null
 
-required_agents=(orchestrator worker verifier rescue documentation)
+required_agents=(orchestrator worker verifier rescue documentation scout)
 required_commands=(
     orchestrate implement-reviewed load-test-loop review debug-loop wayfinder grill grilling linear plan execute-playbook
 )
 
-for agent in worker verifier rescue documentation; do
+for agent in worker verifier rescue documentation scout; do
     jq -e --arg agent "$agent" '.agent[$agent] != null' "$resolved_file" >/dev/null || {
         printf 'missing agent: %s\n' "$agent" >&2
         exit 1
@@ -129,7 +129,7 @@ available_model_details_file="${tmp_dir}/models-verbose.txt"
 opencode models openai >"$available_models_file"
 opencode models openai --verbose >"$available_model_details_file"
 
-for agent in "${required_agents[@]}"; do
+for agent in orchestrator worker verifier rescue documentation; do
     model=$(jq -r --arg agent "$agent" '.agent[$agent].model // empty' "$resolved_file")
     variant=$(jq -r --arg agent "$agent" '.agent[$agent].variant // empty' "$resolved_file")
     [[ "$model" == openai/* ]] || { printf 'unsupported model provider for %s: %s\n' "$agent" "$model" >&2; exit 1; }
@@ -170,6 +170,51 @@ for agent in "${required_agents[@]}"; do
         opencode debug agent "$agent" >"$agent_debug_file"
 done
 
+scout_model=$(jq -r '.agent.scout.model // empty' "$resolved_file")
+scout_variant=$(jq -r '.agent.scout.variant // empty' "$resolved_file")
+[[ "$scout_model" == openai/* && "$scout_model" != *-fast && -n "$scout_variant" ]] || {
+    printf 'invalid scout model or variant: %s (%s)\n' "$scout_model" "$scout_variant" >&2
+    exit 1
+}
+rg -Fqx "$scout_model" "$available_models_file" || {
+    printf 'unrecognised model for scout: %s\n' "$scout_model" >&2
+    exit 1
+}
+awk -v target="$scout_model" -v wanted="$scout_variant" '
+    $0 == target { in_model = 1; next }
+    in_model && $0 ~ /^[^[:space:]]+\/[^[:space:]]+$/ { exit found ? 0 : 1 }
+    in_model && $0 ~ "    \\\"" wanted "\\\":" { found = 1 }
+    END { exit found ? 0 : 1 }
+' "$available_model_details_file" || {
+    printf 'unrecognised variant for scout: %s (%s)\n' "$scout_variant" "$scout_model" >&2
+    exit 1
+}
+OPENCODE_CONFIG="$config_file" \
+    OPENCODE_CONFIG_DIR="$config_dir" \
+    OPENCODE_DISABLE_PROJECT_CONFIG=1 \
+    OPENCODE_DISABLE_EXTERNAL_SKILLS=1 \
+    OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1 \
+    OPENCODE_PURE=1 \
+    opencode debug agent scout >"${tmp_dir}/scout.json"
+
+jq -e '
+    def final_action($permission; $pattern):
+        [ .permission[]? | select(.permission == $permission and .pattern == $pattern) | .action ] | last;
+    (final_action("bash"; "*") == "deny") and
+    (final_action("edit"; "*") == "deny") and
+    (final_action("read"; "*") == "allow") and
+    (final_action("glob"; "*") == "allow") and
+    (final_action("grep"; "*") == "allow") and
+    (final_action("list"; "*") == "allow") and
+    (final_action("task"; "*") == "deny") and
+    (final_action("linear_*"; "*") == "deny") and
+    (final_action("arcane_*"; "*") == "deny") and
+    (final_action("mcp-sunrise_*"; "*") == "deny")
+' "${tmp_dir}/scout.json" >/dev/null || {
+    printf 'scout read-only tool policy is incorrect\n' >&2
+    exit 1
+}
+
 jq -e '
     def matches_linear($rule; $permission):
         ($rule.permission == $permission) or ($rule.permission == "linear_*");
@@ -184,7 +229,7 @@ jq -e '
     exit 1
 }
 
-for agent in orchestrator worker verifier rescue; do
+for agent in orchestrator worker verifier rescue scout; do
     jq -e '
         def matches_linear($rule; $permission):
             ($rule.permission == $permission) or ($rule.permission == "linear_*");
@@ -207,14 +252,14 @@ else
     exit 1
 fi
 
-for agent in verifier; do
+for agent in verifier scout; do
     jq -e '[.permission[]? | select(.permission == "edit" and .action == "allow")] | length == 0' "${tmp_dir}/${agent}.json" >/dev/null || {
         printf 'read-only agent has edit permission: %s\n' "$agent" >&2
         exit 1
     }
 done
 
-for agent in "${required_agents[@]}"; do
+for agent in orchestrator worker verifier rescue documentation; do
     jq -e --arg home "$HOME" \
         '
             def pattern_matches($pattern; $actual):
@@ -252,7 +297,7 @@ for agent in "${required_agents[@]}"; do
     }
 done
 
-for agent in worker verifier rescue documentation; do
+for agent in worker verifier rescue documentation scout; do
     jq -e '[.permission[]? | select(.permission == "task" and .action == "allow")] | length == 0' "${tmp_dir}/${agent}.json" >/dev/null || {
         printf 'subagent delegation permission unexpectedly allowed: %s\n' "$agent" >&2
         exit 1

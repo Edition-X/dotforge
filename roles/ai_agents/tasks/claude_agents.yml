@@ -1,6 +1,6 @@
 ---
-# Renders the four native Claude Code subagents (worker, verifier, rescue,
-# documentation) into both ai_claude_profiles' agents_dir from the canonical
+# Renders the five native Claude Code subagents (worker, verifier, rescue,
+# documentation, scout) into both ai_claude_profiles' agents_dir from the canonical
 # routing policy. No custom `orchestrator` is rendered: the T3 run this
 # reproduces used Claude's normal root selected at the lead tier (Opus 5
 # medium) with explicit Sonnet workers instead of a custom primary agent.

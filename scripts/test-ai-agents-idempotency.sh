@@ -2,6 +2,15 @@
 # Exercise ai_agents in an isolated home, including migration and second-run state.
 set -euo pipefail
 
+validate_only=false
+if (($# > 0)); then
+    [[ "$1" == "--validate-only" && $# == 1 ]] || {
+        printf 'usage: %s [--validate-only]\n' "$0" >&2
+        exit 2
+    }
+    validate_only=true
+fi
+
 repo_root=$(git rev-parse --show-toplevel)
 tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/ai-agents.XXXXXX")
 test_home="${tmp_root}/home with spaces"
@@ -77,7 +86,7 @@ jq -e --arg binary "${test_home}/.local/bin/claude-work" \
 
 # Both Claude profiles must receive byte-identical rendered agents: same
 # canonical routing policy, same tier resolution, no profile-specific drift.
-for agent in worker verifier rescue documentation; do
+for agent in worker verifier rescue documentation scout; do
     personal_agent="${test_home}/.claude/agents/${agent}.md"
     work_agent="${test_home}/.claude-work/agents/${agent}.md"
     [[ -f "${personal_agent}" ]] || { printf 'Claude personal agent missing: %s\n' "$agent" >&2; exit 1; }
@@ -98,7 +107,7 @@ jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.cl
 }
 
 # Codex custom agents, rendered from the same canonical routing policy.
-for agent in worker verifier rescue documentation; do
+for agent in worker verifier rescue documentation scout; do
     codex_agent_file="${test_home}/.codex/agents/${agent}.toml"
     [[ -f "${codex_agent_file}" ]] || { printf 'Codex agent missing: %s\n' "$agent" >&2; exit 1; }
     grep -Fq 'developer_instructions' "${codex_agent_file}" || {
@@ -136,6 +145,11 @@ assert doc["mcp_servers"]["playwright"]["command"] == "/usr/bin/true"
 print("Codex config.toml managed defaults synced, unrelated mcp_servers preserved")
 PY
 
+if [[ "$validate_only" == true ]]; then
+    printf 'AI agent generated tree validates in isolated home: %s\n' "$test_home"
+    exit 0
+fi
+
 before_backup=$(shasum -a 256 "${backup_dir}/opencode/orchestrator.md")
 before_retired_backup=$(shasum -a 256 "${backup_dir}/opencode/retired/architect.md")
 first_config=$(shasum -a 256 "${test_home}/.config/opencode/opencode.jsonc")
@@ -149,7 +163,7 @@ first_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 # inherits; capture their first-run hashes to prove second run re-renders
 # them byte-identical rather than merely leaving them present.
 declare -A first_claude_work_agent_hash first_codex_agent_hash
-for agent in worker verifier rescue documentation; do
+for agent in worker verifier rescue documentation scout; do
     first_claude_work_agent_hash[$agent]=$(shasum -a 256 "${test_home}/.claude-work/agents/${agent}.md")
     first_codex_agent_hash[$agent]=$(shasum -a 256 "${test_home}/.codex/agents/${agent}.toml")
 done
@@ -171,7 +185,7 @@ second_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 [[ ! -e "${test_home}/.config/opencode/agents/architect.md" ]] || { printf 'retired agent file reappeared after second apply\n' >&2; exit 1; }
 ! rg -q 'changed=[1-9]' "$second_output" || { printf 'second run still changed a task\n' >&2; exit 1; }
 
-for agent in worker verifier rescue documentation; do
+for agent in worker verifier rescue documentation scout; do
     [[ -f "${test_home}/.claude-work/agents/${agent}.md" ]] || { printf 'Claude work agent missing after second run: %s\n' "$agent" >&2; exit 1; }
     second_claude_work_agent_hash=$(shasum -a 256 "${test_home}/.claude-work/agents/${agent}.md")
     [[ "${first_claude_work_agent_hash[$agent]}" == "$second_claude_work_agent_hash" ]] || {

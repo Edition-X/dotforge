@@ -33,7 +33,8 @@ SKILL_NAME = "execute-playbook"
 SKILL_MAX_LINES = 300
 
 REQUIRED_TIERS = ("utility", "worker", "senior", "lead", "rescue")
-REQUIRED_ROLES = ("orchestrator", "worker", "verifier", "rescue", "documentation")
+REQUIRED_ROLES = ("orchestrator", "worker", "verifier", "rescue", "documentation", "scout")
+REQUIRED_SCOUT_HANDOFF_FIELDS = ["findings", "evidence", "coverage", "unknowns"]
 
 REQUIRED_STATUSES = [
     "COMPLETE",
@@ -103,10 +104,10 @@ LEAKED_ID_SCAN_PATHS = (
 # Expected role topology. Anything not listed for a given mapping takes the
 # default noted alongside it.
 ROLE_MODE = {"orchestrator": "primary"}  # default: subagent
-ROLE_READ_ONLY = {"verifier": True}  # default: False
-ROLE_NORMAL_ASSIGNMENT = {"rescue": False, "orchestrator": False}  # default: True
+ROLE_READ_ONLY = {"verifier": True, "scout": True}  # default: False
+ROLE_NORMAL_ASSIGNMENT = {"rescue": False, "orchestrator": False, "scout": False}  # default: True
 ROLE_MAY_DISPATCH = {
-    "orchestrator": {"worker", "verifier", "rescue", "documentation"}
+    "orchestrator": {"worker", "verifier", "rescue", "documentation", "scout"}
 }  # default: empty
 
 
@@ -310,6 +311,18 @@ def check_roles(models: dict, workflow: dict) -> list[str]:
                         f"int or null, found {turns!r}"
                     )
 
+        if name == "scout":
+            if tier != "worker":
+                errors.append("workflow.yml roles.scout.tier must equal 'worker'")
+            if role.get("handoff_fields") != REQUIRED_SCOUT_HANDOFF_FIELDS:
+                errors.append(
+                    f"workflow.yml roles.scout.handoff_fields must equal "
+                    f"{REQUIRED_SCOUT_HANDOFF_FIELDS!r} in order, found "
+                    f"{role.get('handoff_fields')!r}"
+                )
+        elif "handoff_fields" in role:
+            errors.append(f"workflow.yml roles.{name} must not override canonical delivery handoff_fields")
+
     # No cyclic escalation: nothing may dispatch the orchestrator, including itself.
     for name in REQUIRED_ROLES:
         role = roles.get(name)
@@ -340,14 +353,19 @@ def check_prompt_contents(workflow: dict) -> list[str]:
         if not prompt_path.is_file():
             continue  # already reported by check_roles
         text = prompt_path.read_text()
-        for status in REQUIRED_STATUSES:
-            if status not in text:
-                errors.append(f"{prompt_path.relative_to(REPO_ROOT)} is missing status marker: {status}")
-        for field in REQUIRED_EVIDENCE_FIELDS:
-            if field not in text:
-                errors.append(
-                    f"{prompt_path.relative_to(REPO_ROOT)} is missing evidence field marker: {field}"
-                )
+        if name == "scout":
+            for field in REQUIRED_SCOUT_HANDOFF_FIELDS:
+                if f"`{field}`" not in text:
+                    errors.append(f"{prompt_path.relative_to(REPO_ROOT)} is missing scout handoff field marker: {field}")
+        else:
+            for status in REQUIRED_STATUSES:
+                if status not in text:
+                    errors.append(f"{prompt_path.relative_to(REPO_ROOT)} is missing status marker: {status}")
+            for field in REQUIRED_EVIDENCE_FIELDS:
+                if field not in text:
+                    errors.append(
+                        f"{prompt_path.relative_to(REPO_ROOT)} is missing evidence field marker: {field}"
+                    )
     return errors
 
 

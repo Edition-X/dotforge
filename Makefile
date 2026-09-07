@@ -118,13 +118,19 @@ ci: lint
 
 .PHONY: validate-opencode
 validate-opencode: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) --check $(ANSIBLE_PLAYBOOK_FILE) --tags ai -e '{"ai_external_skills":[]}')
-	@if [ -f "$$HOME/.config/opencode/opencode.jsonc" ] && [ -f "$$HOME/.config/opencode/agents/orchestrator.md" ]; then ./scripts/validate-opencode-config.sh --config-dir "$$HOME/.config/opencode"; else echo "live OpenCode tree not installed; staged validation passed"; fi
+	@$(call activate, ./scripts/test-ai-agents-idempotency.sh --validate-only)
 
 .PHONY: test-ai-agents
 test-ai-agents: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ./scripts/test-ai-agents-idempotency.sh)
 	@$(call activate, ./scripts/test-codex-agent-settings-sync.sh)
+
+# Offline scout evidence checks. Scripts land with measurement ticket; missing
+# scripts fail loudly instead of turning this target into a silent skip.
+.PHONY: test-scout
+test-scout: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python scripts/test-scout-usage-report.py)
+	@$(call activate, python scripts/test-scout-routing-evidence.py)
 
 .PHONY: clean
 clean:
