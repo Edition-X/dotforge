@@ -29,6 +29,20 @@ printf '%s\n' 'pre-existing command configuration' > "${test_home}/.config/openc
 # second apply must leave it absent and report changed=0.
 printf '%s\n' 'retired architect configuration' > "${test_home}/.config/opencode/agents/architect.md"
 
+# Fixture app-owned Codex config.toml: stale root model/effort, a pre-existing
+# colliding agent file standing in for a genuinely user-owned one, and an
+# unrelated mcp_servers entry that must survive codex_agents.yml untouched.
+mkdir -p "${test_home}/.codex/agents"
+cat > "${test_home}/.codex/config.toml" <<'EOF'
+model = "gpt-5.4-mini"
+model_reasoning_effort = "low"
+
+[mcp_servers.playwright]
+command = "/usr/bin/true"
+args = ["mcp"]
+EOF
+printf '%s\n' 'pre-existing worker configuration' > "${test_home}/.codex/agents/worker.toml"
+
 run_playbook() {
     ansible-playbook \
         -i "${repo_root}/inventory" \
@@ -83,9 +97,44 @@ jq -e '.model == "claude-fable-5-1" and .effortLevel == "medium"' "${test_home}/
     exit 1
 }
 
+# Codex custom agents, rendered from the same canonical routing policy.
+for agent in worker verifier rescue documentation; do
+    codex_agent_file="${test_home}/.codex/agents/${agent}.toml"
+    [[ -f "${codex_agent_file}" ]] || { printf 'Codex agent missing: %s\n' "$agent" >&2; exit 1; }
+    grep -Fq 'developer_instructions' "${codex_agent_file}" || {
+        printf 'Codex agent %s missing developer_instructions\n' "$agent" >&2
+        exit 1
+    }
+done
+
+[[ -f "${backup_dir}/codex/worker.toml" ]] || { printf 'pre-existing Codex agent was not backed up\n' >&2; exit 1; }
+grep -Fq 'pre-existing worker configuration' "${backup_dir}/codex/worker.toml" || {
+    printf 'Codex agent backup content mismatch\n' >&2
+    exit 1
+}
+
+# Codex's app-owned config.toml: managed defaults synced, unrelated
+# mcp_servers entry preserved untouched.
+python3 - "${test_home}/.codex/config.toml" <<'PY'
+import sys
+import tomlkit
+
+doc = tomlkit.parse(open(sys.argv[1]).read())
+assert doc["model"] == "gpt-5.6-sol", doc["model"]
+assert doc["model_reasoning_effort"] == "medium", doc["model_reasoning_effort"]
+assert doc["agents"]["enabled"] is True
+assert doc["agents"]["max_concurrent_threads_per_session"] == 3
+assert doc["agents"]["default_subagent_model"] == "gpt-5.6-luna"
+assert doc["agents"]["default_subagent_reasoning_effort"] == "medium"
+assert doc["mcp_servers"]["playwright"]["command"] == "/usr/bin/true"
+print("Codex config.toml managed defaults synced, unrelated mcp_servers preserved")
+PY
+
 before_backup=$(shasum -a 256 "${backup_dir}/opencode/orchestrator.md")
 before_retired_backup=$(shasum -a 256 "${backup_dir}/opencode/retired/architect.md")
 first_config=$(shasum -a 256 "${test_home}/.config/opencode/opencode.jsonc")
+before_codex_backup=$(shasum -a 256 "${backup_dir}/codex/worker.toml")
+first_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 
 second_output="${tmp_root}/second-run.log"
 run_playbook >"$second_output" || { cat "$second_output"; exit 1; }
@@ -94,9 +143,13 @@ cat "$second_output"
 after_backup=$(shasum -a 256 "${backup_dir}/opencode/orchestrator.md")
 after_retired_backup=$(shasum -a 256 "${backup_dir}/opencode/retired/architect.md")
 second_config=$(shasum -a 256 "${test_home}/.config/opencode/opencode.jsonc")
+after_codex_backup=$(shasum -a 256 "${backup_dir}/codex/worker.toml")
+second_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 [[ "$before_backup" == "$after_backup" ]] || { printf 'backup changed on second run\n' >&2; exit 1; }
 [[ "$before_retired_backup" == "$after_retired_backup" ]] || { printf 'retired agent backup changed on second run\n' >&2; exit 1; }
 [[ "$first_config" == "$second_config" ]] || { printf 'generated config changed on second run\n' >&2; exit 1; }
+[[ "$before_codex_backup" == "$after_codex_backup" ]] || { printf 'Codex agent backup changed on second run\n' >&2; exit 1; }
+[[ "$first_codex_config" == "$second_codex_config" ]] || { printf 'Codex config.toml changed on second run\n' >&2; exit 1; }
 [[ ! -e "${test_home}/.config/opencode/agents/architect.md" ]] || { printf 'retired agent file reappeared after second apply\n' >&2; exit 1; }
 ! rg -q 'changed=[1-9]' "$second_output" || { printf 'second run still changed a task\n' >&2; exit 1; }
 

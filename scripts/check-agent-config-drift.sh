@@ -44,6 +44,13 @@ declare -a claude_agent_files=(
     "${HOME}/.claude-work/agents/documentation.md"
 )
 
+declare -a codex_agent_files=(
+    "${HOME}/.codex/agents/worker.toml"
+    "${HOME}/.codex/agents/verifier.toml"
+    "${HOME}/.codex/agents/rescue.toml"
+    "${HOME}/.codex/agents/documentation.toml"
+)
+
 declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/opencode.jsonc"
     "${HOME}/.config/opencode/ROUTING.md"
@@ -127,6 +134,14 @@ if [[ -e "${HOME}/.claude/CLAUDE.md" ]]; then
     for f in "${claude_agent_files[@]}"; do
         [[ "$f" == *"/.claude-work/"* && ! -d "${HOME}/.claude-work" ]] && continue
         [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed Claude agents")
+    done
+fi
+
+# Generated Codex custom agent files, same rationale: not symlinks, only
+# checked once Codex's app-owned config.toml is actually present.
+if [[ -e "${HOME}/.codex/config.toml" ]]; then
+    for f in "${codex_agent_files[@]}"; do
+        [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed Codex agents")
     done
 fi
 

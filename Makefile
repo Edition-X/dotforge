@@ -124,6 +124,7 @@ validate-opencode: $(PYTHON_VIRTUAL_ENVIRONMENT)
 .PHONY: test-ai-agents
 test-ai-agents: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ./scripts/test-ai-agents-idempotency.sh)
+	@$(call activate, ./scripts/test-codex-agent-settings-sync.sh)
 
 .PHONY: clean
 clean:

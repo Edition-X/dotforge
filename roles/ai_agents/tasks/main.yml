@@ -553,6 +553,21 @@
     - ai
     - claude
 
+
+# Codex agents run before Codex MCP: codex-agent-settings-sync.py is the
+# first task to ever add a top-level [agents] table after [mcp_servers] in a
+# fresh config.toml, and codex-mcp-sync.py's build_table() always rebuilds
+# mcp_servers' sub-tables from scratch, which does not preserve the blank
+# line trivia separating mcp_servers from whatever table follows it. Running
+# the [agents] table into place first means mcp_servers is always the last
+# table any script rebuilds fresh, so that trivia loss never has a following
+# section to disturb, and both scripts stay independently idempotent.
+- name: Codex agents - Render lead-worker subagents and sync defaults
+  ansible.builtin.include_tasks: codex_agents.yml
+  tags:
+    - ai
+    - codex
+
 - name: Codex MCP - Manage mcp_servers entries
   ansible.builtin.include_tasks: codex_mcp.yml
   tags:
