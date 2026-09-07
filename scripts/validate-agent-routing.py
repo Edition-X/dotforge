@@ -70,6 +70,18 @@ REQUIRED_OPENAI_IDS = (
 )
 REQUIRED_PROVIDER_IDS = REQUIRED_CLAUDE_IDS + REQUIRED_OPENAI_IDS
 
+# Provider IDs this machine has deliberately stopped using. Unlike
+# REQUIRED_PROVIDER_IDS -- which must appear in models.yml and nowhere else --
+# a retired ID must appear NOWHERE, models.yml included, so the check below
+# scans models.yml too rather than exempting it the way the leak scan does.
+#
+# claude-fable-5-1 bills against a separate credit pool with a per-request
+# spend cap that rejected live root-delegation calls, so the Anthropic lead and
+# rescue tiers moved to claude-opus-5. Dropping it from REQUIRED_CLAUDE_IDS was
+# necessary (check_provider_ids_present would otherwise demand it back in
+# models.yml) but that alone left nothing stopping it being reintroduced.
+RETIRED_PROVIDER_IDS = ("claude-fable-5-1",)
+
 # Every one of REQUIRED_PROVIDER_IDS must appear only in models.yml, never in
 # these paths. docs/ holds the playbook itself (which legitimately names
 # provider IDs) and is untracked, so it is not scanned here.
@@ -379,6 +391,26 @@ def iter_scan_files(path: Path) -> list[Path]:
     return []
 
 
+def check_retired_provider_ids() -> list[str]:
+    """Retired IDs must not reappear anywhere, models.yml included."""
+    errors = []
+    scan_paths = LEAKED_ID_SCAN_PATHS + (MODELS_FILE,)
+    for scan_path in scan_paths:
+        for file_path in iter_scan_files(scan_path):
+            try:
+                text = file_path.read_text()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for provider_id in RETIRED_PROVIDER_IDS:
+                if provider_id in text:
+                    errors.append(
+                        f"{file_path.relative_to(REPO_ROOT)} uses retired provider ID "
+                        f"'{provider_id}'; it was deliberately removed from this machine "
+                        "and must not be reintroduced (see RETIRED_PROVIDER_IDS)"
+                    )
+    return errors
+
+
 def check_leaked_provider_ids() -> list[str]:
     errors = []
     for scan_path in LEAKED_ID_SCAN_PATHS:
@@ -419,6 +451,7 @@ def main() -> int:
 
     errors.extend(check_skill_file())
     errors.extend(check_leaked_provider_ids())
+    errors.extend(check_retired_provider_ids())
 
     if errors:
         for error in errors:
