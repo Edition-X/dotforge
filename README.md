@@ -296,6 +296,33 @@ explicit CLI flag can override the root/lead model for one session only; it
 does not change which model a delegated native worker agent runs under, since
 those agent files pin their own model independent of the root selection.
 
+### Live routing canaries
+
+Static checks (`make validate-opencode`, `make test-ai-agents`,
+`scripts/check-agent-config-drift.sh`, `scripts/validate-agent-routing.py`)
+only prove rendered config is well formed; they cannot prove a model actually
+reads a delegation prompt and calls a worker. `scripts/test-agent-routing-live.sh`
+makes real, billed calls against installed harnesses to capture that evidence:
+
+```bash
+scripts/test-agent-routing-live.sh --harness opencode|claude-personal|claude-work|codex|forge|all
+```
+
+It is opt-in only — never wired into `make lint`, `make ci` or a pre-commit
+hook, since every run spends real model usage. Each requested harness prints
+one `PASS harness: evidence`, `FAIL harness: reason`, or
+`UNAVAILABLE harness: reason` line; `UNAVAILABLE` means the provider rejected
+the call for quota/credit/auth reasons (for example OpenAI workspace credits
+depleted, which affects every openai-backed harness — OpenCode, Codex, and
+Forge, since `forge agent list` confirms Forge's built-in agents also run on
+Codex — or an Anthropic per-request spend cap) and is never printed as `PASS`.
+It still makes the overall exit code non-zero, because no routing evidence was
+actually obtained. T3 cannot be driven non-interactively, so the script only
+prints the two manual T3 prompts and a read-only evidence query; it never
+automates the T3 UI or writes to T3's SQLite state. `--self-test` relaxes the
+pre/post worktree check to also allow this runner's own pending changes, for
+verifying the script against itself.
+
 ### ⌨️ F-keys
 
 Bare F1-F10 open specific apps and F11 switches between light and dark
