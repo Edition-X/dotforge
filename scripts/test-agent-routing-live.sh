@@ -194,10 +194,12 @@ check_opencode() {
         fail_line "$harness" "opencode run exited $rc: $(tail -c 300 "$err")"
         return
     fi
-    if ! grep -q '"role":"assistant"' "$out" 2>/dev/null && ! grep -q '"type":"message"' "$out" 2>/dev/null; then
-        fail_line "$harness" "no assistant/message evidence in JSON output"
-        return
-    fi
+    # No assertion on the shape of `opencode run --format json` output: it is
+    # not a stable contract, and gating on a particular key here previously
+    # produced a FAIL for a run that had in fact delegated correctly. The
+    # authoritative evidence is the parent/child session pair opencode records
+    # in its own database, checked below.
+    #
     # Read-only DB query for the parent (orchestrator) -> child (worker)
     # session pair created by this run. Never write to opencode.db.
     local db="${HOME}/.local/share/opencode/opencode.db"
@@ -221,7 +223,29 @@ check_opencode() {
         fail_line "$harness" "no orchestrator -> worker child session recorded in opencode.db since $before_ms"
         return
     fi
-    pass_line "$harness" "JSON shows assistant turn; opencode.db child session ${child}"
+
+    # The child session existing is not enough: assert it actually ran on the
+    # worker tier the canonical policy specifies, so a mis-tiered worker cannot
+    # pass. opencode stores model as JSON, e.g.
+    # {"id":"gpt-5.6-luna","providerID":"openai","variant":"medium"}.
+    local worker_policy
+    if ! worker_policy=$(resolve_openai_worker_model 2>&1); then
+        fail_line "$harness" "cannot resolve expected worker model from routing policy: $worker_policy"
+        return
+    fi
+    local expected_model
+    expected_model=$(sed -n '1p' <<<"$worker_policy")
+    if [[ -z "$expected_model" ]]; then
+        fail_line "$harness" "routing policy resolved no worker model for openai"
+        return
+    fi
+    local child_model
+    child_model=$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' <<<"$child")
+    if [[ "$child_model" != "$expected_model" ]]; then
+        fail_line "$harness" "child worker session ran model '${child_model:-unknown}', policy expects '${expected_model}' (child: ${child})"
+        return
+    fi
+    pass_line "$harness" "opencode.db orchestrator -> worker child ${child%%|*} confirms policy worker model \"${expected_model}\""
 }
 
 # --- Claude (personal + work share this shape) -------------------------------
@@ -320,7 +344,7 @@ print("keys=" + ",".join(keys) + " spawned=" + str(spawned))
 # (via return 1 + stderr) rather than a bash traceback, since bash 3.2, a
 # missing python3, missing PyYAML, missing policy files, or malformed YAML are
 # all normal states on some machine, not this script's bug.
-resolve_codex_worker_model() {
+resolve_openai_worker_model() {
     if ! command -v python3 >/dev/null 2>&1; then
         echo "python3 not found on PATH" >&2
         return 1
@@ -424,7 +448,7 @@ codex_verify_worker_delegation() {
     fi
 
     local worker_policy
-    if ! worker_policy=$(resolve_codex_worker_model 2>&1); then
+    if ! worker_policy=$(resolve_openai_worker_model 2>&1); then
         fail_line "$harness" "cannot resolve expected worker model from routing policy: $worker_policy"
         return
     fi
