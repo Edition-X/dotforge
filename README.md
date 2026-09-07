@@ -244,9 +244,9 @@ prompted and permission-enforced routing, not a native semantic router.
 
 Model policy is canonical and provider-neutral under
 `host_files/localhost/ai/routing/models.yml`; no harness hardcodes a model ID
-of its own. Current tiers: `gpt-5.6-sol`/`claude-fable-5-1` medium for lead,
+of its own. Current tiers: `gpt-5.6-sol`/`claude-opus-5` medium for lead,
 `gpt-5.6-luna`/`claude-sonnet-5` medium for worker, `gpt-5.6-sol`/
-`claude-fable-5-1` high for rescue, `gpt-5.6-terra`/`claude-opus-5` high for a
+`claude-opus-5` high for rescue, `gpt-5.6-terra`/`claude-opus-5` high for a
 senior tier mapped for completeness but outside default routing, and
 `gpt-5.4-mini`/`claude-haiku-4-5` low for a utility tier outside the normal
 engineering path. No `*-fast` model IDs are configured. Change one tier in
@@ -268,7 +268,7 @@ drift. Summary:
 | Harness | Support |
 |---|---|
 | OpenCode | Full native lead (`orchestrator`) / worker / verifier / rescue, plus command-only `documentation` |
-| Claude Code (personal + work) | Full native worker / verifier / rescue / documentation; root profile selected at lead tier (Fable medium) is the lead, no custom orchestrator agent |
+| Claude Code (personal + work) | Full native worker / verifier / rescue / documentation; root profile selected at lead tier (Opus 5 medium) is the lead, no custom orchestrator agent |
 | Codex CLI | Full native worker / verifier / rescue / documentation; root CLI pinned to lead tier is the lead |
 | T3 Code (Claude and Codex providers) | Inherited from `claude-work` and `~/.codex` respectively; no duplicate T3 agent definitions |
 | Forge 2.13.21 | Shared instructions and skill only; built-in Forge/Muse/Sage agents remain Forge-owned, no native Luna/Sonnet worker |

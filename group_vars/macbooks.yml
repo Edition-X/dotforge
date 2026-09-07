@@ -212,7 +212,7 @@ opencode_commands:
 
 # Native Claude Code subagents, rendered into both ai_claude_profiles'
 # agents_dir. No custom `orchestrator` is rendered here: the T3 run this
-# reproduces used Claude's normal root selected at the lead tier (Fable
+# reproduces used Claude's normal root selected at the lead tier (Opus 5
 # medium) with explicit Sonnet workers, not a custom primary agent (see
 # workflow.yml roles.orchestrator and its claude_max_turns: null note).
 #

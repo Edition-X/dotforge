@@ -77,7 +77,7 @@ full procedure.
 | Harness | Lead | Worker / verifier / rescue / documentation | Notes |
 |---|---|---|---|
 | OpenCode | Native `orchestrator` primary agent (Sol medium) | Native subagents, one file each | Full native support; five managed agents plus managed commands. |
-| Claude Code (personal, `~/.claude`) | Root/default profile, selected at Fable medium | Native subagents under `~/.claude/agents/*.md` | Full native support; no custom `orchestrator` agent — the root profile *is* the lead. |
+| Claude Code (personal, `~/.claude`) | Root/default profile, selected at Opus 5 medium | Native subagents under `~/.claude/agents/*.md` | Full native support; no custom `orchestrator` agent — the root profile *is* the lead. |
 | Claude Code (work, `~/.claude-work`) | Same as personal | Native subagents under `~/.claude-work/agents/*.md`, byte-identical to personal | Same policy, isolated auth/state; this is what T3 Code's Claude provider runs. |
 | Codex CLI (`~/.codex`) | Root CLI, `config.toml` top-level `model`/`model_reasoning_effort` pinned to lead tier | Native subagents under `~/.codex/agents/*.toml` | Full native support; `agents.default_subagent_model`/`default_subagent_reasoning_effort` in `config.toml` default new subagent threads to the worker tier. |
 | T3 Code (Claude provider) | Inherited: same root profile as `claude-work` | Inherited: same files as Claude work profile | No duplicate T3 agent definitions. T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
@@ -120,9 +120,9 @@ Templates live under `roles/ai_agents/templates`; OpenCode command source files
 live under `host_files/localhost/ai/opencode/commands`.
 
 Central, provider-neutral model policy lives in `routing/models.yml`; do not
-hardcode a model ID anywhere else. Current tiers: `gpt-5.6-sol` / `claude-fable-5-1`
+hardcode a model ID anywhere else. Current tiers: `gpt-5.6-sol` / `claude-opus-5`
 medium for lead, `gpt-5.6-luna` / `claude-sonnet-5` medium for worker,
-`gpt-5.6-sol` / `claude-fable-5-1` high for rescue, `gpt-5.6-terra` /
+`gpt-5.6-sol` / `claude-opus-5` high for rescue, `gpt-5.6-terra` /
 `claude-opus-5` high for a senior tier mapped for provider completeness but not
 part of default routing, and `gpt-5.4-mini` / `claude-haiku-4-5` low for a
 utility tier outside the normal engineering path. No `*-fast` model IDs are
@@ -161,7 +161,7 @@ T3 Code) both receive the same four native subagents — `worker`, `verifier`,
 routing policy; `scripts/test-ai-agents-idempotency.sh` asserts the diff is
 empty. Neither profile renders a custom `orchestrator` agent: the T3 execution
 trace this design is based on used Claude's normal root profile at the lead
-tier (Fable medium) with explicit Sonnet-medium workers, not a custom primary
+tier (Opus 5 medium) with explicit Sonnet-medium workers, not a custom primary
 agent (`workflow.yml`'s `roles.orchestrator.limits.claude_max_turns` is `null`
 for this reason). `execute-playbook` is preloaded into every rendered agent
 through its `skills:` frontmatter key, so agent bodies carry only that role's

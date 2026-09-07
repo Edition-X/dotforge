@@ -61,7 +61,6 @@ REQUIRED_CLAUDE_IDS = (
     "claude-haiku-4-5-20251001",
     "claude-sonnet-5",
     "claude-opus-5",
-    "claude-fable-5-1",
 )
 REQUIRED_OPENAI_IDS = (
     "gpt-5.4-mini",

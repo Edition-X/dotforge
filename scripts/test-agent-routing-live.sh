@@ -228,7 +228,7 @@ check_opencode() {
 
 check_claude() {
     local harness="$1" bin="$2"
-    local worker_model="claude-sonnet-5" root_model="claude-fable-5-1"
+    local worker_model="claude-sonnet-5" root_model="claude-opus-5"
     local out_a="${log_dir}/${harness}-worker.json" err_a="${log_dir}/${harness}-worker.err"
     local direct_prompt='Read-only self-test canary. Return only the first heading line of README.md. Do not edit any file.'
     timeout "$timeout_s" "$bin" --agent worker --model "$worker_model" --output-format json -p "$direct_prompt" \
