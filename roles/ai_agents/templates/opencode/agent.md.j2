@@ -20,6 +20,18 @@ permission:
 {% endfor %}
 {% if role.read_only %}
   edit: deny
+{% if item.role == 'scout' %}
+  "*": deny
+  bash: deny
+  read:
+    "*": allow
+    "*.env": ask
+    "*.env.*": ask
+    "*.env.example": allow
+  glob: allow
+  grep: allow
+  list: allow
+{% endif %}
 {% elif item.role == 'orchestrator' %}
   edit:
     "*": deny
@@ -40,6 +52,10 @@ permission:
 {% if role.read_only %}
   notion_*: deny
   grafana_*: deny
+{% if item.role == 'scout' %}
+  arcane_*: deny
+  mcp-sunrise_*: deny
+{% endif %}
 {% endif %}
 {% if item.role != 'documentation' %}
   linear_*: deny
@@ -47,8 +63,9 @@ permission:
   linear_*: allow
 {% endif %}
 ---
+{% if item.role != 'scout' %}
 {{ (lookup('file', ai_source_dir ~ '/skills/execute-playbook/SKILL.md')) | regex_replace('(?s)^---.*?---\n', '') | trim }}
 
 ---
-
+{% endif %}
 {{ lookup('file', ai_source_dir ~ '/routing/' ~ role.prompt) | trim }}

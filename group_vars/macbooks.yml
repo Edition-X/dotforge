@@ -183,6 +183,11 @@ opencode_agents:
     role: documentation
     mode: subagent
     description: "Owns all Linear work and writes documentation and runbooks in documentation paths only."
+  - name: scout
+    file: scout.md
+    role: scout
+    mode: subagent
+    description: "Optional read-only factual scout; returns findings, evidence, coverage, and unknowns only."
 
 # Retired specialist agents from the pre-lead-worker nine-agent chain. Any
 # exact regular file still present under the live agents directory is backed
@@ -238,6 +243,10 @@ claude_agents:
     file: documentation.md
     role: documentation
     description: "Owns all Linear work and writes documentation and runbooks in documentation paths only."
+  - name: scout
+    file: scout.md
+    role: scout
+    description: "Optional read-only factual scout; returns findings, evidence, coverage, and unknowns only."
 
 # Native Codex custom agents, rendered into ~/.codex/agents/. T3 Codex inherits
 # ~/.codex, so this list needs no separate T3 entry (see ai_harnesses).
@@ -268,6 +277,10 @@ codex_agents:
     file: documentation.toml
     role: documentation
     description: "Owns all Linear work and writes documentation and runbooks in documentation paths only."
+  - name: scout
+    file: scout.toml
+    role: scout
+    description: "Optional read-only factual scout; returns findings, evidence, coverage, and unknowns only."
 
 # Managed keys in Codex's app-owned config.toml (ChatGPT desktop): the CLI
 # root model/effort, and default subagent selection/concurrency for the

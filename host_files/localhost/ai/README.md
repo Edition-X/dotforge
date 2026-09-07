@@ -74,9 +74,9 @@ full procedure.
 
 ### Support matrix
 
-| Harness | Lead | Worker / verifier / rescue / documentation | Notes |
+| Harness | Lead | Worker / verifier / rescue / documentation / scout | Notes |
 |---|---|---|---|
-| OpenCode | Native `orchestrator` primary agent (Sol medium) | Native subagents, one file each | Full native support; five managed agents plus managed commands. |
+| OpenCode | Native `orchestrator` primary agent (Sol medium) | Native subagents, one file each | Full native support; six managed agents plus managed commands. |
 | Claude Code (personal, `~/.claude`) | Root/default profile, selected at Opus 5 medium | Native subagents under `~/.claude/agents/*.md` | Full native support; no custom `orchestrator` agent — the root profile *is* the lead. |
 | Claude Code (work, `~/.claude-work`) | Same as personal | Native subagents under `~/.claude-work/agents/*.md`, byte-identical to personal | Same policy, isolated auth/state; this is what T3 Code's Claude provider runs. |
 | Codex CLI (`~/.codex`) | Root CLI, `config.toml` top-level `model`/`model_reasoning_effort` pinned to lead tier | Native subagents under `~/.codex/agents/*.toml` | Full native support; `agents.default_subagent_model`/`default_subagent_reasoning_effort` in `config.toml` default new subagent threads to the worker tier. |
@@ -86,9 +86,8 @@ full procedure.
 
 ### Documentation exception and Linear boundary
 
-OpenCode keeps a fifth, command-only `documentation` agent alongside
-worker/verifier/rescue; Claude and Codex render `documentation` as a fourth
-native agent too. It is not part of the normal lead -> worker -> verifier ->
+OpenCode keeps a command-only `documentation` agent alongside its delivery
+roles and optional scout; Claude and Codex render `documentation` natively too. It is not part of the normal lead -> worker -> verifier ->
 rescue engineering path — it exists to preserve the existing Linear MCP
 permission boundary: only `documentation` (and the `linear` skill/command it
 backs) may call Linear MCP tools or read/write Linear issues, projects,
@@ -98,26 +97,29 @@ calling Linear MCP tools directly. Do not fold Linear access into the general
 worker role; that would widen the permission boundary the split exists to
 hold.
 
-### Why T3 has no live canary row
+### T3 inheritance and runtime evidence
 
-`scripts/test-agent-routing-live.sh` deliberately has no `t3` harness. T3 Code
-owns no routing configuration of its own: `~/.t3/userdata/settings.json` sets
-`providers.claudeAgent.binaryPath` to `~/.local/bin/claude-work` and nothing
-else — no `homePath`, no model, no agent definitions — and its Codex provider
-reads the shared `~/.codex` tree. T3 therefore reaches Claude by executing
-`claude-work` and Codex by reading `~/.codex`, so the `claude-work` and `codex`
-canary rows already exercise every code path a T3 session would.
+T3 launches `claude-work` for Claude and reads the shared `~/.codex` tree for
+Codex. Static drift and idempotency checks prove that configuration inheritance.
+CLI canaries exercise those providers, but do not prove identical T3 runtime
+permissions or startup behavior. A fresh T3 thread supplies separate runtime
+evidence; never infer it from a CLI result. Full access can override the Codex
+scout's requested read-only sandbox. Existing sessions may retain old settings.
 
-A manual T3 thread would mostly demonstrate that the operator did not override
-model/effort in the composer for that session — a fact about the operator, not
-about this repo (see the next section). The inheritance that genuinely can
-drift is asserted statically instead, and those checks must be kept:
+### Optional factual scout
 
-- `scripts/check-agent-config-drift.sh` — managed Claude/Codex agent files
-  exist and still carry the policy's model/effort.
-- The `binaryPath` / absence-of-`homePath` assertion on T3's settings.
-- `scripts/test-ai-agents-idempotency.sh` — the inherited Claude work-profile
-  and Codex agent files are byte-identical across two applies.
+The native `scout` uses worker tier with medium reasoning, does not preload
+`execute-playbook`, and returns only findings, evidence, coverage, and unknowns.
+Use it when broad repository discovery justifies a child call; keep small reads
+direct. OpenCode denies tools by default and allows read/search; Claude exposes
+only Read/Grep/Glob. Codex requests a read-only sandbox; MCP/delegation restrictions
+remain prompt instructions rather than a complete tool allowlist.
+
+Run `make test-scout` for offline accounting/correlation tests. The opt-in
+`scripts/test-scout-routing-live.py --harness opencode|codex|claude-work` makes one
+paid discovery call and checks actual child records. It does not prove economic
+savings or write-denial enforcement. See the repository rollout document for
+measured evidence and limitations.
 
 ### T3 composer and CLI-flag overrides
 
@@ -177,14 +179,14 @@ deployment idempotency checks. Existing files are backed up once under
 ## Claude Code and T3 Code
 
 `claude` (personal, `~/.claude`) and `claude-work` (`~/.claude-work`, used by
-T3 Code) both receive the same four native subagents — `worker`, `verifier`,
-`rescue`, `documentation` — rendered byte-identical from the same canonical
+T3 Code) both receive the same five native subagents — `worker`, `verifier`,
+`rescue`, `documentation`, `scout` — rendered byte-identical from the same canonical
 routing policy; `scripts/test-ai-agents-idempotency.sh` asserts the diff is
 empty. Neither profile renders a custom `orchestrator` agent: the T3 execution
 trace this design is based on used Claude's normal root profile at the lead
 tier (Opus 5 medium) with explicit Sonnet-medium workers, not a custom primary
 agent (`workflow.yml`'s `roles.orchestrator.limits.claude_max_turns` is `null`
-for this reason). `execute-playbook` is preloaded into every rendered agent
+for this reason). `execute-playbook` is preloaded into every rendered delivery agent
 through its `skills:` frontmatter key, so agent bodies carry only that role's
 prompt rather than the full procedure.
 

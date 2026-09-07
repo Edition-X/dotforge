@@ -18,7 +18,12 @@ maxTurns: {{ role.limits.claude_max_turns }}
 {% if role.read_only %}
 permissionMode: plan
 {% endif %}
+{% if agent.role == 'scout' %}
+tools: Read, Grep, Glob
+disallowedTools: Bash, Agent, Edit, Write, NotebookEdit, WebFetch, WebSearch, TodoWrite
+{% else %}
 skills:
   - execute-playbook
+{% endif %}
 ---
 {{ lookup('file', ai_source_dir ~ '/routing/' ~ role.prompt) | trim }}

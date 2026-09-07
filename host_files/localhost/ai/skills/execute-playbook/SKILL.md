@@ -14,7 +14,7 @@ ever disagree, fix the disagreement rather than picking one silently.
 
 ## Roles
 
-Five roles, defined by tier in `workflow.yml`:
+Six roles, defined by tier in `workflow.yml`:
 
 - **lead** (orchestrator) — reads the playbook, owns the ticket ledger, reviews real diffs
   and check evidence, merges, and never implements a ticket itself.
@@ -22,6 +22,9 @@ Five roles, defined by tier in `workflow.yml`:
 - **verifier** — read-only; checks an already-integrated result, never implements.
 - **rescue** — direct lead dispatch only, after a repeated similar failure trip-wire.
 - **documentation** — auxiliary; documentation/Markdown edits and tracker tools only.
+- **scout** — optional native read-only leaf for bounded factual discovery; returns
+  findings, evidence, coverage, and unknowns, then stops. It never edits, commits,
+  delegates, calls trackers, or replaces whole-ticket workers.
 
 ## Normative procedure
 
@@ -49,14 +52,21 @@ Five roles, defined by tier in `workflow.yml`:
 10. At most three workers run at once, and only for independent, non-overlapping tickets.
     Tickets with shared files or variables run serially instead.
 
+For broad independent factual discovery, lead should dispatch native `scout` when available
+and worth overhead. Keep small known reads direct. Lead owns reasoning, decisions, edits,
+and delivery routing; if scout unavailable, continue direct without escalation or a
+specialist chain.
+
 ## Handoff contract
 
-Every role above returns exactly one of these statuses: `COMPLETE`,
+Every delivery role returns exactly one of these statuses: `COMPLETE`,
 `CORRECTION_REQUIRED`, `HANDOFF_REQUIRED`, `BLOCKED_AUTHORITY`, `BLOCKED_TRANSIENT`.
 
-Every handoff carries exactly these eleven evidence fields: `status`, `ticket`, `branch`,
+Every delivery handoff carries exactly these eleven evidence fields: `status`, `ticket`, `branch`,
 `commit`, `files`, `checks`, `failure_fingerprint`, `deviations`, `last_safe_state`,
 `recommended_next`, `unresolved_risks`.
+
+Scout instead returns only `findings`, `evidence`, `coverage`, and `unknowns`.
 
 ## Shared safety rules (apply to every role)
 

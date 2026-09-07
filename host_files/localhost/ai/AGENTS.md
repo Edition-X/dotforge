@@ -128,3 +128,12 @@ Do not improvise these from memory. If a skill and this file disagree, the skill
 - Route routine work to cheaper specialised agents when harness supports delegation.
 - Escalate repeated failures; do not repeat an unchanged failed approach.
 - Report skipped, failed, and unsupported checks explicitly. Never fabricate success.
+
+## Discovery routing
+
+For broad, independent factual discovery, lead should use or delegate to optional native
+`scout` when available and worth overhead. Scout is a worker-tier read-only leaf that
+returns findings, evidence, coverage, and unknowns, then stops. Keep small known reads direct; lead owns reasoning,
+decisions, edits, and delivery routing. If scout unavailable, continue direct without
+escalation or recursive specialist chains. Treat scout summaries as an evidence index;
+check decisive sources directly before changing files.

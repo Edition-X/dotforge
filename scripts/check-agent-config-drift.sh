@@ -38,10 +38,12 @@ declare -a claude_agent_files=(
     "${HOME}/.claude/agents/verifier.md"
     "${HOME}/.claude/agents/rescue.md"
     "${HOME}/.claude/agents/documentation.md"
+    "${HOME}/.claude/agents/scout.md"
     "${HOME}/.claude-work/agents/worker.md"
     "${HOME}/.claude-work/agents/verifier.md"
     "${HOME}/.claude-work/agents/rescue.md"
     "${HOME}/.claude-work/agents/documentation.md"
+    "${HOME}/.claude-work/agents/scout.md"
 )
 
 declare -a codex_agent_files=(
@@ -49,6 +51,7 @@ declare -a codex_agent_files=(
     "${HOME}/.codex/agents/verifier.toml"
     "${HOME}/.codex/agents/rescue.toml"
     "${HOME}/.codex/agents/documentation.toml"
+    "${HOME}/.codex/agents/scout.toml"
 )
 
 declare -a opencode_managed_files=(
@@ -59,6 +62,7 @@ declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/agents/verifier.md"
     "${HOME}/.config/opencode/agents/rescue.md"
     "${HOME}/.config/opencode/agents/documentation.md"
+    "${HOME}/.config/opencode/agents/scout.md"
     "${HOME}/.config/opencode/commands/orchestrate.md"
     "${HOME}/.config/opencode/commands/implement-reviewed.md"
     "${HOME}/.config/opencode/commands/load-test-loop.md"
@@ -178,7 +182,7 @@ models_path, workflow_path = sys.argv[1], sys.argv[2]
 models = yaml.safe_load(open(models_path))
 workflow = yaml.safe_load(open(workflow_path))
 
-for role in ("worker", "verifier", "rescue", "documentation"):
+for role in ("worker", "verifier", "rescue", "documentation", "scout"):
     tier_name = workflow["roles"][role]["tier"]
     tier = models["tiers"][tier_name]
     anthropic, openai = tier["anthropic"], tier["openai"]
