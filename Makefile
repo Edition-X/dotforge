@@ -88,8 +88,16 @@ dump:
 	@git --no-pager diff --stat Brewfile
 
 # Validation targets
+
+# Non-Ansible twin of roles/ai_agents/tasks/routing.yml: fails fast on a
+# malformed canonical routing source before any harness renders against it.
+.PHONY: validate-agent-routing
+validate-agent-routing: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ./scripts/validate-agent-routing.py)
+
 .PHONY: lint
 lint: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(MAKE) validate-agent-routing
 	@$(call activate, ansible-lint)
 	@$(call activate, yamllint .)
 	@./scripts/check-skills.sh
@@ -116,6 +124,7 @@ validate-opencode: $(PYTHON_VIRTUAL_ENVIRONMENT)
 .PHONY: test-ai-agents
 test-ai-agents: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ./scripts/test-ai-agents-idempotency.sh)
+	@$(call activate, ./scripts/test-codex-agent-settings-sync.sh)
 
 .PHONY: clean
 clean:

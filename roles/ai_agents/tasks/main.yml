@@ -4,6 +4,13 @@
 # file drift silently and then get clobbered by the next apply, whereas a link
 # makes any local tweak show up as a git diff in this repo.
 
+# Runs first: fail before rendering anything if the canonical routing source
+# (host_files/localhost/ai/routing/) is malformed.
+- name: Routing - Load and validate canonical policy
+  ansible.builtin.include_tasks: routing.yml
+  tags:
+    - ai
+
 # Discovered rather than listed, so adding a skill is just adding a directory
 # under host_files/localhost/ai/skills/ — no role edit needed.
 - name: Discover repo-owned skills
@@ -313,6 +320,58 @@
   tags:
     - ai
 
+- name: OpenCode - Retired agents backup directory
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}/opencode/retired"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  check_mode: false
+  tags:
+    - ai
+
+- name: OpenCode - Stat existing retired agents
+  ansible.builtin.stat:
+    path: "{{ config_paths.opencode_agents }}/{{ item }}"
+  loop: "{{ opencode_retired_agents }}"
+  register: ai_agents_opencode_existing_retired_agents
+  tags:
+    - ai
+
+# Backed up once each: force:false skips a retired file whose backup already
+# exists under .../opencode/retired/, so a second apply neither re-copies nor
+# reports changed.
+- name: OpenCode - Back up retired agents not already preserved
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/opencode/retired/{{ item.item }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_opencode_existing_retired_agents.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - item.stat.exists
+    - item.stat.isreg
+  tags:
+    - ai
+
+# Only these exact retired filenames are ever removed; the agents directory
+# itself is never swept, so any user-owned agent file is untouched.
+- name: OpenCode - Remove retired agent files
+  ansible.builtin.file:
+    path: "{{ config_paths.opencode_agents }}/{{ item }}"
+    state: absent
+  loop: "{{ opencode_retired_agents }}"
+  loop_control:
+    label: "{{ item }}"
+  tags:
+    - ai
+
 - name: OpenCode - Stage and validate managed configuration
   tags:
     - ai
@@ -482,11 +541,32 @@
     - ai
     - claude
 
+- name: Claude agents - Render lead-worker subagents
+  ansible.builtin.include_tasks: claude_agents.yml
+  tags:
+    - ai
+    - claude
+
 - name: Claude MCP - Manage arcane registration
   ansible.builtin.include_tasks: claude_mcp.yml
   tags:
     - ai
     - claude
+
+
+# Codex agents run before Codex MCP: codex-agent-settings-sync.py is the
+# first task to ever add a top-level [agents] table after [mcp_servers] in a
+# fresh config.toml, and codex-mcp-sync.py's build_table() always rebuilds
+# mcp_servers' sub-tables from scratch, which does not preserve the blank
+# line trivia separating mcp_servers from whatever table follows it. Running
+# the [agents] table into place first means mcp_servers is always the last
+# table any script rebuilds fresh, so that trivia loss never has a following
+# section to disturb, and both scripts stay independently idempotent.
+- name: Codex agents - Render lead-worker subagents and sync defaults
+  ansible.builtin.include_tasks: codex_agents.yml
+  tags:
+    - ai
+    - codex
 
 - name: Codex MCP - Manage mcp_servers entries
   ansible.builtin.include_tasks: codex_mcp.yml

@@ -31,6 +31,10 @@
                        | combine({'permissions': {'allow':
                            _existing_allow + (ai_claude_permission_allow | difference(_existing_allow))
                          }}, recursive=True)
+                       | combine({
+                           'model': ai_routing_models.tiers.lead.anthropic.model,
+                           'effortLevel': ai_routing_models.tiers.lead.anthropic.effort
+                         }, recursive=True)
            )
          }) }}
   vars:

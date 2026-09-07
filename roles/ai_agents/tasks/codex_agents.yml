@@ -1,0 +1,174 @@
+---
+# Renders the four native Codex custom agents (worker, verifier, rescue,
+# documentation) from the canonical routing policy into ~/.codex/agents/,
+# then surgically syncs the root model/effort and native-agent defaults in
+# Codex's app-owned config.toml so a plain Codex/T3 session defaults to the
+# Sol lead and Luna workers this repo renders everywhere else.
+#
+# Codex is optional on any given machine, so this whole file is a no-op when
+# ~/.codex/config.toml does not exist, mirroring codex_mcp.yml. Managed by
+# exact filename only, mirroring claude_agents.yml: a colliding non-managed
+# file is backed up once, then overwritten. The agents/ directory itself is
+# never swept, so any other user-created custom agent file is left
+# untouched.
+
+- name: Codex agents - Stat config.toml
+  ansible.builtin.stat:
+    path: "{{ user_dir }}/.codex/config.toml"
+  register: ai_agents_codex_agents_config
+  check_mode: false
+  tags: [ai, codex]
+
+- name: Codex agents - Skip when Codex is not installed
+  ansible.builtin.debug:
+    msg: "{{ user_dir }}/.codex/config.toml not present; skipping Codex agent rendering."
+  when: not ai_agents_codex_agents_config.stat.exists
+  tags: [ai, codex]
+
+- name: Codex agents - Backup directory
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}/codex"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  when: ai_agents_codex_agents_config.stat.exists
+  check_mode: false
+  tags: [ai, codex]
+
+- name: Codex agents - Stat migration marker
+  ansible.builtin.stat:
+    path: "{{ ai_backup_dir }}/codex/.managed"
+  register: ai_agents_codex_agents_backup_marker
+  when: ai_agents_codex_agents_config.stat.exists
+  tags: [ai, codex]
+
+- name: Codex agents - Agents directory
+  ansible.builtin.file:
+    path: "{{ user_dir }}/.codex/agents"
+    state: directory
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0700'
+  when: ai_agents_codex_agents_config.stat.exists
+  tags: [ai, codex]
+
+- name: Codex agents - Stat existing managed agent files
+  ansible.builtin.stat:
+    path: "{{ user_dir }}/.codex/agents/{{ item.file }}"
+  loop: "{{ codex_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_codex_agents_existing
+  when: ai_agents_codex_agents_config.stat.exists
+  tags: [ai, codex]
+
+# force:false alone would let a file created *after* the first apply (i.e.
+# genuinely user-owned, not merely pre-existing) also dodge backup on some
+# future re-collision; gating on the migration marker instead means only the
+# true pre-managed content is ever preserved, exactly once. Mirrors
+# claude_agents.yml's "Back up colliding non-managed agent files" task.
+- name: Codex agents - Back up colliding non-managed agent files
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ ai_backup_dir }}/codex/{{ item.item.file }}"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  loop: "{{ ai_agents_codex_agents_existing.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - ai_agents_codex_agents_config.stat.exists
+    - item.stat.exists
+    - item.stat.isreg
+    - not ai_agents_codex_agents_backup_marker.stat.exists
+  tags: [ai, codex]
+
+# codex/agent.toml.j2 embeds SKILL.md and the role prompt inside a TOML
+# literal string ('''...'''), which forbids that delimiter appearing in the
+# content it wraps. scripts/validate-agent-routing.py validates the routing
+# source's schema and cross-references, but it is out of this ticket's file
+# scope and carries no check for this Codex-specific TOML constraint, so the
+# guard lives here instead, run once per agent before any file is rendered.
+- name: Codex agents - Guard embedded prompt content against TOML literal delimiter
+  ansible.builtin.assert:
+    that:
+      - >-
+        "'''" not in lookup('file', ai_source_dir ~ '/skills/execute-playbook/SKILL.md')
+      - >-
+        "'''" not in lookup('file', ai_source_dir ~ '/routing/' ~ ai_routing_workflow.roles[item.role].prompt)
+    fail_msg: >-
+      Embedded content for Codex agent {{ item.name }} contains a TOML
+      literal-string delimiter ('''); rendering would corrupt config.toml.
+    quiet: true
+  loop: "{{ codex_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: ai_agents_codex_agents_config.stat.exists
+  tags: [ai, codex]
+
+- name: Codex agents - Install rendered agents
+  ansible.builtin.template:
+    src: codex/agent.toml.j2
+    dest: "{{ user_dir }}/.codex/agents/{{ item.file }}"
+    mode: '0644'
+  vars:
+    agent: "{{ item }}"
+  loop: "{{ codex_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: ai_agents_codex_agents_config.stat.exists
+  tags: [ai, codex]
+
+- name: Codex agents - Mark migration backup complete
+  ansible.builtin.file:
+    path: "{{ ai_backup_dir }}/codex/.managed"
+    state: touch
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  when:
+    - ai_agents_codex_agents_config.stat.exists
+    - not ai_agents_codex_agents_backup_marker.stat.exists
+  tags: [ai, codex]
+
+- name: Codex agents - Back up config.toml before the first defaults sync
+  ansible.builtin.copy:
+    src: "{{ user_dir }}/.codex/config.toml"
+    dest: "{{ ai_backup_dir }}/codex-config.toml.pre-agent-defaults-sync"
+    remote_src: true
+    force: false
+    owner: "{{ ansible_user_uid | quote }}"
+    group: "{{ ansible_user_gid | quote }}"
+    mode: '0600'
+  when: ai_agents_codex_agents_config.stat.exists
+  tags: [ai, codex]
+
+# stdin carries the desired settings so the invocation matches
+# codex-mcp-sync.py's convention, even though none of these six values is a
+# secret. no_log stays on regardless per the shared rule that no Ansible
+# task touching Codex's app-owned config.toml prints its contents.
+- name: Codex agents - Sync default model and native-agent settings
+  ansible.builtin.command:
+    argv: >-
+      {{
+        [
+          project_dir ~ '/scripts/codex-agent-settings-sync.py',
+          '--config', user_dir ~ '/.codex/config.toml',
+          '--desired', '-'
+        ]
+        + (['--check'] if ansible_check_mode else [])
+      }}
+    stdin: "{{ ai_codex_agent_defaults | to_json }}"
+    stdin_add_newline: false
+  register: ai_agents_codex_agent_defaults_sync
+  when: ai_agents_codex_agents_config.stat.exists
+  # Careful: "changed" is a substring of "unchanged", so this must match the
+  # trimmed line exactly rather than testing containment.
+  changed_when: "ai_agents_codex_agent_defaults_sync.stdout | trim == 'changed'"
+  check_mode: false
+  no_log: true
+  tags: [ai, codex]

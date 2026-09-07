@@ -33,17 +33,31 @@ declare -a skills_dirs=(
     "${HOME}/.config/opencode/skills"
 )
 
+declare -a claude_agent_files=(
+    "${HOME}/.claude/agents/worker.md"
+    "${HOME}/.claude/agents/verifier.md"
+    "${HOME}/.claude/agents/rescue.md"
+    "${HOME}/.claude/agents/documentation.md"
+    "${HOME}/.claude-work/agents/worker.md"
+    "${HOME}/.claude-work/agents/verifier.md"
+    "${HOME}/.claude-work/agents/rescue.md"
+    "${HOME}/.claude-work/agents/documentation.md"
+)
+
+declare -a codex_agent_files=(
+    "${HOME}/.codex/agents/worker.toml"
+    "${HOME}/.codex/agents/verifier.toml"
+    "${HOME}/.codex/agents/rescue.toml"
+    "${HOME}/.codex/agents/documentation.toml"
+)
+
 declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/opencode.jsonc"
     "${HOME}/.config/opencode/ROUTING.md"
     "${HOME}/.config/opencode/agents/orchestrator.md"
-    "${HOME}/.config/opencode/agents/architect.md"
-    "${HOME}/.config/opencode/agents/explorer.md"
-    "${HOME}/.config/opencode/agents/worker-fast.md"
-    "${HOME}/.config/opencode/agents/implementer.md"
-    "${HOME}/.config/opencode/agents/debugger.md"
-    "${HOME}/.config/opencode/agents/reviewer.md"
-    "${HOME}/.config/opencode/agents/test-runner.md"
+    "${HOME}/.config/opencode/agents/worker.md"
+    "${HOME}/.config/opencode/agents/verifier.md"
+    "${HOME}/.config/opencode/agents/rescue.md"
     "${HOME}/.config/opencode/agents/documentation.md"
     "${HOME}/.config/opencode/commands/orchestrate.md"
     "${HOME}/.config/opencode/commands/implement-reviewed.md"
@@ -55,6 +69,7 @@ declare -a opencode_managed_files=(
     "${HOME}/.config/opencode/commands/plan.md"
     "${HOME}/.config/opencode/commands/grill.md"
     "${HOME}/.config/opencode/commands/grilling.md"
+    "${HOME}/.config/opencode/commands/execute-playbook.md"
 )
 
 drift=()
@@ -111,6 +126,118 @@ if [[ -e "${HOME}/.config/opencode/AGENTS.md" ]]; then
     for f in "${opencode_managed_files[@]}"; do
         [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed OpenCode setup")
     done
+fi
+
+# Generated Claude subagent files, same rationale as the OpenCode block above:
+# not symlinks, so only checked for presence once the profile is provisioned.
+if [[ -e "${HOME}/.claude/CLAUDE.md" ]]; then
+    for f in "${claude_agent_files[@]}"; do
+        [[ "$f" == *"/.claude-work/"* && ! -d "${HOME}/.claude-work" ]] && continue
+        [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed Claude agents")
+    done
+fi
+
+# Generated Codex custom agent files, same rationale: not symlinks, only
+# checked once Codex's app-owned config.toml is actually present.
+if [[ -e "${HOME}/.codex/config.toml" ]]; then
+    for f in "${codex_agent_files[@]}"; do
+        [[ -e "$f" ]] || drift+=("${f/#$HOME/\~} is missing from managed Codex agents")
+    done
+fi
+
+# --- Canonical routing policy content marker ----------------------------
+# A present file only proves it was rendered once; it does not prove it was
+# rendered from the *current* routing/models.yml. Neither the Claude nor the
+# Codex template embeds an explicit version/hash comment (roles/ai_agents/
+# templates/{claude,codex}/agent.*.j2 are outside this ticket's scope to
+# change), so the rendered model/effort fields are the only per-file content
+# that traces back to the canonical policy; they act as that marker. Advisory
+# only, same as every other check here, and never prints a full file.
+#
+# Every precondition below degrades to one advisory drift line instead of
+# silently skipping (a traceback or `declare` error reaching stderr while
+# still exiting 0 would be worse than not checking at all): bash older than
+# 4 cannot do the associative arrays this needs (macOS ships bash 3.2 at
+# /bin/bash; this repo otherwise targets no bash-4-only construct), python3
+# may be absent or missing PyYAML, and the inline parse can fail if the
+# policy YAML is malformed.
+routing_dir="${ai_dir}/routing"
+if (( ${BASH_VERSINFO[0]} < 4 )); then
+    drift+=("policy-marker check skipped: running under bash ${BASH_VERSION%%[^0-9.]*} (need bash 4+ for associative arrays); rerun with a newer bash on PATH")
+elif ! command -v python3 >/dev/null 2>&1; then
+    drift+=("policy-marker check skipped: python3 not found on PATH")
+elif ! python3 -c 'import yaml' >/dev/null 2>&1; then
+    drift+=("policy-marker check skipped: $(command -v python3) has no PyYAML installed")
+elif [[ ! -f "${routing_dir}/models.yml" || ! -f "${routing_dir}/workflow.yml" ]]; then
+    drift+=("policy-marker check skipped: ${routing_dir}/models.yml or workflow.yml missing")
+elif ! ai_agents_policy_marker_raw=$(python3 - "${routing_dir}/models.yml" "${routing_dir}/workflow.yml" 2>&1 <<'PY'
+import sys
+import yaml
+
+models_path, workflow_path = sys.argv[1], sys.argv[2]
+models = yaml.safe_load(open(models_path))
+workflow = yaml.safe_load(open(workflow_path))
+
+for role in ("worker", "verifier", "rescue", "documentation"):
+    tier_name = workflow["roles"][role]["tier"]
+    tier = models["tiers"][tier_name]
+    anthropic, openai = tier["anthropic"], tier["openai"]
+    print("|".join([
+        role,
+        anthropic["model"],
+        anthropic.get("effort") or "",
+        openai["model"],
+        openai.get("effort") or "",
+    ]))
+PY
+); then
+    # $ai_agents_policy_marker_raw holds stdout+stderr from the failed
+    # interpreter (redirected together only so it never reaches this
+    # script's own stderr); it is a traceback, not data, so it is reported
+    # as one advisory line rather than parsed or printed in full.
+    drift+=("policy-marker check skipped: routing policy YAML failed to parse (models.yml/workflow.yml)")
+else
+    declare -A ai_agents_expected_claude_model ai_agents_expected_claude_effort
+    declare -A ai_agents_expected_codex_model ai_agents_expected_codex_effort
+    while IFS='|' read -r role cm ce om oe; do
+        [[ -z "$role" ]] && continue
+        ai_agents_expected_claude_model["$role"]="$cm"
+        ai_agents_expected_claude_effort["$role"]="$ce"
+        ai_agents_expected_codex_model["$role"]="$om"
+        ai_agents_expected_codex_effort["$role"]="$oe"
+    done <<< "$ai_agents_policy_marker_raw"
+
+    if [[ -e "${HOME}/.claude/CLAUDE.md" ]]; then
+        for role in "${!ai_agents_expected_claude_model[@]}"; do
+            f="${HOME}/.claude/agents/${role}.md"
+            [[ -f "$f" ]] || continue
+            actual_model=$(awk -F': ' '/^model: /{print $2; exit}' "$f")
+            [[ "$actual_model" == "${ai_agents_expected_claude_model[$role]}" ]] ||
+                drift+=("${f/#$HOME/\~}: model is '${actual_model}', policy expects '${ai_agents_expected_claude_model[$role]}' (stale render, run ansible-playbook site.yml --tags ai)")
+            expected_effort="${ai_agents_expected_claude_effort[$role]}"
+            if [[ -n "$expected_effort" ]]; then
+                actual_effort=$(awk -F': ' '/^effort: /{print $2; exit}' "$f")
+                [[ "$actual_effort" == "$expected_effort" ]] ||
+                    drift+=("${f/#$HOME/\~}: effort is '${actual_effort}', policy expects '${expected_effort}' (stale render)")
+            fi
+        done
+    fi
+
+    if [[ -e "${HOME}/.codex/config.toml" ]]; then
+        for role in "${!ai_agents_expected_codex_model[@]}"; do
+            f="${HOME}/.codex/agents/${role}.toml"
+            [[ -f "$f" ]] || continue
+            actual_model=$(awk -F'"' '/^model = /{print $2; exit}' "$f")
+            [[ "$actual_model" == "${ai_agents_expected_codex_model[$role]}" ]] ||
+                drift+=("${f/#$HOME/\~}: model is '${actual_model}', policy expects '${ai_agents_expected_codex_model[$role]}' (stale render, run ansible-playbook site.yml --tags ai)")
+            expected_effort="${ai_agents_expected_codex_effort[$role]}"
+            if [[ -n "$expected_effort" ]]; then
+                actual_effort=$(awk -F'"' '/^model_reasoning_effort = /{print $2; exit}' "$f")
+                [[ "$actual_effort" == "$expected_effort" ]] ||
+                    drift+=("${f/#$HOME/\~}: effort is '${actual_effort}', policy expects '${expected_effort}' (stale render)")
+            fi
+        done
+    fi
 fi
 
 # --- Arcane MCP registration -------------------------------------------

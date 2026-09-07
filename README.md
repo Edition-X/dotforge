@@ -231,17 +231,47 @@ Restart OpenCode after applying configuration. Native commands:
 - `/debug-loop <failure or defect>` — reproduce, prove root cause, apply smallest fix, verify.
 - `/wayfinder <destination>` — explicit long-horizon decision mapping with the installed Wayfinder skill.
 - `/linear <request>` — complete Linear read/write operation owned by `documentation`, with inspection and approval gates.
-- `/plan <request>` — user-facing implementation or technical plan owned by `reviewer`; read-only, no verdict boilerplate.
+- `/plan <request>` — read-only implementation or technical plan, owned directly by `orchestrator`; no verdict boilerplate.
 - `/grill <plan or idea>` — explicit one-question-at-a-time decision grilling; `/grilling` is an alias.
 
-OpenCode routing boundary: explicit `/linear` and `/plan` commands bind deterministically to existing specialists. Natural-language Linear requests are prompted to `documentation`; natural-language planning requests are prompted to `reviewer`. Non-documentation agents cannot call Linear MCP tools; the direct-API and shell-fallback prohibition remains prompt-enforced. `/wayfinder` remains orchestrator-owned because subagent depth is one: reviewer planning runs first, then documentation performs any Linear issue-tracker work as sibling tasks. This is prompted and permission-enforced routing, not a native semantic router.
+OpenCode routing boundary: explicit `/linear` binds deterministically to
+`documentation`; natural-language Linear requests are prompted to it too.
+Non-documentation agents cannot call Linear MCP tools; the direct-API and
+shell-fallback prohibition remains prompt-enforced. `/plan` and `/wayfinder`
+stay orchestrator-owned, read-only planning; every implementation ticket is
+delegated whole to `worker`, never implemented by orchestrator itself. This is
+prompted and permission-enforced routing, not a native semantic router.
 
-Model policy uses `openai/gpt-5.6-terra` high for orchestration and hard
-debugging, `openai/gpt-5.6-sol` high for architecture and independent review,
-`openai/gpt-5.6-luna` medium for implementation, and
-`openai/gpt-5.4-mini` low for exploration, mechanical work, tests, and docs.
-No `*-fast` model IDs are configured. Change one assignment in
-`host_vars/localhost/opencode.yml`, run `make ai`, then restart OpenCode.
+Model policy is canonical and provider-neutral under
+`host_files/localhost/ai/routing/models.yml`; no harness hardcodes a model ID
+of its own. Current tiers: `gpt-5.6-sol`/`claude-opus-5` medium for lead,
+`gpt-5.6-luna`/`claude-sonnet-5` medium for worker, `gpt-5.6-sol`/
+`claude-opus-5` high for rescue, `gpt-5.6-terra`/`claude-opus-5` high for a
+senior tier mapped for completeness but outside default routing, and
+`gpt-5.4-mini`/`claude-haiku-4-5` low for a utility tier outside the normal
+engineering path. No `*-fast` model IDs are configured. Change one tier in
+`host_files/localhost/ai/routing/models.yml`, run `make ai`, then restart
+OpenCode.
+
+### Cross-harness lead-worker routing
+
+Normal engineering work follows one workflow on every harness that supports
+it: a lead (medium reasoning) delegates one whole ticket at a time to a
+worker (medium reasoning), reviews the real diff and check evidence, allows
+one correction back to the same worker, escalates a second materially similar
+failure to a fresh rescue (high reasoning), and runs a fresh verifier before a
+batch merges. See `host_files/localhost/ai/README.md` for the full
+per-harness support matrix, the `documentation`/Linear permission boundary,
+and how a T3 composer or CLI-flag override for one session differs from
+drift. Summary:
+
+| Harness | Support |
+|---|---|
+| OpenCode | Full native lead (`orchestrator`) / worker / verifier / rescue, plus command-only `documentation` |
+| Claude Code (personal + work) | Full native worker / verifier / rescue / documentation; root profile selected at lead tier (Opus 5 medium) is the lead, no custom orchestrator agent |
+| Codex CLI | Full native worker / verifier / rescue / documentation; root CLI pinned to lead tier is the lead |
+| T3 Code (Claude and Codex providers) | Inherited from `claude-work` and `~/.codex` respectively; no duplicate T3 agent definitions, and no live canary row — inheritance is verified statically |
+| Forge 2.13.21 | Shared instructions and skill only; built-in Forge/Muse/Sage agents remain Forge-owned, no native Luna/Sonnet worker |
 
 ### Claude profiles and T3 Code
 
@@ -251,7 +281,9 @@ managed wrapper around that same executable; it sets `CLAUDE_CONFIG_DIR` to
 `~/.claude-work` and keeps work authentication separate. T3 Code's Claude
 provider invokes `claude-work` through `~/.t3/userdata/settings.json`. The work
 profile is a member of `ai_harnesses` like every other harness, so it receives
-the same `AGENTS.md` instructions and skills as the personal profile.
+the same `AGENTS.md` instructions and skills as the personal profile, and the
+same four native worker/verifier/rescue/documentation agents, rendered
+byte-identical to the personal profile's.
 
 ```bash
 claude             # personal/default profile
@@ -259,7 +291,38 @@ claude-work        # isolated work profile used by T3 Code
 ```
 
 Run `claude-work` once to authenticate work profile when needed. Restart T3
-Code after applying configuration changes.
+Code after applying configuration changes. A T3 composer setting or an
+explicit CLI flag can override the root/lead model for one session only; it
+does not change which model a delegated native worker agent runs under, since
+those agent files pin their own model independent of the root selection.
+
+### Live routing canaries
+
+Static checks (`make validate-opencode`, `make test-ai-agents`,
+`scripts/check-agent-config-drift.sh`, `scripts/validate-agent-routing.py`)
+only prove rendered config is well formed; they cannot prove a model actually
+reads a delegation prompt and calls a worker. `scripts/test-agent-routing-live.sh`
+makes real, billed calls against installed harnesses to capture that evidence:
+
+```bash
+scripts/test-agent-routing-live.sh --harness opencode|claude-personal|claude-work|codex|forge|all
+```
+
+It is opt-in only — never wired into `make lint`, `make ci` or a pre-commit
+hook, since every run spends real model usage. Each requested harness prints
+one `PASS harness: evidence`, `FAIL harness: reason`, or
+`UNAVAILABLE harness: reason` line; `UNAVAILABLE` means the provider rejected
+the call for quota/credit/auth reasons (for example OpenAI workspace credits
+depleted, which affects every openai-backed harness — OpenCode, Codex, and
+Forge, since `forge agent list` confirms Forge's built-in agents also run on
+Codex — or an Anthropic per-request spend cap) and is never printed as `PASS`.
+It still makes the overall exit code non-zero, because no routing evidence was
+actually obtained. T3 Code has no row of its own: it owns no routing config
+beyond a `binaryPath` to `claude-work` plus the shared `~/.codex` tree, so the
+`claude-work` and `codex` rows already exercise every path a T3 session would,
+and its inheritance is asserted statically instead. `--self-test` relaxes the
+pre/post worktree check to also allow this runner's own pending changes, for
+verifying the script against itself.
 
 ### ⌨️ F-keys
 

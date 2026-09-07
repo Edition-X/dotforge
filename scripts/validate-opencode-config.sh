@@ -44,30 +44,23 @@ fi
 
 jq empty "$resolved_file" >/dev/null
 
-required_agents=(
-    orchestrator architect explorer worker-fast implementer debugger reviewer
-    test-runner documentation
-)
+required_agents=(orchestrator worker verifier rescue documentation)
 required_commands=(
-    orchestrate implement-reviewed load-test-loop review debug-loop wayfinder grill grilling linear plan
+    orchestrate implement-reviewed load-test-loop review debug-loop wayfinder grill grilling linear plan execute-playbook
 )
 
-for agent in architect explorer worker-fast implementer debugger reviewer test-runner documentation; do
+for agent in worker verifier rescue documentation; do
     jq -e --arg agent "$agent" '.agent[$agent] != null' "$resolved_file" >/dev/null || {
         printf 'missing agent: %s\n' "$agent" >&2
         exit 1
     }
 done
 
-for command_name in linear plan; do
-    expected_agent=$([[ "$command_name" == linear ]] && printf documentation || printf reviewer)
-    jq -e --arg command "$command_name" --arg agent "$expected_agent" \
-        '.command[$command].agent == $agent and .command[$command].subtask == true' \
-        "$resolved_file" >/dev/null || {
-        printf 'specialist command routing is incorrect: %s\n' "$command_name" >&2
-        exit 1
-    }
-done
+jq -e '.command["linear"].agent == "documentation" and .command["linear"].subtask == true' \
+    "$resolved_file" >/dev/null || {
+    printf 'specialist command routing is incorrect: linear\n' >&2
+    exit 1
+}
 
 for command_name in "${required_commands[@]}"; do
     jq -e --arg command "$command_name" '.command[$command].template != null' "$resolved_file" >/dev/null || {
@@ -77,7 +70,6 @@ for command_name in "${required_commands[@]}"; do
     expected_agent=orchestrator
     case "$command_name" in
         linear) expected_agent=documentation ;;
-        plan) expected_agent=reviewer ;;
     esac
     jq -e --arg command "$command_name" --arg agent "$expected_agent" \
         '.command[$command].agent == $agent' "$resolved_file" >/dev/null || {
@@ -192,7 +184,7 @@ jq -e '
     exit 1
 }
 
-for agent in orchestrator architect explorer worker-fast implementer debugger reviewer test-runner; do
+for agent in orchestrator worker verifier rescue; do
     jq -e '
         def matches_linear($rule; $permission):
             ($rule.permission == $permission) or ($rule.permission == "linear_*");
@@ -215,7 +207,7 @@ else
     exit 1
 fi
 
-for agent in architect explorer reviewer test-runner; do
+for agent in verifier; do
     jq -e '[.permission[]? | select(.permission == "edit" and .action == "allow")] | length == 0' "${tmp_dir}/${agent}.json" >/dev/null || {
         printf 'read-only agent has edit permission: %s\n' "$agent" >&2
         exit 1
@@ -260,7 +252,7 @@ for agent in "${required_agents[@]}"; do
     }
 done
 
-for agent in architect explorer worker-fast implementer debugger reviewer test-runner documentation; do
+for agent in worker verifier rescue documentation; do
     jq -e '[.permission[]? | select(.permission == "task" and .action == "allow")] | length == 0' "${tmp_dir}/${agent}.json" >/dev/null || {
         printf 'subagent delegation permission unexpectedly allowed: %s\n' "$agent" >&2
         exit 1

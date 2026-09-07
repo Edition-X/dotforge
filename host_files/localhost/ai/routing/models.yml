@@ -1,0 +1,49 @@
+# Canonical, provider-neutral model policy for every AI harness on this machine.
+#
+# This file is the *single* source of provider model IDs and reasoning efforts.
+# Harness renderers (roles/ai_agents) read it and compile native OpenCode, Claude
+# and Codex artefacts; role prompts under prompts/*.md must never hardcode a
+# model ID themselves — they refer to tiers only.
+#
+# `tiers.utility.anthropic.effort` is literal YAML `null` on purpose: this policy
+# sets no effort for that tier. Every renderer must OMIT the effort key entirely
+# for it rather than emit `null` or substitute `low` — an absent key, not a null
+# value, is what the harness config must contain.
+schema_version: 1
+
+harnesses:
+  opencode:
+    provider: openai
+    model_prefix: openai/
+  codex:
+    provider: openai
+  claude:
+    provider: anthropic
+
+tiers:
+  # Cheap, non-engineering-path tier. Mapped for provider completeness only;
+  # not part of the normal lead -> worker -> verifier -> rescue path.
+  utility:
+    openai: {model: gpt-5.4-mini, effort: low}
+    anthropic: {model: claude-haiku-4-5-20251001, effort: null}
+  # Normal whole-ticket implementer. Owns one complete ticket end to end.
+  worker:
+    openai: {model: gpt-5.6-luna, effort: medium}
+    anthropic: {model: claude-sonnet-5, effort: medium}
+  # Strong tier mapped for provider completeness; not used by default routing.
+  senior:
+    openai: {model: gpt-5.6-terra, effort: high}
+    anthropic: {model: claude-opus-5, effort: high}
+  # Normal lead: planning, review, correction, merge. Never implements a ticket.
+  # anthropic stays medium here, mirroring gpt-5.6-sol medium on the OpenAI side,
+  # so rescue (high) remains a real step up from lead instead of a lateral move.
+  lead:
+    openai: {model: gpt-5.6-sol, effort: medium}
+    anthropic: {model: claude-opus-5, effort: medium}
+  # Direct escalation after a repeated, materially similar worker failure.
+  # anthropic stays high here, mirroring gpt-5.6-sol high on the OpenAI side.
+  # This now duplicates tiers.senior.anthropic (also claude-opus-5 high) —
+  # accepted and intentional, not a bug to fix by adding a new tier.
+  rescue:
+    openai: {model: gpt-5.6-sol, effort: high}
+    anthropic: {model: claude-opus-5, effort: high}

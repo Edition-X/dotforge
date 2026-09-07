@@ -1,0 +1,153 @@
+---
+# Loads the canonical, provider-neutral routing policy (host_files/localhost/ai/routing/)
+# and fails fast, before any harness is rendered, if it is malformed: missing tiers,
+# unknown roles, a role pointing at a tier or prompt file that does not exist, or a
+# changed escalation limit. scripts/validate-agent-routing.py is the non-Ansible twin of
+# this file and runs the same checks outside a playbook (pre-commit, make lint).
+#
+# Included first in main.yml, before anything is rendered, so a bad policy source stops
+# the whole `--tags ai` run rather than partially deploying a harness against it.
+#
+# No secrets: models.yml and workflow.yml carry only provider-neutral model IDs, tiers,
+# roles and limits.
+
+- name: Routing - Load canonical model policy
+  ansible.builtin.include_vars:
+    file: "{{ ai_source_dir }}/routing/models.yml"
+    name: ai_routing_models
+  tags:
+    - ai
+
+- name: Routing - Load canonical workflow policy
+  ansible.builtin.include_vars:
+    file: "{{ ai_source_dir }}/routing/workflow.yml"
+    name: ai_routing_workflow
+  tags:
+    - ai
+
+- name: Routing - Require exact schema versions
+  ansible.builtin.assert:
+    that:
+      - ai_routing_models.schema_version == 1
+      - ai_routing_workflow.schema_version == 1
+    fail_msg: >-
+      models.yml and workflow.yml must both declare schema_version: 1. Found
+      models={{ ai_routing_models.schema_version }}
+      workflow={{ ai_routing_workflow.schema_version }}.
+    success_msg: "routing schema_version 1 on both files"
+  tags:
+    - ai
+
+- name: Routing - Require known harness provider mapping
+  ansible.builtin.assert:
+    that:
+      - ai_routing_models.harnesses.opencode.provider == 'openai'
+      - ai_routing_models.harnesses.opencode.model_prefix == 'openai/'
+      - ai_routing_models.harnesses.codex.provider == 'openai'
+      - ai_routing_models.harnesses.claude.provider == 'anthropic'
+    fail_msg: >-
+      models.yml harnesses must map opencode/codex to provider openai
+      (opencode with model_prefix 'openai/') and claude to provider anthropic.
+    success_msg: "routing harness provider mapping valid"
+  tags:
+    - ai
+
+# Every tier must exist and carry both provider entries with a model and an
+# effort key present (effort may legitimately be null, e.g. utility.anthropic).
+- name: Routing - Require every tier present with both provider entries
+  ansible.builtin.assert:
+    that:
+      - item in ai_routing_models.tiers
+      - "'openai' in ai_routing_models.tiers[item]"
+      - "'anthropic' in ai_routing_models.tiers[item]"
+      - ai_routing_models.tiers[item].openai.model | length > 0
+      - "'effort' in ai_routing_models.tiers[item].openai"
+      - ai_routing_models.tiers[item].anthropic.model | length > 0
+      - "'effort' in ai_routing_models.tiers[item].anthropic"
+    fail_msg: >-
+      models.yml tiers.{{ item }} must exist with both an openai and an
+      anthropic entry, each carrying a non-empty model and an effort key.
+    success_msg: "routing tier '{{ item }}' valid"
+  loop:
+    - utility
+    - worker
+    - senior
+    - lead
+    - rescue
+  tags:
+    - ai
+
+- name: Routing - Require exact workflow role set
+  ansible.builtin.assert:
+    that:
+      - ai_routing_workflow.roles.keys() | sort == expected_roles | sort
+    fail_msg: >-
+      workflow.yml roles must be exactly {{ expected_roles }}. Found
+      {{ ai_routing_workflow.roles.keys() | list }}.
+    success_msg: "routing role set valid"
+  vars:
+    expected_roles:
+      - orchestrator
+      - worker
+      - verifier
+      - rescue
+      - documentation
+  tags:
+    - ai
+
+- name: Routing - Require every role references an existing tier
+  ansible.builtin.assert:
+    that:
+      - item.value.tier in ai_routing_models.tiers
+    fail_msg: >-
+      workflow.yml role '{{ item.key }}' references unknown tier
+      '{{ item.value.tier }}'; it must be one of
+      {{ ai_routing_models.tiers.keys() | list }}.
+    success_msg: "routing role '{{ item.key }}' tier valid"
+  loop: "{{ ai_routing_workflow.roles | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  tags:
+    - ai
+
+- name: Routing - Stat every role's resolved prompt file
+  ansible.builtin.stat:
+    path: "{{ ai_source_dir }}/routing/{{ item.value.prompt }}"
+  loop: "{{ ai_routing_workflow.roles | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: ai_agents_routing_prompt_stats
+  tags:
+    - ai
+
+- name: Routing - Require every role's prompt file exists
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: >-
+      workflow.yml role '{{ item.item.key }}' references missing prompt file:
+      {{ ai_source_dir }}/routing/{{ item.item.value.prompt }}.
+    success_msg: "routing role '{{ item.item.key }}' prompt file present"
+  loop: "{{ ai_agents_routing_prompt_stats.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  tags:
+    - ai
+
+- name: Routing - Require exact escalation limits
+  ansible.builtin.assert:
+    that:
+      - ai_routing_workflow.correction_limit == 1
+      - ai_routing_workflow.rescue_limit == 1
+      - ai_routing_workflow.identical_failure_limit == 2
+      - ai_routing_workflow.max_parallel_workers == 3
+    fail_msg: >-
+      workflow.yml escalation limits must be correction_limit=1, rescue_limit=1,
+      identical_failure_limit=2, max_parallel_workers=3. Found
+      correction_limit={{ ai_routing_workflow.correction_limit }}
+      rescue_limit={{ ai_routing_workflow.rescue_limit }}
+      identical_failure_limit={{ ai_routing_workflow.identical_failure_limit }}
+      max_parallel_workers={{ ai_routing_workflow.max_parallel_workers }}.
+    success_msg: "routing escalation limits valid"
+  tags:
+    - ai
