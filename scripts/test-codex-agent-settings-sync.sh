@@ -11,6 +11,23 @@ repo_root=$(git rev-parse --show-toplevel)
 sync_script="${repo_root}/scripts/codex-agent-settings-sync.py"
 tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/codex-agent-settings.XXXXXX")
 
+# This hook is `language: script`, so it inherits whatever shell invoked
+# pre-commit; a bare `pre-commit run --all-files` has not necessarily
+# activated the project venv. tomlkit lives in requirements.txt and is only
+# guaranteed to be importable there, so resolve that interpreter explicitly
+# instead of trusting ambient `python3` on PATH (which may be a pyenv shim
+# with no project dependencies at all). Falls back to ambient python3 only
+# if the venv is genuinely absent; if that ambient interpreter also lacks
+# tomlkit, fail with one clear actionable message instead of a traceback.
+python_bin="${VIRTUAL_ENV:-${repo_root}/venv}/bin/python3"
+[[ -x "$python_bin" ]] || python_bin="python3"
+if ! "$python_bin" -c 'import tomlkit' >/dev/null 2>&1; then
+    printf 'tomlkit not importable via %s\n' "$python_bin" >&2
+    printf 'Run: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt\n' >&2
+    printf '(or just: source venv/bin/activate, if the venv already exists)\n' >&2
+    exit 1
+fi
+
 cleanup() {
     ls -d "$tmp_root"
     trash "$tmp_root"
@@ -62,17 +79,17 @@ EOF
 before_hash=$(shasum -a 256 "$config_path" | awk '{print $1}')
 
 # --check must report "changed" without writing anything.
-check_out=$(python3 "$sync_script" --config "$config_path" --desired "$desired_json" --check)
+check_out=$("$python_bin" "$sync_script" --config "$config_path" --desired "$desired_json" --check)
 [[ "$check_out" == "changed" ]] || { printf '--check on a dirty file did not report changed: %s\n' "$check_out" >&2; exit 1; }
 after_check_hash=$(shasum -a 256 "$config_path" | awk '{print $1}')
 [[ "$before_hash" == "$after_check_hash" ]] || { printf -- '--check mode wrote to the file\n' >&2; exit 1; }
 
 # Real run must report "changed" and actually write.
-run_out=$(python3 "$sync_script" --config "$config_path" --desired "$desired_json")
+run_out=$("$python_bin" "$sync_script" --config "$config_path" --desired "$desired_json")
 [[ "$run_out" == "changed" ]] || { printf 'first real run did not report changed: %s\n' "$run_out" >&2; exit 1; }
 
 # Managed keys took the desired values.
-python3 - "$config_path" <<'PY'
+"$python_bin" - "$config_path" <<'PY'
 import sys
 import tomlkit
 
@@ -103,10 +120,10 @@ grep -qF '# Unknown key this script has never heard of; must survive untouched.'
 after_first_hash=$(shasum -a 256 "$config_path" | awk '{print $1}')
 
 # Second run against already-desired state must report "unchanged" and write nothing.
-second_check_out=$(python3 "$sync_script" --config "$config_path" --desired "$desired_json" --check)
+second_check_out=$("$python_bin" "$sync_script" --config "$config_path" --desired "$desired_json" --check)
 [[ "$second_check_out" == "unchanged" ]] || { printf 'second --check did not report unchanged: %s\n' "$second_check_out" >&2; exit 1; }
 
-second_run_out=$(python3 "$sync_script" --config "$config_path" --desired "$desired_json")
+second_run_out=$("$python_bin" "$sync_script" --config "$config_path" --desired "$desired_json")
 [[ "$second_run_out" == "unchanged" ]] || { printf 'second real run did not report unchanged: %s\n' "$second_run_out" >&2; exit 1; }
 
 after_second_hash=$(shasum -a 256 "$config_path" | awk '{print $1}')

@@ -114,8 +114,14 @@ grep -Fq 'pre-existing worker configuration' "${backup_dir}/codex/worker.toml" |
 }
 
 # Codex's app-owned config.toml: managed defaults synced, unrelated
-# mcp_servers entry preserved untouched.
-python3 - "${test_home}/.codex/config.toml" <<'PY'
+# mcp_servers entry preserved untouched. Uses the already-resolved
+# ansible_python_interpreter (validated executable above) rather than
+# ambient python3: tomlkit lives in requirements.txt, installed only into
+# the project venv, so a bare shell's python3 (e.g. a pyenv shim) would
+# raise ModuleNotFoundError here the same way it did in
+# scripts/test-codex-agent-settings-sync.sh before that hook was fixed to
+# resolve the venv interpreter explicitly.
+"${ansible_python_interpreter}" - "${test_home}/.codex/config.toml" <<'PY'
 import sys
 import tomlkit
 
