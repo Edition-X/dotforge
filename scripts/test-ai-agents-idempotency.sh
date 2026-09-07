@@ -136,6 +136,18 @@ first_config=$(shasum -a 256 "${test_home}/.config/opencode/opencode.jsonc")
 before_codex_backup=$(shasum -a 256 "${backup_dir}/codex/worker.toml")
 first_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 
+# T3/Forge inheritance (R6): T3 Code has no native agent files of its own —
+# it reaches Claude only through claude-work and Codex only through the
+# shared ~/.codex tree checked above. So the generated Claude work-profile
+# agents and Codex agents rendered here are exactly what a T3 session
+# inherits; capture their first-run hashes to prove second run re-renders
+# them byte-identical rather than merely leaving them present.
+declare -A first_claude_work_agent_hash first_codex_agent_hash
+for agent in worker verifier rescue documentation; do
+    first_claude_work_agent_hash[$agent]=$(shasum -a 256 "${test_home}/.claude-work/agents/${agent}.md")
+    first_codex_agent_hash[$agent]=$(shasum -a 256 "${test_home}/.codex/agents/${agent}.toml")
+done
+
 second_output="${tmp_root}/second-run.log"
 run_playbook >"$second_output" || { cat "$second_output"; exit 1; }
 cat "$second_output"
@@ -152,5 +164,20 @@ second_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 [[ "$first_codex_config" == "$second_codex_config" ]] || { printf 'Codex config.toml changed on second run\n' >&2; exit 1; }
 [[ ! -e "${test_home}/.config/opencode/agents/architect.md" ]] || { printf 'retired agent file reappeared after second apply\n' >&2; exit 1; }
 ! rg -q 'changed=[1-9]' "$second_output" || { printf 'second run still changed a task\n' >&2; exit 1; }
+
+for agent in worker verifier rescue documentation; do
+    [[ -f "${test_home}/.claude-work/agents/${agent}.md" ]] || { printf 'Claude work agent missing after second run: %s\n' "$agent" >&2; exit 1; }
+    second_claude_work_agent_hash=$(shasum -a 256 "${test_home}/.claude-work/agents/${agent}.md")
+    [[ "${first_claude_work_agent_hash[$agent]}" == "$second_claude_work_agent_hash" ]] || {
+        printf 'Claude work agent %s not byte-identical after second run (T3 inherits this file)\n' "$agent" >&2
+        exit 1
+    }
+    [[ -f "${test_home}/.codex/agents/${agent}.toml" ]] || { printf 'Codex agent missing after second run: %s\n' "$agent" >&2; exit 1; }
+    second_codex_agent_hash=$(shasum -a 256 "${test_home}/.codex/agents/${agent}.toml")
+    [[ "${first_codex_agent_hash[$agent]}" == "$second_codex_agent_hash" ]] || {
+        printf 'Codex agent %s not byte-identical after second run (T3 inherits this file)\n' "$agent" >&2
+        exit 1
+    }
+done
 
 printf 'AI agent deployment is idempotent in isolated home: %s\n' "$test_home"
