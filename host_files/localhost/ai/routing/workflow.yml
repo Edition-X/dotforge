@@ -17,7 +17,7 @@ roles:
     prompt: prompts/orchestrator.md
     read_only: false
     normal_assignment: false
-    may_dispatch: [worker, verifier, rescue, documentation]
+    may_dispatch: [worker, verifier, rescue, documentation, scout]
     # orchestrator.limits.claude_max_turns is null because no Claude primary
     # agent is rendered for this role (R4 decision) — Claude keeps its normal
     # root selected at the lead tier instead of a custom orchestrator agent.
@@ -63,10 +63,22 @@ roles:
     may_dispatch: []
     limits: {opencode_steps: 16, claude_max_turns: 24}
 
-# The only statuses any role may return in a handoff.
+  # Optional factual discovery leaf. Read-only, bounded, and never part of
+  # ticket delivery or escalation.
+  scout:
+    mode: subagent
+    tier: worker
+    prompt: prompts/scout.md
+    read_only: true
+    normal_assignment: false
+    may_dispatch: []
+    handoff_fields: [findings, evidence, coverage, unknowns]
+    limits: {opencode_steps: 16, claude_max_turns: 16}
+
+# The only statuses delivery roles may return in a handoff. Scout uses its own fields.
 statuses: [COMPLETE, CORRECTION_REQUIRED, HANDOFF_REQUIRED, BLOCKED_AUTHORITY, BLOCKED_TRANSIENT]
 
-# The exact, complete set of fields every handoff evidence block carries.
+# The exact, complete set of fields every delivery handoff evidence block carries.
 evidence_fields:
   [status, ticket, branch, commit, files, checks, failure_fingerprint,
    deviations, last_safe_state, recommended_next, unresolved_risks]

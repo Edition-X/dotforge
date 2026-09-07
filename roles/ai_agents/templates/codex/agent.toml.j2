@@ -27,9 +27,20 @@ model_reasoning_effort = {{ tier.openai.effort | to_json }}
 {% endif %}
 sandbox_mode = {{ ('read-only' if role.read_only else 'workspace-write') | to_json }}
 developer_instructions = '''
+{% if agent.role == 'scout' %}
+This is a read-only discovery leaf. Use repository read/search tools only. Codex may
+use bounded read-only rg, sed, or nl commands when native search tools are absent. Do
+not use shell for writes, edit, write, commit, tracker, MCP, or delegation actions.
+Codex read-only sandbox is required, but runtime/session overrides may change effective
+permissions; if write-capable access is available, do not use it and report that
+enforcement could not be verified.
+
+---
+{% else %}
 {{ (lookup('file', ai_source_dir ~ '/skills/execute-playbook/SKILL.md') | regex_replace('(?s)^---.*?---\n', '')) | trim }}
 
 ---
+{% endif %}
 
 {{ lookup('file', ai_source_dir ~ '/routing/' ~ role.prompt) | trim }}
 '''

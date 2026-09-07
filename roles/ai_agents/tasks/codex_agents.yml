@@ -1,6 +1,6 @@
 ---
-# Renders the four native Codex custom agents (worker, verifier, rescue,
-# documentation) from the canonical routing policy into ~/.codex/agents/,
+# Renders the five native Codex custom agents (worker, verifier, rescue,
+# documentation, scout) from the canonical routing policy into ~/.codex/agents/,
 # then surgically syncs the root model/effort and native-agent defaults in
 # Codex's app-owned config.toml so a plain Codex/T3 session defaults to the
 # Sol lead and Luna workers this repo renders everywhere else.
