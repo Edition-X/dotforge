@@ -273,6 +273,35 @@ drift. Summary:
 | T3 Code (Claude and Codex providers) | Inherited from `claude-work` and `~/.codex` respectively; no duplicate T3 agent definitions, and no live canary row — inheritance is verified statically |
 | Forge 2.13.21 | Shared instructions and skill only; built-in Forge/Muse/Sage agents remain Forge-owned, no native Luna/Sonnet worker |
 
+### Lean discovery scout
+
+OpenCode, Claude profiles, and Codex now provide an optional native `scout` at
+worker tier (Luna medium / Sonnet medium). T3 inherits those provider files.
+Broad factual discovery can use the scout; small known reads stay direct.
+Its handoff contains findings, evidence, coverage, and unknowns, with a roughly
+500-word target. The lead checks decisive evidence and retains delivery ownership.
+
+OpenCode allows native read/search only; Claude exposes Read/Grep/Glob only.
+Codex config requests a read-only sandbox, but a runtime override such as T3 Full
+access can weaken enforcement. Prompt restrictions are not a security boundary.
+Scout does not preload the delivery playbook. Existing worker/verifier/rescue
+routing remains in place. Start fresh sessions after `make ai`.
+
+This is a measured pilot; billed savings are unproven. See
+[rollout evidence and measurement procedure](docs/playbooks/measured-scout-routing.md).
+The usage report is read-only and includes every descendant of selected OpenCode
+roots, separate cache counters, and per-model totals. Role attribution is a proxy
+for activity, not a classification of transcript content. T3 selections are
+reported separately because its database has no provider token accounting.
+
+```bash
+venv/bin/python scripts/scout-usage-report.py --directory "$PWD" --limit 20
+make test-scout  # offline; no model calls
+# Paid, opt-in: exactly one bounded discovery call, never part of CI.
+venv/bin/python scripts/test-scout-routing-live.py --harness opencode
+# Other supported values: codex, claude-work
+```
+
 ### Claude profiles and T3 Code
 
 `claude` is the personal/default Claude Code profile. Its existing executable,
@@ -282,7 +311,7 @@ managed wrapper around that same executable; it sets `CLAUDE_CONFIG_DIR` to
 provider invokes `claude-work` through `~/.t3/userdata/settings.json`. The work
 profile is a member of `ai_harnesses` like every other harness, so it receives
 the same `AGENTS.md` instructions and skills as the personal profile, and the
-same four native worker/verifier/rescue/documentation agents, rendered
+same five native worker/verifier/rescue/documentation/scout agents, rendered
 byte-identical to the personal profile's.
 
 ```bash
@@ -319,8 +348,8 @@ Codex — or an Anthropic per-request spend cap) and is never printed as `PASS`.
 It still makes the overall exit code non-zero, because no routing evidence was
 actually obtained. T3 Code has no row of its own: it owns no routing config
 beyond a `binaryPath` to `claude-work` plus the shared `~/.codex` tree, so the
-`claude-work` and `codex` rows already exercise every path a T3 session would,
-and its inheritance is asserted statically instead. `--self-test` relaxes the
+`claude-work` and `codex` rows exercise those providers. T3 inheritance is checked
+statically; its runtime overrides require separate fresh-thread evidence. `--self-test` relaxes the
 pre/post worktree check to also allow this runner's own pending changes, for
 verifying the script against itself.
 

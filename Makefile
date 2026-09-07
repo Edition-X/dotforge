@@ -112,7 +112,7 @@ pre-commit: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, pre-commit run --all-files)
 
 .PHONY: ci
-ci: lint
+ci: lint test-scout
 	@$(call activate, ansible-playbook site.yml --syntax-check)
 	@echo "CI checks passed!"
 
@@ -125,12 +125,11 @@ test-ai-agents: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ./scripts/test-ai-agents-idempotency.sh)
 	@$(call activate, ./scripts/test-codex-agent-settings-sync.sh)
 
-# Offline scout evidence checks. Scripts land with measurement ticket; missing
-# scripts fail loudly instead of turning this target into a silent skip.
+# Offline scout evidence checks. No billed calls.
 .PHONY: test-scout
-test-scout: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(call activate, python scripts/test-scout-usage-report.py)
-	@$(call activate, python scripts/test-scout-routing-evidence.py)
+test-scout:
+	@python3 scripts/test-scout-usage-report.py
+	@python3 scripts/test-scout-routing-evidence.py
 
 .PHONY: clean
 clean:
