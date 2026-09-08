@@ -21,17 +21,17 @@ Policy guidance; Mozilla Firefox administrator policy templates; Vivaldi Sync gu
 
 | Browser | Installed build | Policy page smoke | Non-MDM local evidence | Bookmark policy | Extension policy | Result |
 |---|---|---|---|---|---|---|
-| Chrome | 152.0.7977.82 | isolated page launch/read-only probe | user plist readable; policy payload not installed by B0 | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | documented local mechanism; policy rendering needs B2 |
-| Edge | 152.0.4191.66 | isolated page launch/read-only probe | user plist absent; policy payload not installed by B0 | `ManagedFavorites` | `ExtensionSettings`, `ExtensionInstallForcelist` | documented local mechanism; policy rendering needs B3 |
-| Brave | 151.1.93.136 | isolated page launch/read-only probe | user plist readable; policy payload not installed by B0 | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | documented local mechanism; policy rendering needs B3 |
-| Firefox | 155.0.1 | isolated `about:policies` launch/read-only probe | app-bundle distribution policy documented | `ManagedBookmarks` | `ExtensionSettings` | supported distribution path; cask restore required |
-| Vivaldi | 8.2.4133.47 | isolated `vivaldi://policy` probe | no verified official enterprise contract | best-effort audit/export | best-effort audit/export | unsupported-unverified; evidence gate remains open |
+| Chrome | 152.0.7977.82 | observed isolated policy-page screenshot | fake policy key not observed; local acceptance not proven | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
+| Edge | 152.0.4191.66 | policy-page screenshot not observed | fake policy acceptance not proven | `ManagedFavorites` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
+| Brave | 151.1.93.136 | policy-page screenshot not observed | fake policy acceptance not proven | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
+| Firefox | 155.0.1 | observed isolated `about:policies` screenshot | fake policy key observed in temporary app-copy distribution policy | `ManagedBookmarks` | `ExtensionSettings` | accepted for app-bundle distribution path; cask restore required |
+| Vivaldi | 8.2.4133.47 | policy-page screenshot not observed | enterprise policy unsupported-unverified | best-effort audit/export | best-effort audit/export | unsupported-unverified; evidence gate remains open |
 
-Chrome, Edge and Brave local plist support is documented by vendors, but no policy was
-installed during B0. Mandatory policy must remain distinct from recommended defaults.
-Firefox distribution policy is supported by Mozilla documentation and can be restored
-after a cask update; MDM/configuration-profile behavior was not assumed. Vivaldi policy
-support was not inferred from Chromium and is not verified.
+Chrome, Edge and Brave vendor references document policy mechanisms, but this smoke did
+not prove browser acceptance of fake policy payloads; no support claim is made. Mandatory
+policy must remain distinct from recommended defaults. Firefox distribution policy was
+observed in a temporary app copy and can be restored after a cask update; MDM behavior was
+not assumed. Vivaldi page observation and enterprise support remain separate and unverified.
 
 ## Sanitized inventory
 

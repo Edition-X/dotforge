@@ -10,10 +10,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
+import os
+import plistlib
+import re
+import signal
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -49,32 +55,81 @@ def version(browser: Browser) -> str:
     return result.stdout.strip().splitlines()[0][:80] or "unknown"
 
 
-def isolated_smoke(browser: Browser) -> tuple[str, str]:
+def _temporary_policy(browser: Browser, root: Path) -> tuple[Path | None, bool]:
+    """Install fake policy under temporary HOME, returning backup state."""
+    if browser.name == "Firefox":
+        distribution = root / "Firefox.app" / "Contents" / "Resources" / "distribution"
+        distribution.mkdir(parents=True)
+        (distribution / "policies.json").write_text(
+            json.dumps({"policies": {"Homepage": {"URL": "about:blank", "Locked": True}}}),
+            encoding="utf-8",
+        )
+        return None, False
+    managed = root / "home" / "Library" / "Managed Preferences"
+    managed.mkdir(parents=True)
+    policy = managed / f"{browser.domain}.plist"
+    backup = root / f"{browser.name}.plist"
+    had_domain = policy.is_file()
+    if had_domain:
+        shutil.copy2(policy, backup)
+    # Fake value contains no URL or account data and is never printed.
+    with policy.open("wb") as stream:
+        plistlib.dump({"HomepageLocation": "B0-Fake-Policy", "HomepageIsNewTabPage": False}, stream)
+    return backup, had_domain
+
+
+def _restore_policy(browser: Browser, backup: Path | None, had_domain: bool) -> None:
+    if browser.name == "Firefox":
+        return
+    if had_domain and backup is not None:
+        managed = backup.parent / "home" / "Library" / "Managed Preferences" / f"{browser.domain}.plist"
+        shutil.copy2(backup, managed)
+
+
+def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
     temp_dir = Path(tempfile.mkdtemp(prefix=f"browser-capability-{browser.name.lower()}-"))
     print(f"TEMP_PROFILE {temp_dir}")
+    backup = None
+    had_domain = False
     try:
         if browser.name == "Firefox":
-            command = [str(browser.executable), "-headless", "-profile", str(temp_dir), browser.policy_page]
+            app_copy = temp_dir / "Firefox.app"
+            subprocess.run(["ditto", str(browser.app), str(app_copy)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            executable = app_copy / "Contents" / "MacOS" / "firefox"
         else:
-            command = [str(browser.executable), "--headless=new", "--disable-gpu", f"--user-data-dir={temp_dir}", "--dump-dom", browser.policy_page]
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        try:
-            stdout, stderr = process.communicate(timeout=12)
-            page_seen = process.returncode == 0 and (browser.policy_page.split(":")[0] in (stdout + stderr))
-            return ("observed" if page_seen else "launch-only", "pass" if process.returncode == 0 else "failed")
-        except subprocess.TimeoutExpired:
-            # Chromium may keep its headless process alive after opening its
-            # internal page. A started process is sufficient launch evidence.
-            process.terminate()
+            executable = browser.executable
+        backup, had_domain = _temporary_policy(browser, temp_dir)
+        screenshot = temp_dir / "policy.png"
+        if browser.name == "Firefox":
+            command = [str(executable), "-headless", "-profile", str(temp_dir / "profile"), "-screenshot", str(screenshot), browser.policy_page]
+        else:
+            command = [str(executable), "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run", f"--user-data-dir={temp_dir / 'profile'}", f"--screenshot={screenshot}", "--window-size=1600,1200", browser.policy_page]
+        environment = os.environ.copy()
+        environment["HOME"] = str(temp_dir / "home")
+        process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, env=environment)
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not screenshot.is_file():
+            if process.poll() is not None:
+                break
+            time.sleep(0.25)
+        observed_before_timeout = screenshot.is_file()
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGTERM)
             try:
                 process.wait(timeout=3)
             except subprocess.TimeoutExpired:
-                process.kill()
+                os.killpg(process.pid, signal.SIGKILL)
                 process.wait(timeout=3)
-            return ("launch-only", "pass")
-    except OSError:
-        return ("launch-only", "failed")
+        if not observed_before_timeout:
+            return ("not-observed", "failed", "missing-page")
+        ocr = subprocess.run(["tesseract", str(screenshot), "stdout"], capture_output=True, text=True, timeout=20)
+        page_seen = browser.policy_page.split(":")[0].lower() in ocr.stdout.lower() or "policies" in ocr.stdout.lower() or "policy" in ocr.stdout.lower()
+        key_seen = "HomepageLocation".lower() in ocr.stdout.lower() or "homepage" in ocr.stdout.lower()
+        return ("observed" if page_seen else "not-observed", "pass" if page_seen and key_seen else "failed", "key-observed" if key_seen else "key-missing")
+    except (OSError, subprocess.TimeoutExpired):
+        return ("not-observed", "failed", "timeout-or-launch-error")
     finally:
+        _restore_policy(browser, backup, had_domain)
         # Print path before removal, then use recoverable Trash. Never use rm.
         if temp_dir.exists():
             print(f"TRASH_PROFILE {temp_dir}")
@@ -86,16 +141,6 @@ def isolated_smoke(browser: Browser) -> tuple[str, str]:
                 shutil.move(str(temp_dir), str(fallback))
 
 
-def local_policy_evidence(browser: Browser) -> str:
-    if browser.name == "Vivaldi":
-        return "unsupported-unverified"
-    if browser.name == "Firefox":
-        return "app-bundle-distribution-documented"
-    # Read-only probe of user defaults. A missing key is expected on this Mac.
-    result = subprocess.run(["defaults", "read", browser.domain], capture_output=True, text=True)
-    return "user-plist-readable" if result.returncode == 0 else "user-plist-no-policy"
-
-
 def discover() -> int:
     installed = [browser for browser in BROWSERS if browser.app.is_dir()]
     if not installed:
@@ -103,14 +148,15 @@ def discover() -> int:
         return 0
     failures = 0
     for browser in installed:
-        smoke, result = isolated_smoke(browser)
+        smoke, result, evidence = isolated_smoke(browser)
         if result != "pass":
             failures += 1
         bookmarks, enabled, components = BASELINE[browser.name]
         digest = hashlib.sha256(f"{browser.name}:sanitized-baseline".encode()).hexdigest()[:12]
         print(
-            f"{browser.name}: version={version(browser)} policy_page={smoke} smoke={result} "
-            f"local={local_policy_evidence(browser)} bookmark_policy={browser.bookmark_policy} "
+            f"{browser.name}: version={version(browser)} policy_page={smoke} smoke={result} evidence={evidence} "
+            f"local={'accepted' if evidence == 'key-observed' else ('unsupported' if browser.name == 'Vivaldi' else 'not-proven')} "
+            f"bookmark_policy={browser.bookmark_policy} "
             f"extension_policy={browser.extension_policy} bookmarks={bookmarks} enabled={enabled} "
             f"components={components} user_candidates=0 hash={digest}"
         )
@@ -128,7 +174,7 @@ def check_report(path: Path) -> int:
     if missing:
         print("report check failed: missing required sections")
         return 1
-    if any(term in text for term in forbidden):
+    if any(term in text for term in forbidden) or re.search(r"https?://", text):
         print("report check failed: forbidden material marker")
         return 1
     print(f"report check: {path} sanitized sections present")
