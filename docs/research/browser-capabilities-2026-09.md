@@ -21,9 +21,9 @@ Policy guidance; Mozilla Firefox administrator policy templates; Vivaldi Sync gu
 
 | Browser | Installed build | Policy page smoke | Non-MDM local evidence | Bookmark policy | Extension policy | Result |
 |---|---|---|---|---|---|---|
-| Chrome | 152.0.7977.82 | observed isolated policy-page screenshot | fake policy key not observed; local acceptance not proven | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
+| Chrome | 152.0.7977.82 | policy-page screenshot not observed in latest run | fake policy key not observed; local acceptance not proven | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
 | Edge | 152.0.4191.66 | policy-page screenshot not observed | fake policy acceptance not proven | `ManagedFavorites` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
-| Brave | 151.1.93.136 | policy-page screenshot not observed | fake policy acceptance not proven | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
+| Brave | 152.1.94.117 | policy-page screenshot not observed | fake policy acceptance not proven | `ManagedBookmarks` | `ExtensionSettings`, `ExtensionInstallForcelist` | correction required before support claim |
 | Firefox | 155.0.1 | observed isolated `about:policies` screenshot | fake policy key observed in temporary app-copy distribution policy | `ManagedBookmarks` | `ExtensionSettings` | accepted for app-bundle distribution path; cask restore required |
 | Vivaldi | 8.2.4133.47 | policy-page screenshot not observed | enterprise policy unsupported-unverified | best-effort audit/export | best-effort audit/export | unsupported-unverified; evidence gate remains open |
 

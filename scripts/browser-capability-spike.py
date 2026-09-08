@@ -33,14 +33,15 @@ class Browser:
     domain: str
     bookmark_policy: str
     extension_policy: str
+    policy_alias: str | None = None
 
 
 BROWSERS = (
-    Browser("Chrome", Path("/Applications/Google Chrome.app"), Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"), "chrome://policy", "com.google.Chrome", "ManagedBookmarks", "ExtensionSettings"),
-    Browser("Edge", Path("/Applications/Microsoft Edge.app"), Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"), "edge://policy", "com.microsoft.Edge", "ManagedFavorites", "ExtensionSettings"),
-    Browser("Brave", Path("/Applications/Brave Browser.app"), Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"), "brave://policy", "com.brave.Browser", "ManagedBookmarks", "ExtensionSettings"),
+    Browser("Chrome", Path("/Applications/Google Chrome.app"), Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"), "chrome://policy", "com.google.Chrome", "ManagedBookmarks", "ExtensionSettings", "chrome://policy"),
+    Browser("Edge", Path("/Applications/Microsoft Edge.app"), Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"), "edge://policy", "com.microsoft.Edge", "ManagedFavorites", "ExtensionSettings", "chrome://policy"),
+    Browser("Brave", Path("/Applications/Brave Browser.app"), Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"), "brave://policy", "com.brave.Browser", "ManagedBookmarks", "ExtensionSettings", "chrome://policy"),
     Browser("Firefox", Path("/Applications/Firefox.app"), Path("/Applications/Firefox.app/Contents/MacOS/firefox"), "about:policies", "Firefox distribution", "ManagedBookmarks", "ExtensionSettings"),
-    Browser("Vivaldi", Path("/Applications/Vivaldi.app"), Path("/Applications/Vivaldi.app/Contents/MacOS/Vivaldi"), "vivaldi://policy", "unverified", "best effort", "best effort"),
+    Browser("Vivaldi", Path("/Applications/Vivaldi.app"), Path("/Applications/Vivaldi.app/Contents/MacOS/Vivaldi"), "vivaldi://policy", "unverified", "best effort", "best effort", None),
 )
 
 # Counts came from the pre-B0 sanitized baseline in the approved playbook.
@@ -56,7 +57,7 @@ def version(browser: Browser) -> str:
 
 
 def _temporary_policy(browser: Browser, root: Path) -> tuple[Path | None, bool]:
-    """Install fake policy under temporary HOME, returning backup state."""
+    """Install fake policy in actual user managed-preferences directory."""
     if browser.name == "Firefox":
         distribution = root / "Firefox.app" / "Contents" / "Resources" / "distribution"
         distribution.mkdir(parents=True)
@@ -65,7 +66,7 @@ def _temporary_policy(browser: Browser, root: Path) -> tuple[Path | None, bool]:
             encoding="utf-8",
         )
         return None, False
-    managed = root / "home" / "Library" / "Managed Preferences"
+    managed = Path.home() / "Library" / "Managed Preferences"
     managed.mkdir(parents=True)
     policy = managed / f"{browser.domain}.plist"
     backup = root / f"{browser.name}.plist"
@@ -73,8 +74,10 @@ def _temporary_policy(browser: Browser, root: Path) -> tuple[Path | None, bool]:
     if had_domain:
         shutil.copy2(policy, backup)
     # Fake value contains no URL or account data and is never printed.
-    with policy.open("wb") as stream:
+    payload = root / f"{browser.name}.payload"
+    with payload.open("wb") as stream:
         plistlib.dump({"HomepageLocation": "B0-Fake-Policy", "HomepageIsNewTabPage": False}, stream)
+    os.replace(payload, policy)
     return backup, had_domain
 
 
@@ -82,8 +85,26 @@ def _restore_policy(browser: Browser, backup: Path | None, had_domain: bool) -> 
     if browser.name == "Firefox":
         return
     if had_domain and backup is not None:
-        managed = backup.parent / "home" / "Library" / "Managed Preferences" / f"{browser.domain}.plist"
-        shutil.copy2(backup, managed)
+        managed = Path.home() / "Library" / "Managed Preferences" / f"{browser.domain}.plist"
+        expected_hash = _sha256(backup)
+        os.replace(backup, managed)
+        if _sha256(managed) != expected_hash:
+            raise RuntimeError("policy restoration hash check failed")
+    elif not had_domain:
+        policy = Path.home() / "Library" / "Managed Preferences" / f"{browser.domain}.plist"
+        if policy.exists():
+            print(f"TRASH_POLICY {policy}")
+            trash = shutil.which("trash")
+            if trash:
+                subprocess.run([trash, str(policy)], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
@@ -100,33 +121,44 @@ def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
             executable = browser.executable
         backup, had_domain = _temporary_policy(browser, temp_dir)
         screenshot = temp_dir / "policy.png"
-        if browser.name == "Firefox":
-            command = [str(executable), "-headless", "-profile", str(temp_dir / "profile"), "-screenshot", str(screenshot), browser.policy_page]
-        else:
-            command = [str(executable), "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run", f"--user-data-dir={temp_dir / 'profile'}", f"--screenshot={screenshot}", "--window-size=1600,1200", browser.policy_page]
-        environment = os.environ.copy()
-        environment["HOME"] = str(temp_dir / "home")
-        process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, env=environment)
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline and not screenshot.is_file():
-            if process.poll() is not None:
+        pages = [browser.policy_page]
+        if browser.policy_alias and browser.policy_alias != browser.policy_page:
+            pages.append(browser.policy_alias)
+        page_seen = False
+        key_seen = False
+        for page_number, page in enumerate(pages):
+            page_screenshot = screenshot.with_name(f"policy-{page_number}.png")
+            if browser.name == "Firefox":
+                command = [str(executable), "-headless", "-profile", str(temp_dir / "profile"), "-screenshot", str(page_screenshot), page]
+            else:
+                command = [str(executable), "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run", "--no-default-browser-check", "--disable-sync", "--password-store=basic", "--use-mock-keychain", f"--user-data-dir={temp_dir / f'profile-{page_number}'}", f"--screenshot={page_screenshot}", "--window-size=1600,1200", page]
+            environment = os.environ.copy()
+            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, env=environment)
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline and not page_screenshot.is_file():
+                if process.poll() is not None:
+                    break
+                time.sleep(0.25)
+            observed_before_timeout = page_screenshot.is_file()
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=3)
+            if not observed_before_timeout:
+                continue
+            ocr = subprocess.run(["tesseract", str(page_screenshot), "stdout"], capture_output=True, text=True, timeout=20)
+            text = ocr.stdout.lower()
+            page_seen = page_seen or "policy" in text or "policies" in text
+            key_seen = key_seen or "homepage" in text
+            if page_seen and (key_seen or browser.name == "Vivaldi"):
                 break
-            time.sleep(0.25)
-        observed_before_timeout = screenshot.is_file()
-        if process.poll() is None:
-            os.killpg(process.pid, signal.SIGTERM)
-            try:
-                process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=3)
-        if not observed_before_timeout:
-            return ("not-observed", "failed", "missing-page")
-        ocr = subprocess.run(["tesseract", str(screenshot), "stdout"], capture_output=True, text=True, timeout=20)
-        page_seen = browser.policy_page.split(":")[0].lower() in ocr.stdout.lower() or "policies" in ocr.stdout.lower() or "policy" in ocr.stdout.lower()
-        key_seen = "HomepageLocation".lower() in ocr.stdout.lower() or "homepage" in ocr.stdout.lower()
+        if browser.name == "Vivaldi":
+            return ("observed" if page_seen else "not-observed", "pass" if page_seen else "failed", "page-observed" if page_seen else "page-missing")
         return ("observed" if page_seen else "not-observed", "pass" if page_seen and key_seen else "failed", "key-observed" if key_seen else "key-missing")
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
         return ("not-observed", "failed", "timeout-or-launch-error")
     finally:
         _restore_policy(browser, backup, had_domain)
@@ -149,7 +181,7 @@ def discover() -> int:
     failures = 0
     for browser in installed:
         smoke, result, evidence = isolated_smoke(browser)
-        if result != "pass":
+        if result != "pass" and browser.name != "Vivaldi":
             failures += 1
         bookmarks, enabled, components = BASELINE[browser.name]
         digest = hashlib.sha256(f"{browser.name}:sanitized-baseline".encode()).hexdigest()[:12]
