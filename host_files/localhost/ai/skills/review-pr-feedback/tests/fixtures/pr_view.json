@@ -1,0 +1,45 @@
+{
+  "number": 123,
+  "url": "https://github.com/acme/widget/pull/123",
+  "title": "Add retry backoff to the API client",
+  "body": "Retries transient failures. Known limitation: the backoff cap is best-effort and is not exact under clock skew.",
+  "state": "OPEN",
+  "isDraft": false,
+  "author": { "login": "someone-else" },
+  "baseRefName": "main",
+  "headRefName": "feat/retry-backoff",
+  "headRefOid": "1111111111111111111111111111111111111111",
+  "additions": 14,
+  "deletions": 2,
+  "changedFiles": 1,
+  "files": [
+    {
+      "path": "src/client/retry.py",
+      "additions": 14,
+      "deletions": 2
+    }
+  ],
+  "reviewDecision": "REVIEW_REQUIRED",
+  "reviews": [
+    {
+      "author": { "login": "dkelly" },
+      "state": "COMMENTED",
+      "body": "Bounds check on limit is missing before the query builder runs.",
+      "submittedAt": "2026-09-01T10:00:00Z"
+    }
+  ],
+  "comments": [
+    {
+      "author": { "login": "someone-else" },
+      "body": "Backoff cap is intentionally approximate, see the README note.",
+      "createdAt": "2026-09-01T11:00:00Z"
+    }
+  ],
+  "statusCheckRollup": [
+    {
+      "name": "tests",
+      "state": "SUCCESS",
+      "conclusion": "SUCCESS"
+    }
+  ]
+}
