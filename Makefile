@@ -112,7 +112,7 @@ pre-commit: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, pre-commit run --all-files)
 
 .PHONY: ci
-ci: lint test-scout
+ci: lint test-scout test-review-pr-feedback
 	@$(call activate, ansible-playbook site.yml --syntax-check)
 	@echo "CI checks passed!"
 
@@ -130,6 +130,12 @@ test-ai-agents: $(PYTHON_VIRTUAL_ENVIRONMENT)
 test-scout:
 	@python3 scripts/test-scout-usage-report.py
 	@python3 scripts/test-scout-routing-evidence.py
+
+# Offline checks for the read-only PR review skill: line verification, head-SHA
+# pinning and the read-only gh contract, against a fake gh. No billed calls.
+.PHONY: test-review-pr-feedback
+test-review-pr-feedback:
+	@python3 host_files/localhost/ai/skills/review-pr-feedback/scripts/test_verify_lines.py
 
 .PHONY: clean
 clean:

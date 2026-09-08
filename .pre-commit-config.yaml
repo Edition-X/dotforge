@@ -52,6 +52,13 @@ repos:
         files: >-
           ^(host_files/localhost/ai/routing/.*|host_files/localhost/ai/skills/execute-playbook/.*|scripts/validate-agent-routing\.py)$
 
+      - id: test-review-pr-feedback
+        name: test read-only PR review helpers
+        entry: host_files/localhost/ai/skills/review-pr-feedback/scripts/test_verify_lines.py
+        language: script
+        pass_filenames: false
+        files: ^host_files/localhost/ai/skills/review-pr-feedback/
+
       - id: test-codex-agent-settings-sync
         name: test surgical Codex agent config.toml sync
         entry: scripts/test-codex-agent-settings-sync.sh

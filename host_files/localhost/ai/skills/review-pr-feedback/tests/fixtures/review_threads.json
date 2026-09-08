@@ -1,0 +1,31 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "pageInfo": { "hasNextPage": false, "endCursor": null },
+          "nodes": [
+            {
+              "isResolved": false,
+              "isOutdated": false,
+              "path": "src/client/retry.py",
+              "line": 42,
+              "originalLine": 42,
+              "diffSide": "RIGHT",
+              "comments": {
+                "nodes": [
+                  {
+                    "body": "Nothing validates limit before it reaches the query builder.",
+                    "createdAt": "2026-09-01T10:00:00Z",
+                    "outdated": false,
+                    "author": { "login": "dkelly" }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
