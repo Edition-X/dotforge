@@ -24,3 +24,6 @@
       {{ playbook_dir }}/scripts/validate-browser-catalog.py --all
   changed_when: false
   check_mode: false
+
+- name: Browser policies - Configure Chrome
+  ansible.builtin.import_tasks: chromium.yml

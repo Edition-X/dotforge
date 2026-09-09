@@ -1,0 +1,18 @@
+{% macro nodes(records, prefix, root=false) -%}
+[{% set state = namespace(first=true, folders=[]) %}
+{% if root %}{"toplevel_name": {{ browsers_chrome_bookmarks_catalog.managed_folder | to_json }}}{% set state.first = false %}{% endif %}
+{% for bookmark in records if bookmark.folder == prefix %}
+{% if not state.first %},{% endif %}{"name": {{ bookmark.title | to_json }}, "url": {{ bookmark.url | to_json }}}{% set state.first = false %}
+{% endfor %}
+{% set depth = prefix | length %}
+{% for bookmark in records %}
+{% if bookmark.folder | length > depth and bookmark.folder[:depth] == prefix %}
+{% set child = bookmark.folder[depth] %}{% if child not in state.folders %}{% set _ = state.folders.append(child) %}{% endif %}
+{% endif %}
+{% endfor %}
+{% for folder in state.folders | sort %}
+{% if not state.first %},{% endif %}{"name": {{ folder | to_json }}, "children": {{ nodes(records, prefix + [folder]) }}}{% set state.first = false %}
+{% endfor %}
+]
+{%- endmacro %}
+{{ nodes(browsers_chrome_bookmarks_catalog.bookmarks, [], true) }}

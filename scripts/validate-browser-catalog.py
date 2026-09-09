@@ -188,7 +188,7 @@ def main() -> int:
     args = parser.parse_args()
     if not args.all and not args.browser:
         parser.error("pass --all or --browser")
-    browsers = BROWSERS if args.all else (args.browser,)
+    browsers = (args.browser,) if args.browser else BROWSERS
     counts = {kind: 0 for kind in KINDS}
     try:
         for browser in browsers:
