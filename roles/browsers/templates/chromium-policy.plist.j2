@@ -1,0 +1,13 @@
+{% macro plist_value(value) -%}
+{% if value is mapping %}<dict>{% for key, child in value.items() %}<key>{{ key | e }}</key>{{ plist_value(child) }}{% endfor %}</dict>
+{% elif value is sequence and value is not string %}<array>{% for child in value %}{{ plist_value(child) }}{% endfor %}</array>
+{% elif value is boolean %}<{{ 'true' if value else 'false' }}/>
+{% elif value is number %}<integer>{{ value }}</integer>
+{% else %}<string>{{ value | e }}</string>
+{% endif %}
+{%- endmacro %}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+{{ plist_value(browsers_chromium_policy_values) }}
+</plist>

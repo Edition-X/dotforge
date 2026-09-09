@@ -1,0 +1,149 @@
+---
+- name: Chrome policy - Load browser-owned catalogs
+  ansible.builtin.include_vars:
+    file: "{{ browsers_catalog_root }}/chrome/{{ item }}.yml"
+    name: "browsers_chrome_{{ item }}_catalog"
+  loop:
+    - bookmarks
+    - extensions
+    - policies
+  no_log: true
+
+- name: Chrome policy - Require mandatory-only supported scope
+  ansible.builtin.assert:
+    that:
+      - browsers_chrome_policies_catalog.policies | selectattr('scope', 'equalto', 'recommended') | list | length == 0
+      - >-
+        browsers_chrome_policies_catalog.policies
+        | selectattr('name', 'in', ['ManagedBookmarks', 'ExtensionSettings', 'ExtensionInstallForcelist'])
+        | list | length == 0
+    fail_msg: "Chrome recommended or renderer-owned policies require a separately proven adapter"
+    quiet: true
+
+- name: Chrome policy - Render managed bookmark payload in memory
+  ansible.builtin.set_fact:
+    browsers_chrome_managed_bookmarks: >-
+      {{ lookup('template', 'chromium-managed-bookmarks.json.j2') }}
+    browsers_chrome_extension_payload: >-
+      {{ lookup('template', 'chromium-extension-policy.json.j2') }}
+  no_log: true
+
+- name: Chrome policy - Build mandatory policy map
+  ansible.builtin.set_fact:
+    browsers_chrome_mandatory_policies: >-
+      {{
+        dict(
+          browsers_chrome_policies_catalog.policies
+          | selectattr('scope', 'equalto', 'mandatory')
+          | map(attribute='name')
+          | zip(
+              browsers_chrome_policies_catalog.policies
+              | selectattr('scope', 'equalto', 'mandatory')
+              | map(attribute='value')
+            )
+        )
+        | combine({
+            'ManagedBookmarks': browsers_chrome_managed_bookmarks,
+            'ExtensionSettings': browsers_chrome_extension_payload.settings,
+            'ExtensionInstallForcelist': browsers_chrome_extension_payload.forcelist
+          })
+      }}
+  no_log: true
+
+- name: Chrome policy - Create local rendered-policy directory
+  ansible.builtin.file:
+    path: "{{ browsers_state_dir }}"
+    state: directory
+    mode: "0700"
+  changed_when: false
+  check_mode: false
+
+- name: Chrome policy - Render mandatory managed preference
+  ansible.builtin.template:
+    src: chromium-policy.plist.j2
+    dest: "{{ browsers_chrome_policy_stage }}"
+    mode: "0600"
+  vars:
+    browsers_chromium_policy_values: "{{ browsers_chrome_mandatory_policies }}"
+  diff: false
+  no_log: true
+  changed_when: false
+  check_mode: false
+
+- name: Chrome policy - Read rendered policy
+  ansible.builtin.slurp:
+    src: "{{ browsers_chrome_policy_stage }}"
+  register: browsers_chrome_rendered
+  no_log: true
+
+- name: Chrome policy - Inspect managed-preference directories
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /Library/Managed Preferences
+    - "{{ browsers_chrome_policy_dir }}"
+  register: browsers_chrome_policy_directories
+
+- name: Chrome policy - Reject unsafe managed-preference directories
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists or (item.stat.isdir and not item.stat.islnk)
+    fail_msg: "Chrome managed-preference directory is not a real directory"
+    quiet: true
+  loop: "{{ browsers_chrome_policy_directories.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Chrome policy - Inspect installed policy
+  ansible.builtin.stat:
+    path: "{{ browsers_chrome_policy_path }}"
+    checksum_algorithm: sha256
+  register: browsers_chrome_installed
+
+- name: Chrome policy - Compare rendered and installed policy
+  ansible.builtin.set_fact:
+    browsers_chrome_policy_changed: >-
+      {{
+        not browsers_chrome_installed.stat.exists
+        or browsers_chrome_installed.stat.checksum != (browsers_chrome_rendered.content | b64decode | hash('sha256'))
+      }}
+  no_log: true
+
+- name: Chrome policy - Reject unsafe installed policy path
+  ansible.builtin.assert:
+    that:
+      - >-
+        not browsers_chrome_installed.stat.exists
+        or (browsers_chrome_installed.stat.isreg and not browsers_chrome_installed.stat.islnk)
+    fail_msg: "Chrome managed policy path is not a regular file"
+    quiet: true
+
+- name: Chrome policy - Report pending managed-preference change
+  ansible.builtin.debug:
+    msg: "Chrome managed policy requires administrator installation"
+  changed_when: browsers_chrome_policy_changed
+  when: ansible_check_mode
+
+- name: Chrome policy - Install through macOS administrator authorization
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/osascript
+      - -e
+      - >-
+        do shell script ("/bin/mkdir -p -m 0755 " & quoted form of "{{ browsers_chrome_policy_dir }}"
+        & " && /usr/bin/install -o root -g wheel -m 0644 "
+        & quoted form of "{{ browsers_chrome_policy_stage }}"
+        & " " & quoted form of "{{ browsers_chrome_policy_path }}") with administrator privileges
+  when:
+    - not ansible_check_mode
+    - browsers_chrome_policy_changed
+  changed_when: true
+
+- name: Chrome policy - Validate installed plist
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/plutil
+      - -lint
+      - "{{ browsers_chrome_policy_path }}"
+  changed_when: false
+  when: not ansible_check_mode

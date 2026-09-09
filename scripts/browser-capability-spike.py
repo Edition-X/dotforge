@@ -137,6 +137,52 @@ def move_created(path, destination):
         raise RuntimeError("created-path-removal-unproven")
 
 
+def copy_exact(source, destination, mode=0o600):
+    with source.open("rb") as input_stream, destination.open("xb") as output_stream:
+        while True:
+            chunk = input_stream.read(65536)
+            if not chunk:
+                break
+            output_stream.write(chunk)
+        output_stream.flush()
+        os.fsync(output_stream.fileno())
+    os.chown(destination, 0, 0)
+    os.chmod(destination, mode)
+
+
+def restore_entry(entry):
+    path = Path(entry["path"])
+    if not entry["existed"]:
+        if path.exists() or path.is_symlink():
+            move_created(path, recovery / (str(entry["index"]) + ".created-policy"))
+        return
+    backup = Path(entry["backup"])
+    descriptor, temporary_name = tempfile.mkstemp(prefix=".browser-policy-restore-", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as output_stream, backup.open("rb") as input_stream:
+            while True:
+                chunk = input_stream.read(65536)
+                if not chunk:
+                    break
+                output_stream.write(chunk)
+            output_stream.flush()
+            os.fsync(output_stream.fileno())
+        os.chown(temporary, entry["uid"], entry["gid"])
+        os.chmod(temporary, entry["mode"])
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            os.replace(temporary, recovery / (temporary.name + ".failed-restore"))
+    metadata = path.stat()
+    if digest(path) != entry["hash"]:
+        raise RuntimeError("restore-hash-mismatch")
+    if (metadata.st_uid, metadata.st_gid, stat.S_IMODE(metadata.st_mode)) != (
+        entry["uid"], entry["gid"], entry["mode"]
+    ):
+        raise RuntimeError("restore-metadata-mismatch")
+
+
 def stop(_signum, _frame):
     raise KeyboardInterrupt
 
@@ -172,7 +218,10 @@ if os.geteuid() != 0 or request_path.parent != work or work.is_symlink():
     raise SystemExit(22)
 if work_metadata.st_uid != uid or stat.S_IMODE(work_metadata.st_mode) != 0o700:
     raise SystemExit(23)
-if tuple(request["domains"]) != ALLOWED_DOMAINS:
+requested_domains = tuple(request["domains"])
+if not requested_domains or requested_domains != tuple(
+    domain for domain in ALLOWED_DOMAINS if domain in requested_domains
+):
     raise SystemExit(24)
 if managed != Path(request["managed"]) or user_managed != Path(request["user_managed"]):
     raise SystemExit(25)
@@ -180,23 +229,43 @@ if trash.is_symlink() or not trash.is_dir() or trash.stat().st_uid != uid:
     raise SystemExit(26)
 if recovery.parent != trash or not recovery.name.startswith("browser-policy-b0-recovery-"):
     raise SystemExit(27)
-if any(candidate.is_symlink() or candidate.exists() for candidate in (managed, user_managed, *paths)):
-    raise SystemExit(28)
+for candidate in (managed, user_managed):
+    if candidate.is_symlink() or (candidate.exists() and (not candidate.is_dir() or candidate.stat().st_uid != 0)):
+        raise SystemExit(28)
+for candidate in paths:
+    if candidate.is_symlink() or (candidate.exists() and (not candidate.is_file() or candidate.stat().st_uid != 0)):
+        raise SystemExit(29)
 signal.signal(signal.SIGTERM, stop)
 signal.signal(signal.SIGINT, stop)
 recovery.mkdir(mode=0o700)
 os.chown(recovery, 0, 0)
 write_marker(started, "started", uid, gid)
-installed = []
+entries = []
 managed_created = False
 user_managed_created = False
 try:
-    managed.mkdir(mode=0o755)
-    managed_created = True
-    user_managed.mkdir(mode=0o755)
-    user_managed_created = True
-    for domain, path in zip(ALLOWED_DOMAINS, paths):
-        installed.append(path)
+    if not managed.exists():
+        managed.mkdir(mode=0o755)
+        managed_created = True
+    if not user_managed.exists():
+        user_managed.mkdir(mode=0o755)
+        user_managed_created = True
+    for index, (domain, path) in enumerate(zip(requested_domains, paths)):
+        entry = {"index": index, "path": str(path), "existed": path.exists()}
+        if entry["existed"]:
+            metadata = path.stat()
+            backup = recovery / (str(index) + ".original")
+            entry.update(
+                uid=metadata.st_uid,
+                gid=metadata.st_gid,
+                mode=stat.S_IMODE(metadata.st_mode),
+                hash=digest(path),
+                backup=str(backup),
+            )
+            copy_exact(path, backup)
+            if digest(backup) != entry["hash"]:
+                raise RuntimeError("backup-hash-mismatch")
+        entries.append(entry)
         atomic_policy(path, POLICY_PAYLOADS[domain])
     write_marker(ready, "ready", uid, gid)
     deadline = time.monotonic() + 180
@@ -206,10 +275,9 @@ try:
         raise RuntimeError("release-timeout")
 finally:
     restore_error = None
-    for index, path in reversed(list(enumerate(installed))):
+    for entry in reversed(entries):
         try:
-            if path.exists() or path.is_symlink():
-                move_created(path, recovery / (str(index) + ".created-policy"))
+            restore_entry(entry)
         except Exception as error:
             restore_error = type(error).__name__
     try:
@@ -244,7 +312,7 @@ def _apple_script_string(value: str) -> str:
 
 
 class SystemPolicySession:
-    """One-dialog root helper for three absent, allowlisted policy files."""
+    """One-dialog root helper with byte-exact restore for allowlisted policy files."""
 
     def __init__(self, browsers: list[Browser]):
         self.browsers = browsers
