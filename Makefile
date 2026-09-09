@@ -66,6 +66,29 @@ mcp-test:
 packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags packages)
 
+.PHONY: browsers
+browsers: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags browsers $(RUN_ARGS))
+
+.PHONY: validate-browser-catalog
+validate-browser-catalog: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python scripts/validate-browser-catalog.py --all)
+
+.PHONY: browser-test
+browser-test: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python scripts/browser-smoke.py $(RUN_ARGS))
+
+.PHONY: browser-drift
+browser-drift: validate-browser-catalog
+	@echo "browser drift: catalog schema valid; live drift arrives in B6"
+
+.PHONY: browser-capture
+browser-capture:
+	@case " $(RUN_ARGS) " in \
+		*" --enable-capture "*) echo "browser capture: implementation arrives in B6" ;; \
+		*) echo "browser capture: disabled; pass --enable-capture after B6" ;; \
+	esac; exit 2
+
 # Install packages AND upgrade any that are outdated. Kept separate from
 # `apply` so a routine apply never moves versions underneath you.
 .PHONY: upgrade

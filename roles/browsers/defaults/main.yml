@@ -1,0 +1,11 @@
+---
+browsers_catalog_root: "{{ playbook_dir }}/host_files/localhost/browsers"
+browsers_catalog_names:
+  - chrome
+  - edge
+  - brave
+  - firefox
+  - vivaldi
+
+# B1 is validation-only. Adapter tickets add exact generated policy paths here.
+browsers_generated_paths: []

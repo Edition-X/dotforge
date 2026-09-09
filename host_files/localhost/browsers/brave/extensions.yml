@@ -1,0 +1,7 @@
+---
+version: 1
+browser: brave
+enforcement: report_only
+system_components: []
+user_candidates: []
+required: []
