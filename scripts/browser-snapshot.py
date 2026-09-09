@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import hashlib
 import json
 import os
@@ -17,6 +18,7 @@ import uuid
 from pathlib import Path
 
 CHROMIUM = ("chrome", "edge", "brave", "vivaldi")
+FIREFOX_PROFILE_NAMES = ("default-release", "default")
 
 
 def digest(path: Path) -> str:
@@ -51,12 +53,34 @@ def stable_json_snapshot(source: Path, destination: Path, attempts: int = 3) -> 
     raise RuntimeError("Chromium source changed during bounded snapshot retries")
 
 
-def firefox_snapshot(source: Path, destination: Path) -> int:
+def firefox_snapshot(source: Path, destination: Path, attempts: int = 5) -> int:
     if source.is_symlink() or not source.is_file():
         raise RuntimeError("Firefox snapshot source is not a regular file")
-    source_uri = source.resolve().as_uri() + "?mode=ro"
-    with sqlite3.connect(source_uri, uri=True) as live, sqlite3.connect(destination) as snapshot:
-        live.backup(snapshot)
+    copied_source: Path | None = None
+    for _ in range(attempts):
+        try:
+            before = firefox_source_state(source)
+            staging = Path(tempfile.mkdtemp(prefix="firefox-source-", dir=destination.parent))
+            for suffix, _, _, _ in before:
+                candidate = Path(str(source) + suffix)
+                target = staging / f"{source.name}{suffix}"
+                shutil.copyfile(candidate, target)
+                os.chmod(target, 0o600)
+            after = firefox_source_state(source)
+        except FileNotFoundError:
+            time.sleep(0.05)
+            continue
+        if after == before:
+            copied_source = staging / source.name
+            break
+        time.sleep(0.05)
+    if copied_source is None:
+        raise RuntimeError("Firefox source changed during bounded snapshot retries")
+
+    with sqlite3.connect(copied_source) as stable, sqlite3.connect(destination) as snapshot:
+        if stable.execute("PRAGMA quick_check").fetchone() != ("ok",):
+            raise RuntimeError("Firefox staged source integrity check failed")
+        stable.backup(snapshot)
     os.chmod(destination, 0o600)
     with sqlite3.connect(destination.resolve().as_uri() + "?mode=ro", uri=True) as snapshot:
         if snapshot.execute("PRAGMA quick_check").fetchone() != ("ok",):
@@ -66,6 +90,64 @@ def firefox_snapshot(source: Path, destination: Path) -> int:
                 "SELECT count(*) FROM moz_bookmarks b JOIN moz_places p ON p.id = b.fk WHERE p.url IS NOT NULL"
             ).fetchone()[0]
         )
+
+
+def firefox_source_state(source: Path) -> tuple[tuple[str, int, int, str], ...]:
+    state = []
+    for suffix in ("", "-wal"):
+        candidate = Path(str(source) + suffix)
+        if not candidate.exists():
+            continue
+        if candidate.is_symlink() or not candidate.is_file():
+            raise RuntimeError("Firefox bookmark source is not a regular file")
+        metadata = candidate.stat()
+        state.append((suffix, metadata.st_size, metadata.st_mtime_ns, digest(candidate)))
+    return tuple(state)
+
+
+def firefox_profiles(profile_root: Path) -> dict[str, Path]:
+    configuration_path = profile_root / "profiles.ini"
+    if configuration_path.is_symlink() or not configuration_path.is_file():
+        raise RuntimeError("Firefox profiles configuration is unavailable")
+    configuration = configparser.ConfigParser(interpolation=None)
+    configuration.read(configuration_path, encoding="utf-8")
+    selected: dict[str, Path] = {}
+    root = profile_root.resolve()
+    for section in configuration.sections():
+        if not section.startswith("Profile"):
+            continue
+        name = configuration.get(section, "Name", fallback="")
+        if name not in FIREFOX_PROFILE_NAMES:
+            continue
+        if name in selected:
+            raise RuntimeError("Firefox profile name is duplicated")
+        raw_path = configuration.get(section, "Path", fallback="")
+        if not raw_path or not configuration.getboolean(section, "IsRelative", fallback=True):
+            raise RuntimeError("Firefox managed snapshot profile path is unsupported")
+        profile = profile_root / raw_path
+        if profile.is_symlink() or not profile.is_dir() or not profile.resolve().is_relative_to(root):
+            raise RuntimeError("Firefox managed snapshot profile is unsafe")
+        selected[name] = profile
+    if set(selected) != set(FIREFOX_PROFILE_NAMES):
+        raise RuntimeError("Firefox expected profiles are unavailable")
+    return selected
+
+
+def snapshot_firefox_profiles(profile_root: Path, work: Path) -> tuple[int, int]:
+    work.mkdir(mode=0o700)
+    profiles = firefox_profiles(profile_root)
+    total = 0
+    for name in FIREFOX_PROFILE_NAMES:
+        source = profiles[name] / "places.sqlite"
+        if not source.exists():
+            if name != "default":
+                raise RuntimeError("Firefox active profile bookmark database is unavailable")
+            continue
+        count = firefox_snapshot(source, work / f"{name}.sqlite")
+        if name == "default" and count != 0:
+            raise RuntimeError("Firefox default profile is not empty")
+        total += count
+    return len(profiles), total
 
 
 def chromium_count(node: object) -> int:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run B1 fixture checks and installed-browser isolated policy smoke."""
+"""Run browser fixture checks and installed-browser isolated policy smoke."""
 
 from __future__ import annotations
 
@@ -212,17 +212,87 @@ def chromium_policy_smoke(validator: ModuleType, browser_catalog: str) -> None:
     print(f"browser {browser_name} smoke: pass policy=mandatory managed-folder=visible profile=isolated")
 
 
+def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
+    capability = load_script("browser_capability", "browser-capability-spike.py")
+    firefox = next(browser for browser in capability.BROWSERS if browser.name == "Firefox")
+    catalog_path = REPO / "host_files" / "localhost" / "browsers" / "firefox" / "bookmarks.yml"
+    catalog = validator.yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    policy_path = firefox.app / "Contents" / "Resources" / "distribution" / "policies.json"
+    policy_hash = capability._sha256(policy_path)
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))["policies"]
+    bookmarks = policy.get("ManagedBookmarks", [])
+    if not bookmarks or bookmarks[0].get("toplevel_name") != catalog["managed_folder"]:
+        raise RuntimeError("Firefox managed bookmark policy is missing")
+    if policy.get("ExtensionSettings", {}).get("*", {}).get("installation_mode") != "allowed":
+        raise RuntimeError("Firefox extension policy is missing")
+
+    root = Path(tempfile.mkdtemp(prefix="browser-firefox-policy-"))
+    process: subprocess.Popen[bytes] | None = None
+    try:
+        profile_root = Path.home() / "Library" / "Application Support" / "Firefox"
+        profile_count, bookmark_count = snapshot.snapshot_firefox_profiles(profile_root, root / "snapshots")
+        app_copy = root / "Firefox.app"
+        subprocess.run(["ditto", str(firefox.app), str(app_copy)], check=True, timeout=180)
+        copied_policy = app_copy / "Contents" / "Resources" / "distribution" / "policies.json"
+        if capability._sha256(copied_policy) != policy_hash:
+            raise RuntimeError("Firefox isolated app policy differs from production")
+        screenshot = root / "policy.png"
+        command = [
+            str(app_copy / "Contents" / "MacOS" / "firefox"),
+            "-headless",
+            "-no-remote",
+            "-profile",
+            str(root / "profile"),
+            "-screenshot",
+            str(screenshot),
+            "about:policies#active",
+        ]
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not screenshot.is_file():
+            if process.poll() is not None:
+                break
+            time.sleep(0.25)
+        if not screenshot.is_file():
+            raise RuntimeError("Firefox policy page was not observed")
+        ocr = subprocess.run(
+            ["tesseract", str(screenshot), "stdout"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        observed = "managedbookmarks" in ocr.stdout.lower() and "extensionsettings" in ocr.stdout.lower()
+        if not observed:
+            raise RuntimeError("Firefox policy page did not show required policy names")
+    finally:
+        if process is not None:
+            capability._stop_launched_process(process)
+        if root.exists():
+            capability._trash(root, "TRASH_PROFILE")
+    if capability._sha256(policy_path) != policy_hash:
+        raise RuntimeError("Firefox production policy changed during smoke")
+    print(
+        "browser Firefox smoke: pass policy=active profile=isolated "
+        f"profiles={profile_count} bookmarks={bookmark_count} wal=verified"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixtures", action="store_true")
     parser.add_argument("--isolated", action="store_true")
-    parser.add_argument("--browser", choices=tuple(CHROMIUM_BROWSERS))
+    parser.add_argument("--browser", choices=(*CHROMIUM_BROWSERS, "firefox"))
     parser.add_argument("--policy", action="store_true")
     args = parser.parse_args()
     fixture_mode = args.fixtures and args.isolated and not args.browser and not args.policy
     browser_mode = args.browser is not None and args.isolated and args.policy and not args.fixtures
     if not fixture_mode and not browser_mode:
-        parser.error("use --fixtures --isolated or --browser <chrome|edge|brave> --isolated --policy")
+        parser.error("use --fixtures --isolated or --browser <chrome|edge|brave|firefox> --isolated --policy")
     fixtures = REPO / "tests" / "fixtures" / "browsers"
     try:
         validator = load_script("browser_catalog_validator", "validate-browser-catalog.py")
@@ -234,6 +304,8 @@ def main() -> int:
             if snapshot.check_fixtures(fixtures) != 0:
                 raise RuntimeError("fixture snapshot smoke failed")
             live_policy_smoke()
+        elif args.browser == "firefox":
+            firefox_policy_smoke(validator, snapshot)
         else:
             chromium_policy_smoke(validator, args.browser)
     except (OSError, ValueError, json.JSONDecodeError, RuntimeError, subprocess.TimeoutExpired) as error:

@@ -27,3 +27,6 @@
 
 - name: Browser policies - Configure Chrome
   ansible.builtin.import_tasks: chromium.yml
+
+- name: Browser policies - Configure Firefox
+  ansible.builtin.import_tasks: firefox.yml
