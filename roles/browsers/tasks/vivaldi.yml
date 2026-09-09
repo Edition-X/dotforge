@@ -14,6 +14,9 @@
     that:
       - browsers_vivaldi_policies_catalog.policies | length == 0
       - browsers_vivaldi_extensions_catalog.enforcement == 'report_only'
+      # No proven policy contract means no force-install either: Vivaldi's
+      # LastPass presence is audited, never enforced.
+      - browsers_vivaldi_extensions_catalog.required | length == 0
     fail_msg: "Vivaldi policy remains unsupported until installed-build evidence proves a vendor contract"
     quiet: true
 

@@ -1,4 +1,38 @@
 ---
+# Presence management only. Blocking everything outside the catalog waits for
+# one explicit review of the generated extension report, so enforcement stays
+# report-only here and unlisted extensions keep working.
+- name: Chromium extensions - Require reviewed presence-only enforcement
+  ansible.builtin.assert:
+    that:
+      - browsers_chromium_extension_catalog.enforcement == 'report_only'
+      - >-
+        browsers_chromium_extension_catalog.required
+        | rejectattr('update_url', 'in', browsers_verified_update_urls)
+        | list | length == 0
+      - >-
+        browsers_chromium_extension_catalog.required
+        | rejectattr('presence', 'equalto', 'required')
+        | list | length == 0
+    fail_msg: >-
+      {{ browsers_chromium_adapter.name }} extension catalog needs vendor-verified presence entries
+      and a reviewed migration before blocking enforcement
+    quiet: true
+  loop: "{{ browsers_chromium_adapters }}"
+  loop_control:
+    loop_var: browsers_chromium_adapter
+    label: "{{ browsers_chromium_adapter.name }}"
+  vars:
+    # Store update endpoints proven against vendor evidence: Chrome Web Store
+    # (also used by Brave), Microsoft Edge Add-ons and addons.mozilla.org.
+    browsers_verified_update_urls:
+      - https://clients2.google.com/service/update2/crx
+      - https://edge.microsoft.com/extensionwebstorebase/v1/crx
+      - https://addons.mozilla.org/firefox/downloads/latest/lastpass-password-manager/latest.xpi
+    browsers_chromium_extension_catalog: >-
+      {{ lookup('file', browsers_catalog_root ~ '/' ~ browsers_chromium_adapter.catalog ~ '/extensions.yml')
+         | from_yaml }}
+
 - name: Chromium policy - Configure browser-owned adapters
   ansible.builtin.include_tasks: chromium-browser.yml
   loop: "{{ browsers_chromium_adapters }}"

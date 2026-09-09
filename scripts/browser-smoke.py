@@ -328,9 +328,7 @@ def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
     catalog_path = REPO / "host_files" / "localhost" / "browsers" / "firefox" / "bookmarks.yml"
     catalog = validator.yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
     managed_folder = catalog["managed_folder"]
-    extensions_catalog = validator.yaml.safe_load(
-        (REPO / "host_files" / "localhost" / "browsers" / "firefox" / "extensions.yml").read_text(encoding="utf-8")
-    )
+    extensions_catalog = extension_catalog("firefox", validator)
 
     # Policy lives in a managed preference. A file inside Firefox.app would break
     # the bundle signature, which macOS enforces on a freshly installed bundle.
@@ -359,6 +357,8 @@ def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
     settings = policy.get("ExtensionSettings", {})
     if settings.get("*", {}).get("installation_mode") != "allowed":
         raise RuntimeError("Firefox extension policy is missing")
+    if extensions_catalog["enforcement"] != "report_only":
+        raise RuntimeError("Firefox extension enforcement is not report-only")
     for record in extensions_catalog["required"]:
         entry = settings.get(record["id"], {})
         if entry.get("installation_mode") != "force_installed" or entry.get("install_url") != record["update_url"]:
@@ -421,6 +421,67 @@ def automation_smoke() -> int:
     return 0
 
 
+def extension_catalog(browser_catalog: str, validator: ModuleType) -> dict[str, object]:
+    path = REPO / "host_files" / "localhost" / "browsers" / browser_catalog / "extensions.yml"
+    return validator.yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def chromium_extension_smoke(validator: ModuleType, browser_catalog: str) -> None:
+    """Prove managed presence entries reached the live policy, read-only."""
+    capability = load_script("browser_capability", "browser-capability-spike.py")
+    browser_name, _ = CHROMIUM_BROWSERS[browser_catalog]
+    browser = next(browser for browser in capability.BROWSERS if browser.name == browser_name)
+    catalog = extension_catalog(browser_catalog, validator)
+    if catalog["enforcement"] != "report_only":
+        raise RuntimeError(f"{browser_name} extension enforcement is not report-only")
+
+    policy_page, result, evidence = capability.isolated_smoke(browser)
+    if policy_page != "observed" or result != "pass" or not evidence.startswith("required-keys-status-ok-"):
+        raise RuntimeError(f"{browser_name} did not accept the extension policy live")
+
+    login = pwd.getpwuid(os.getuid()).pw_name
+    policy_path = Path("/Library/Managed Preferences") / login / f"{browser.domain}.plist"
+    with policy_path.open("rb") as stream:
+        policy = plistlib.load(stream)
+    settings = policy.get("ExtensionSettings", {})
+    forcelist = policy.get("ExtensionInstallForcelist", [])
+    if settings.get("*", {}).get("installation_mode") != "allowed":
+        raise RuntimeError(f"{browser_name} unlisted extensions are not still allowed")
+    for record in catalog["required"]:
+        entry = settings.get(record["id"], {})
+        if entry.get("installation_mode") != "force_installed" or entry.get("update_url") != record["update_url"]:
+            raise RuntimeError(f"{browser_name} required extension is not force-installed")
+        if f"{record['id']};{record['update_url']}" not in forcelist:
+            raise RuntimeError(f"{browser_name} required extension is missing from the forcelist")
+    print(
+        f"browser {browser_name} extensions: pass required={len(catalog['required'])} "
+        "policy=force-installed unlisted=allowed enforcement=report-only profile=isolated"
+    )
+
+
+def extension_report_smoke() -> None:
+    """Sanitized live presence evidence: counts only, no sign-in, no IDs printed."""
+    report = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts" / "browser-extension-report.py"),
+            "--all",
+            "--sanitized",
+            "--isolated",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if report.returncode != 0 or "://" in report.stdout:
+        print(report.stdout, end="")
+        raise RuntimeError("browser extension report failed or produced unsafe output")
+    absent = [line for line in report.stdout.splitlines() if "lastpass=absent" in line]
+    if absent:
+        raise RuntimeError("a managed browser is missing its LastPass presence")
+    print(report.stdout, end="")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixtures", action="store_true")
@@ -430,8 +491,18 @@ def main() -> int:
     parser.add_argument("--policy", action="store_true")
     parser.add_argument("--capture-read-only", action="store_true")
     parser.add_argument("--automation", action="store_true")
+    parser.add_argument("--extensions", action="store_true")
     parser.add_argument("--fake-github", action="store_true")
     args = parser.parse_args()
+    extensions_mode = (
+        args.extensions
+        and args.isolated
+        and args.policy
+        and args.all_installed
+        and not args.fixtures
+        and not args.browser
+        and not args.automation
+    )
     automation_mode = (
         args.automation
         and args.isolated
@@ -457,11 +528,13 @@ def main() -> int:
         and (args.policy or args.capture_read_only)
         and not args.fixtures
         and not args.browser
+        and not args.extensions
     )
-    if not fixture_mode and not browser_mode and not all_mode and not automation_mode:
+    if not fixture_mode and not browser_mode and not all_mode and not automation_mode and not extensions_mode:
         parser.error(
             "use --fixtures --isolated, --all-installed --isolated --policy, "
             "--automation --isolated --fake-github, "
+            "--all-installed --isolated --extensions --policy, "
             "or --browser <chrome|edge|brave|firefox|vivaldi> --isolated --policy"
         )
     if automation_mode:
@@ -500,6 +573,18 @@ def main() -> int:
                     raise RuntimeError("browser read-only capture smoke failed")
                 print(capture.stdout, end="")
                 print(f"browser capture matrix: pass installed={len(installed)} isolated=true")
+        elif extensions_mode:
+            capability = load_script("browser_capability_inventory", "browser-capability-spike.py")
+            installed = {browser.name for browser in capability.BROWSERS if browser.app.is_dir()}
+            for catalog, (name, _) in CHROMIUM_BROWSERS.items():
+                if name in installed:
+                    chromium_extension_smoke(validator, catalog)
+            if "Firefox" in installed:
+                firefox_policy_smoke(validator, snapshot)
+            if "Vivaldi" in installed:
+                vivaldi_policy_smoke()
+            extension_report_smoke()
+            print(f"browser extension matrix: pass installed={len(installed)} isolated=true sign-in=manual")
         elif args.browser == "firefox":
             firefox_policy_smoke(validator, snapshot)
         elif args.browser == "vivaldi":

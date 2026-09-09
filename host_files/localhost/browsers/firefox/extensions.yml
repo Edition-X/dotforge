@@ -4,4 +4,9 @@ browser: firefox
 enforcement: report_only
 system_components: []
 user_candidates: []
-required: []
+required:
+  - name: LastPass
+    id: support@lastpass.com
+    source: https://addons.mozilla.org/firefox/addon/lastpass-password-manager/
+    update_url: https://addons.mozilla.org/firefox/downloads/latest/lastpass-password-manager/latest.xpi
+    presence: required

@@ -38,6 +38,29 @@ catalogs, login state, quarantine, the isolated automation clone or browser data
 root-owned copies in `/Library/Managed Preferences` and inside `Firefox.app` are left for
 a deliberate, privileged removal.
 
+## Extensions and LastPass
+
+`scripts/browser-extension-report.py --all --sanitized --isolated` reads each browser's
+live extension state in memory — the preference store is never copied or written — and
+classifies browser components apart from user extensions. Output is counts only: no
+extension identifiers, names or URLs. The detailed candidate list lands in a local
+mode-0600 report under `~/.local/state/macbook-pro/browser-policy/`, outside the
+repository, for one explicit migration review.
+
+Catalogs manage presence only. `enforcement` stays `report_only`, so unlisted extensions
+keep working; blocking everything except the catalog needs that review first, and the
+role refuses any other value. Presence entries carry a vendor-verified id and store
+update URL — Chrome Web Store for Chrome and Brave, Microsoft Edge Add-ons for Edge,
+addons.mozilla.org for Firefox — and a directory id alone is never enough. Vivaldi has no
+proven policy contract, so its LastPass presence is audited, never enforced.
+
+LastPass presence is managed; credentials are not. A fresh browser or machine still needs
+one interactive LastPass login with MFA or a passkey. Passwords, local extension storage
+and website sessions are never read, copied or deployed.
+
+Browsers are Brewfile-managed, so this role never installs or uninstalls one, and never
+uses `--zap`.
+
 ## Publishing captured additions
 
 `scripts/browser-git-automation.py` owns the Git side. `--check` audits the contract with
