@@ -301,15 +301,18 @@ def vivaldi_policy_smoke() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixtures", action="store_true")
+    parser.add_argument("--all-installed", action="store_true")
     parser.add_argument("--isolated", action="store_true")
     parser.add_argument("--browser", choices=(*CHROMIUM_BROWSERS, "firefox", "vivaldi"))
     parser.add_argument("--policy", action="store_true")
     args = parser.parse_args()
-    fixture_mode = args.fixtures and args.isolated and not args.browser and not args.policy
-    browser_mode = args.browser is not None and args.isolated and args.policy and not args.fixtures
-    if not fixture_mode and not browser_mode:
+    fixture_mode = args.fixtures and args.isolated and not args.browser and not args.policy and not args.all_installed
+    browser_mode = args.browser is not None and args.isolated and args.policy and not args.fixtures and not args.all_installed
+    all_mode = args.all_installed and args.isolated and args.policy and not args.fixtures and not args.browser
+    if not fixture_mode and not browser_mode and not all_mode:
         parser.error(
-            "use --fixtures --isolated or --browser <chrome|edge|brave|firefox|vivaldi> --isolated --policy"
+            "use --fixtures --isolated, --all-installed --isolated --policy, "
+            "or --browser <chrome|edge|brave|firefox|vivaldi> --isolated --policy"
         )
     fixtures = REPO / "tests" / "fixtures" / "browsers"
     try:
@@ -322,6 +325,17 @@ def main() -> int:
             if snapshot.check_fixtures(fixtures) != 0:
                 raise RuntimeError("fixture snapshot smoke failed")
             live_policy_smoke()
+        elif all_mode:
+            capability = load_script("browser_capability_inventory", "browser-capability-spike.py")
+            installed = {browser.name for browser in capability.BROWSERS if browser.app.is_dir()}
+            for catalog, (name, _) in CHROMIUM_BROWSERS.items():
+                if name in installed:
+                    chromium_policy_smoke(validator, catalog)
+            if "Firefox" in installed:
+                firefox_policy_smoke(validator, snapshot)
+            if "Vivaldi" in installed:
+                vivaldi_policy_smoke()
+            print(f"browser policy matrix: pass installed={len(installed)} isolated=true")
         elif args.browser == "firefox":
             firefox_policy_smoke(validator, snapshot)
         elif args.browser == "vivaldi":
