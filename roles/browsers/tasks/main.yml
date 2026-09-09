@@ -30,3 +30,6 @@
 
 - name: Browser policies - Configure Firefox
   ansible.builtin.import_tasks: firefox.yml
+
+- name: Browser policies - Configure Vivaldi
+  ansible.builtin.import_tasks: vivaldi.yml

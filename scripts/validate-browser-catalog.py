@@ -180,6 +180,13 @@ def validate_file(path: Path, browser: str, kind: str) -> int:
     return VALIDATORS[kind](data, browser)
 
 
+def validate_vivaldi_contract(root: Path) -> None:
+    policies = yaml.safe_load((root / "vivaldi" / "policies.yml").read_text(encoding="utf-8"))
+    extensions = yaml.safe_load((root / "vivaldi" / "extensions.yml").read_text(encoding="utf-8"))
+    if policies.get("policies") or extensions.get("enforcement") != "report_only":
+        raise CatalogError("Vivaldi must remain best-effort and report-only")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--all", action="store_true")
@@ -194,6 +201,8 @@ def main() -> int:
         for browser in browsers:
             for kind in KINDS:
                 counts[kind] += validate_file(args.root / browser / f"{kind}.yml", browser, kind)
+        if "vivaldi" in browsers:
+            validate_vivaldi_contract(args.root)
     except (OSError, yaml.YAMLError, CatalogError, ValueError) as error:
         print(f"browser catalog: failed ({type(error).__name__}: {error})")
         return 1

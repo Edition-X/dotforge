@@ -1,0 +1,62 @@
+---
+- name: Vivaldi audit - Load browser-owned catalogs
+  ansible.builtin.include_vars:
+    file: "{{ browsers_catalog_root }}/vivaldi/{{ item }}.yml"
+    name: "browsers_vivaldi_{{ item }}_catalog"
+  loop:
+    - bookmarks
+    - extensions
+    - policies
+  no_log: true
+
+- name: Vivaldi audit - Require best-effort scope
+  ansible.builtin.assert:
+    that:
+      - browsers_vivaldi_policies_catalog.policies | length == 0
+      - browsers_vivaldi_extensions_catalog.enforcement == 'report_only'
+    fail_msg: "Vivaldi policy remains unsupported until installed-build evidence proves a vendor contract"
+    quiet: true
+
+- name: Vivaldi audit - Inspect application
+  ansible.builtin.stat:
+    path: "{{ browsers_vivaldi_app }}"
+  register: browsers_vivaldi_application
+
+- name: Vivaldi audit - Require safe installed application
+  ansible.builtin.assert:
+    that:
+      - browsers_vivaldi_application.stat.isdir
+      - not browsers_vivaldi_application.stat.islnk
+    fail_msg: "Vivaldi application is missing or unsafe"
+    quiet: true
+
+- name: Vivaldi audit - Create local state directory
+  ansible.builtin.file:
+    path: "{{ browsers_state_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Vivaldi audit - Install best-effort audit
+  ansible.builtin.template:
+    src: vivaldi-audit.sh.j2
+    dest: "{{ browsers_vivaldi_audit_path }}"
+    mode: "0700"
+  diff: false
+
+- name: Vivaldi audit - Check installed audit
+  ansible.builtin.command:
+    argv:
+      - "{{ browsers_vivaldi_audit_path }}"
+      - --check
+  register: browsers_vivaldi_audit
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Vivaldi audit - Require sanitized best-effort result
+  ansible.builtin.assert:
+    that:
+      - "'best-effort audit/export' in browsers_vivaldi_audit.stdout"
+      - "'://' not in browsers_vivaldi_audit.stdout"
+    fail_msg: "Vivaldi audit failed or exposed URL data"
+    quiet: true
+  when: not ansible_check_mode

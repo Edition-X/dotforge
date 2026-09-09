@@ -27,6 +27,9 @@ browsers_firefox_resources: "{{ browsers_firefox_app }}/Contents/Resources"
 browsers_firefox_policy_dir: "{{ browsers_firefox_resources }}/distribution"
 browsers_firefox_policy_path: "{{ browsers_firefox_policy_dir }}/policies.json"
 browsers_firefox_policy_stage: "{{ browsers_state_dir }}/firefox-policies.json"
+browsers_vivaldi_app: /Applications/Vivaldi.app
+browsers_vivaldi_profile: "{{ user_dir }}/Library/Application Support/Vivaldi/Default"
+browsers_vivaldi_audit_path: "{{ browsers_state_dir }}/vivaldi-audit.sh"
 browsers_generated_paths:
   - "{{ browsers_state_dir }}/com.google.Chrome.plist"
   - "{{ browsers_chromium_policy_dir }}/com.google.Chrome.plist"
@@ -36,3 +39,4 @@ browsers_generated_paths:
   - "{{ browsers_chromium_policy_dir }}/com.brave.Browser.plist"
   - "{{ browsers_firefox_policy_stage }}"
   - "{{ browsers_firefox_policy_path }}"
+  - "{{ browsers_vivaldi_audit_path }}"

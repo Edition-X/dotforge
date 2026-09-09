@@ -282,17 +282,35 @@ def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
     )
 
 
+def vivaldi_policy_smoke() -> None:
+    capability = load_script("browser_capability", "browser-capability-spike.py")
+    vivaldi = next(browser for browser in capability.BROWSERS if browser.name == "Vivaldi")
+    policy_page, result, evidence = capability.isolated_smoke(vivaldi)
+    if result != "pass" or not evidence.startswith("unsupported-audit-launch-"):
+        raise RuntimeError("Vivaldi best-effort policy probe failed")
+    audit = Path.home() / ".local" / "state" / "macbook-pro" / "browser-policy" / "vivaldi-audit.sh"
+    report = subprocess.run([str(audit), "--check"], capture_output=True, text=True, timeout=20)
+    if report.returncode != 0 or "best-effort audit/export" not in report.stdout or "://" in report.stdout:
+        raise RuntimeError("Vivaldi audit/export smoke failed")
+    print(
+        "browser Vivaldi smoke: pass support=best-effort audit/export=pass "
+        f"policy-page={policy_page} profile=read-only"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixtures", action="store_true")
     parser.add_argument("--isolated", action="store_true")
-    parser.add_argument("--browser", choices=(*CHROMIUM_BROWSERS, "firefox"))
+    parser.add_argument("--browser", choices=(*CHROMIUM_BROWSERS, "firefox", "vivaldi"))
     parser.add_argument("--policy", action="store_true")
     args = parser.parse_args()
     fixture_mode = args.fixtures and args.isolated and not args.browser and not args.policy
     browser_mode = args.browser is not None and args.isolated and args.policy and not args.fixtures
     if not fixture_mode and not browser_mode:
-        parser.error("use --fixtures --isolated or --browser <chrome|edge|brave|firefox> --isolated --policy")
+        parser.error(
+            "use --fixtures --isolated or --browser <chrome|edge|brave|firefox|vivaldi> --isolated --policy"
+        )
     fixtures = REPO / "tests" / "fixtures" / "browsers"
     try:
         validator = load_script("browser_catalog_validator", "validate-browser-catalog.py")
@@ -306,6 +324,8 @@ def main() -> int:
             live_policy_smoke()
         elif args.browser == "firefox":
             firefox_policy_smoke(validator, snapshot)
+        elif args.browser == "vivaldi":
+            vivaldi_policy_smoke()
         else:
             chromium_policy_smoke(validator, args.browser)
     except (OSError, ValueError, json.JSONDecodeError, RuntimeError, subprocess.TimeoutExpired) as error:
