@@ -4,10 +4,22 @@ This role owns declarative, browser-specific catalogs. B1 validates source only;
 not install policy or touch browser profiles. Chrome, Edge, Brave, Firefox and Vivaldi
 remain separate ownership roots. Missing records never mean delete, move or rename.
 
-Chrome, Edge and Brave use mandatory managed preferences. Firefox uses its supported
-distribution policy. Vivaldi remains best-effort because its installed build has not
-proved a vendor enterprise-policy contract; its role installs only a sanitized read-only
-audit/export check.
+Chrome, Edge, Brave and Firefox all use mandatory managed preferences. Firefox reads the
+`org.mozilla.firefox` domain with `EnterprisePoliciesEnabled`, so its policy lives beside
+the Chromium ones instead of inside the application bundle: a file under `Firefox.app`
+breaks the bundle signature, and macOS refuses to launch a freshly installed bundle whose
+seal no longer matches — it reports the app as damaged. The role asserts the bundle has no
+`distribution` directory, and the smoke verifies `codesign` still passes.
+
+Firefox policy evidence comes from the policy engine itself. The smoke launches the
+installed application against an isolated profile, connects over Marionette in chrome
+context, and reads `Services.policies` status and active policy values. Firefox refuses
+script evaluation on privileged pages, and screenshot text recognition proved fragile —
+it silently failed when the page rendered in dark mode.
+
+Vivaldi remains best-effort because its installed build has not proved a vendor
+enterprise-policy contract; its role installs only a sanitized read-only audit/export
+check.
 
 Vivaldi Sync can migrate bookmarks and Speed Dials, some settings, stored passwords,
 autofill data, history, extensions, web apps, reading list, open tabs and notes without
