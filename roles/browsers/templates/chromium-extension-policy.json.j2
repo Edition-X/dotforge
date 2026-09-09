@@ -1,12 +1,12 @@
 {
   "settings": {
-    "*": {"installation_mode": "allowed"}{% for extension in browsers_chrome_extensions_catalog.required %},
+    "*": {"installation_mode": "allowed"}{% for extension in browsers_chromium_extensions_catalog.required %},
     {{ extension.id | to_json }}: {
       "installation_mode": "force_installed",
       "update_url": {{ extension.update_url | to_json }}
     }{% endfor %}
   },
-  "forcelist": [{% for extension in browsers_chrome_extensions_catalog.required %}
+  "forcelist": [{% for extension in browsers_chromium_extensions_catalog.required %}
     {{ (extension.id ~ ';' ~ extension.update_url) | to_json }}{% if not loop.last %},{% endif %}{% endfor %}
   ]
 }
