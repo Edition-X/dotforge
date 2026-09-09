@@ -30,6 +30,7 @@ browsers_firefox_policy_stage: "{{ browsers_state_dir }}/firefox-policies.json"
 browsers_vivaldi_app: /Applications/Vivaldi.app
 browsers_vivaldi_profile: "{{ user_dir }}/Library/Application Support/Vivaldi/Default"
 browsers_vivaldi_audit_path: "{{ browsers_state_dir }}/vivaldi-audit.sh"
+browsers_quarantine_path: "{{ browsers_state_dir }}/quarantine.json"
 browsers_generated_paths:
   - "{{ browsers_state_dir }}/com.google.Chrome.plist"
   - "{{ browsers_chromium_policy_dir }}/com.google.Chrome.plist"

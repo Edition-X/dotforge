@@ -80,14 +80,12 @@ browser-test: $(PYTHON_VIRTUAL_ENVIRONMENT)
 
 .PHONY: browser-drift
 browser-drift: validate-browser-catalog
-	@echo "browser drift: catalog schema valid; live drift arrives in B6"
+	@$(call activate, python scripts/browser-capture.py --dry-run --isolated)
+	@echo "browser drift: additions-only comparison complete"
 
 .PHONY: browser-capture
-browser-capture:
-	@case " $(RUN_ARGS) " in \
-		*" --enable-capture "*) echo "browser capture: implementation arrives in B6" ;; \
-		*) echo "browser capture: disabled; pass --enable-capture after B6" ;; \
-	esac; exit 2
+browser-capture: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python scripts/browser-capture.py $(RUN_ARGS))
 
 # Install packages AND upgrade any that are outdated. Kept separate from
 # `apply` so a routine apply never moves versions underneath you.

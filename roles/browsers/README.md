@@ -14,6 +14,12 @@ autofill data, history, extensions, web apps, reading list, open tabs and notes 
 attachments. Login and encryption-password entry remain one-time interactive steps. This
 role never deploys Sync credentials, exports passwords or copies website sessions.
 
+`make browser-capture RUN_ARGS='--dry-run --isolated'` takes bounded, read-only
+snapshots and reports counts only. `--enable-capture --isolated` appends validated
+records to each browser's own bookmark catalog. Missing bookmarks never remove, move or
+rename catalog entries. Rejected records go to a local mode-0600 quarantine outside repo;
+their values never appear in command output.
+
 Generated policy files arrive in B2-B5. Cleanup must remove only exact paths listed in
 `browsers_generated_paths`; it must never remove profiles, catalogs, login state or browser
 data. Capture remains disabled until B6.
