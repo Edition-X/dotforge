@@ -451,7 +451,7 @@ def _temporary_policy(browser: Browser, root: Path, state: PolicyState) -> None:
     """Install Firefox fixture or snapshot Chromium policy paths."""
     if browser.name == "Firefox":
         distribution = root / "Firefox.app" / "Contents" / "Resources" / "distribution"
-        distribution.mkdir(parents=True)
+        distribution.mkdir(parents=True, exist_ok=True)
         (distribution / "policies.json").write_text(
             json.dumps({"policies": {"Homepage": {"URL": "about:blank", "Locked": True}}}),
             encoding="utf-8",
@@ -789,6 +789,7 @@ def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
             command = [
                 str(executable),
                 "-headless",
+                "-no-remote",
                 "-profile",
                 str(temp_dir / "profile"),
                 "-screenshot",

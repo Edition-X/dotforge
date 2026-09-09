@@ -1,0 +1,128 @@
+---
+- name: Firefox policy - Load browser-owned catalogs
+  ansible.builtin.include_vars:
+    file: "{{ browsers_catalog_root }}/firefox/{{ item }}.yml"
+    name: "browsers_firefox_{{ item }}_catalog"
+  loop:
+    - bookmarks
+    - extensions
+    - policies
+  no_log: true
+
+- name: Firefox policy - Require supported mandatory scope
+  ansible.builtin.assert:
+    that:
+      - browsers_firefox_policies_catalog.policies | selectattr('scope', 'equalto', 'recommended') | list | length == 0
+      - >-
+        browsers_firefox_policies_catalog.policies
+        | selectattr('name', 'in', ['ManagedBookmarks', 'ExtensionSettings'])
+        | list | length == 0
+    fail_msg: "Firefox recommended or renderer-owned policies require a separately proven adapter"
+    quiet: true
+
+- name: Firefox policy - Inspect application paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - "{{ browsers_firefox_app }}"
+    - "{{ browsers_firefox_resources }}"
+    - "{{ browsers_firefox_policy_dir }}"
+    - "{{ browsers_firefox_policy_path }}"
+  register: browsers_firefox_paths
+
+- name: Firefox policy - Require safe application bundle
+  ansible.builtin.assert:
+    that:
+      - browsers_firefox_paths.results[0].stat.isdir
+      - not browsers_firefox_paths.results[0].stat.islnk
+      - browsers_firefox_paths.results[1].stat.isdir
+      - not browsers_firefox_paths.results[1].stat.islnk
+      - >-
+        not browsers_firefox_paths.results[2].stat.exists
+        or (
+          browsers_firefox_paths.results[2].stat.isdir
+          and not browsers_firefox_paths.results[2].stat.islnk
+        )
+      - >-
+        not browsers_firefox_paths.results[3].stat.exists
+        or (
+          browsers_firefox_paths.results[3].stat.isreg
+          and not browsers_firefox_paths.results[3].stat.islnk
+        )
+    fail_msg: "Firefox application policy path is absent or unsafe"
+    quiet: true
+
+- name: Firefox policy - Create local rendered-policy directory
+  ansible.builtin.file:
+    path: "{{ browsers_state_dir }}"
+    state: directory
+    mode: "0700"
+  changed_when: false
+  check_mode: false
+
+- name: Firefox policy - Render distribution policy
+  ansible.builtin.template:
+    src: firefox-policies.json.j2
+    dest: "{{ browsers_firefox_policy_stage }}"
+    mode: "0600"
+  diff: false
+  no_log: true
+  changed_when: false
+  check_mode: false
+
+- name: Firefox policy - Read rendered policy
+  ansible.builtin.slurp:
+    src: "{{ browsers_firefox_policy_stage }}"
+  register: browsers_firefox_rendered
+  no_log: true
+
+- name: Firefox policy - Compare rendered and installed policy
+  ansible.builtin.set_fact:
+    browsers_firefox_policy_changed: >-
+      {{
+        not browsers_firefox_paths.results[3].stat.exists
+        or browsers_firefox_paths.results[3].stat.checksum != (
+          browsers_firefox_rendered.content | b64decode | hash('sha256')
+        )
+      }}
+  no_log: true
+
+- name: Firefox policy - Report pending distribution-policy restore
+  ansible.builtin.debug:
+    msg: "Firefox distribution policy requires restoration after package installation"
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - browsers_firefox_policy_changed
+
+- name: Firefox policy - Create distribution directory after package install
+  ansible.builtin.file:
+    path: "{{ browsers_firefox_policy_dir }}"
+    state: directory
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Firefox policy - Restore distribution policy after package install
+  ansible.builtin.copy:
+    src: "{{ browsers_firefox_policy_stage }}"
+    dest: "{{ browsers_firefox_policy_path }}"
+    remote_src: true
+    mode: "0644"
+  diff: false
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - browsers_firefox_policy_changed
+
+- name: Firefox policy - Validate installed JSON
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python.executable }}"
+      - -c
+      - >-
+        import json,sys; value=json.load(open(sys.argv[1], encoding='utf-8'));
+        assert isinstance(value.get('policies'), dict)
+      - "{{ browsers_firefox_policy_path }}"
+  changed_when: false
+  when: not ansible_check_mode
