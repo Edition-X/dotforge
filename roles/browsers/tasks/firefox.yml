@@ -20,6 +20,30 @@
     fail_msg: "Firefox recommended or renderer-owned policies require a separately proven adapter"
     quiet: true
 
+- name: Firefox extensions - Require reviewed presence-only enforcement
+  ansible.builtin.assert:
+    that:
+      - browsers_firefox_extensions_catalog.enforcement == 'report_only'
+      - >-
+        browsers_firefox_extensions_catalog.required
+        | rejectattr('update_url', 'in', browsers_verified_update_urls)
+        | list | length == 0
+      - >-
+        browsers_firefox_extensions_catalog.required
+        | rejectattr('presence', 'equalto', 'required')
+        | list | length == 0
+    fail_msg: >-
+      Firefox extension catalog needs vendor-verified presence entries and a reviewed
+      migration before blocking enforcement
+    quiet: true
+  vars:
+    # Store update endpoints proven against vendor evidence: Chrome Web Store
+    # (also used by Brave), Microsoft Edge Add-ons and addons.mozilla.org.
+    browsers_verified_update_urls:
+      - https://clients2.google.com/service/update2/crx
+      - https://edge.microsoft.com/extensionwebstorebase/v1/crx
+      - https://addons.mozilla.org/firefox/downloads/latest/lastpass-password-manager/latest.xpi
+
 - name: Firefox policy - Inspect application paths
   ansible.builtin.stat:
     path: "{{ item }}"
