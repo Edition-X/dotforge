@@ -311,6 +311,22 @@ def _apple_script_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _flush_preference_cache() -> None:
+    """Drop cached managed preferences so a browser reads the plist on disk.
+
+    cfprefsd keeps serving the previous value after a policy file is replaced,
+    which makes a freshly installed policy look absent. The daemon restarts on
+    demand, so flushing is safe to repeat.
+    """
+    subprocess.run(
+        ["/usr/bin/killall", "cfprefsd"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    )
+
+
 class SystemPolicySession:
     """One-dialog root helper with byte-exact restore for allowlisted policy files."""
 
@@ -387,6 +403,7 @@ class SystemPolicySession:
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
             if ready.is_file():
+                _flush_preference_cache()
                 return self
             if self.process.poll() is not None:
                 if self.started.is_file():
@@ -407,6 +424,7 @@ class SystemPolicySession:
             raise RuntimeError("system policy helper state incomplete")
         self.release.touch(mode=0o600)
         self._wait_for_restoration(timeout=210)
+        _flush_preference_cache()
 
     def _wait_for_restoration(self, timeout: int) -> None:
         if self.process is None:
