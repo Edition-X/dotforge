@@ -33,3 +33,81 @@
 
 - name: Browser policies - Configure Vivaldi
   ansible.builtin.import_tasks: vivaldi.yml
+
+- name: Browser automation - Resolve managed automation paths
+  ansible.builtin.set_fact:
+    browsers_capture_label: com.dkelly.browser-capture
+    browsers_capture_interval: 900
+    browsers_automation_root: "{{ user_dir }}/.local/state/macbook-pro/browser-automation"
+    browsers_capture_run_script: "{{ user_dir }}/.local/state/macbook-pro/browser-automation/capture-run.sh"
+    browsers_capture_log: "{{ user_dir }}/Library/Logs/browser-capture.log"
+    browsers_capture_plist: "{{ user_dir }}/Library/LaunchAgents/com.dkelly.browser-capture.plist"
+    browsers_repo_dir: "{{ playbook_dir }}"
+
+- name: Browser automation - Create the isolated automation root
+  ansible.builtin.file:
+    path: "{{ browsers_automation_root }}"
+    state: directory
+    mode: "0700"
+
+- name: Browser automation - Install the capture runner
+  ansible.builtin.template:
+    src: browser-capture-run.sh.j2
+    dest: "{{ browsers_capture_run_script }}"
+    mode: "0700"
+
+# Installed only. The service stays disabled and unloaded here: activation is a
+# separate authorized step once this code is on main, so a stray `launchctl
+# load` cannot start publishing before then.
+- name: Browser automation - Install the launchd job disabled
+  ansible.builtin.template:
+    src: com.dkelly.browser-capture.plist.j2
+    dest: "{{ browsers_capture_plist }}"
+    mode: "0644"
+
+- name: Browser automation - Read the installed launchd job
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/plutil
+      - -convert
+      - json
+      - -o
+      - "-"
+      - "{{ browsers_capture_plist }}"
+  register: browsers_capture_job
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Browser automation - Require a disabled interval-polled job
+  ansible.builtin.assert:
+    that:
+      - browsers_capture_job_plist.Disabled is true
+      - browsers_capture_job_plist.RunAtLoad is false
+      - browsers_capture_job_plist.StartInterval == browsers_capture_interval
+      - "'WatchPaths' not in browsers_capture_job_plist"
+      - browsers_capture_job_plist.Label == browsers_capture_label
+    fail_msg: "Browser capture job must stay disabled and poll by interval"
+    quiet: true
+  vars:
+    browsers_capture_job_plist: "{{ browsers_capture_job.stdout | from_json }}"
+  when: not ansible_check_mode
+
+- name: Browser automation - Check the isolated publishing contract
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ playbook_dir }}/scripts/browser-git-automation.py"
+      - --check
+      - --isolated-root
+      - "{{ user_dir }}/.local/state"
+  register: browsers_automation_check
+  changed_when: false
+  check_mode: false
+
+- name: Browser automation - Require a sanitized contract check
+  ansible.builtin.assert:
+    that:
+      - "'check pass' in browsers_automation_check.stdout"
+      - "'://' not in browsers_automation_check.stdout"
+    fail_msg: "Browser automation contract check failed or exposed URL data"
+    quiet: true
