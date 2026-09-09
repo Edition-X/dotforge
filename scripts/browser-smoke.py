@@ -10,6 +10,7 @@ import json
 import os
 import plistlib
 import pwd
+import socket
 import subprocess
 import sys
 import tempfile
@@ -212,77 +213,180 @@ def chromium_policy_smoke(validator: ModuleType, browser_catalog: str) -> None:
     print(f"browser {browser_name} smoke: pass policy=mandatory managed-folder=visible profile=isolated")
 
 
+class MarionetteSession:
+    """Minimal Marionette client.
+
+    Firefox refuses script evaluation on privileged pages, so policy evidence
+    comes from the policy engine itself in chrome context rather than from a
+    rendered page: no screenshots, no OCR, no theme sensitivity.
+    """
+
+    def __init__(self, port: int):
+        self.port = port
+        self.socket: socket.socket | None = None
+        self.counter = 0
+
+    def connect(self, deadline: float) -> None:
+        while time.monotonic() < deadline and self.socket is None:
+            try:
+                self.socket = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+            except OSError:
+                time.sleep(0.5)
+        if self.socket is None:
+            raise RuntimeError("Marionette did not accept a connection")
+        self._read()
+
+    def _read(self) -> object:
+        assert self.socket is not None
+        buffer = b""
+        while b":" not in buffer:
+            chunk = self.socket.recv(1)
+            if not chunk:
+                raise RuntimeError("Marionette closed the connection")
+            buffer += chunk
+        length, _, body = buffer.partition(b":")
+        while len(body) < int(length):
+            body += self.socket.recv(int(length) - len(body))
+        return json.loads(body)
+
+    def call(self, name: str, parameters: dict[str, object]) -> object:
+        assert self.socket is not None
+        self.counter += 1
+        payload = json.dumps([0, self.counter, name, parameters])
+        self.socket.sendall(f"{len(payload)}:{payload}".encode())
+        message = self._read()
+        if not isinstance(message, list) or len(message) < 4 or message[2] is not None:
+            raise RuntimeError(f"Marionette rejected {name}")
+        return message[3]
+
+    def close(self) -> None:
+        if self.socket is not None:
+            self.socket.close()
+            self.socket = None
+
+
+def firefox_active_policies(app: Path, profile: Path, port: int = 2830) -> dict[str, object]:
+    """Ask the running Firefox which policies its engine actually activated."""
+    profile.mkdir(parents=True, exist_ok=True)
+    (profile / "user.js").write_text(f'user_pref("marionette.port", {port});\n', encoding="utf-8")
+    command = [
+        str(app / "Contents" / "MacOS" / "firefox"),
+        "-headless",
+        "-no-remote",
+        "-profile",
+        str(profile),
+        "-marionette",
+        "-remote-allow-system-access",
+        "about:blank",
+    ]
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    session = MarionetteSession(port)
+    try:
+        session.connect(time.monotonic() + 90)
+        session.call("WebDriver:NewSession", {})
+        session.call("Marionette:SetContext", {"value": "chrome"})
+        response = session.call(
+            "WebDriver:ExecuteScript",
+            {
+                "script": (
+                    "const policies = Services.policies;"
+                    "const active = policies.getActivePolicies() || {};"
+                    "const bookmarks = active.ManagedBookmarks || [];"
+                    "const settings = active.ExtensionSettings || {};"
+                    "return JSON.stringify({"
+                    "  status: policies.status,"
+                    "  names: Object.keys(active),"
+                    "  toplevel: (bookmarks[0] || {}).toplevel_name || '',"
+                    "  bookmarks: bookmarks.length,"
+                    "  wildcard: (settings['*'] || {}).installation_mode || '',"
+                    "  forced: Object.keys(settings).filter("
+                    "    key => key !== '*' && settings[key].installation_mode === 'force_installed'"
+                    "  ),"
+                    "});"
+                ),
+                "args": [],
+            },
+        )
+        value = response.get("value") if isinstance(response, dict) else None
+        if not isinstance(value, str):
+            raise RuntimeError("Firefox policy engine returned no state")
+        return json.loads(value)
+    finally:
+        session.close()
+        capability = load_script("browser_capability", "browser-capability-spike.py")
+        capability._stop_launched_process(process)
+
+
 def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
     capability = load_script("browser_capability", "browser-capability-spike.py")
     firefox = next(browser for browser in capability.BROWSERS if browser.name == "Firefox")
     catalog_path = REPO / "host_files" / "localhost" / "browsers" / "firefox" / "bookmarks.yml"
     catalog = validator.yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
-    policy_path = firefox.app / "Contents" / "Resources" / "distribution" / "policies.json"
+    managed_folder = catalog["managed_folder"]
+    extensions_catalog = validator.yaml.safe_load(
+        (REPO / "host_files" / "localhost" / "browsers" / "firefox" / "extensions.yml").read_text(encoding="utf-8")
+    )
+
+    # Policy lives in a managed preference. A file inside Firefox.app would break
+    # the bundle signature, which macOS enforces on a freshly installed bundle.
+    bundle_policy = firefox.app / "Contents" / "Resources" / "distribution"
+    if bundle_policy.exists():
+        raise RuntimeError("Firefox.app carries a distribution directory")
+    signature = subprocess.run(
+        ["codesign", "--verify", "--strict", str(firefox.app)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if signature.returncode != 0:
+        raise RuntimeError("Firefox application signature does not verify")
+
+    login = pwd.getpwuid(os.getuid()).pw_name
+    policy_path = Path("/Library/Managed Preferences") / login / "org.mozilla.firefox.plist"
     policy_hash = capability._sha256(policy_path)
-    policy = json.loads(policy_path.read_text(encoding="utf-8"))["policies"]
+    with policy_path.open("rb") as stream:
+        policy = plistlib.load(stream)
+    if policy.get("EnterprisePoliciesEnabled") is not True:
+        raise RuntimeError("Firefox enterprise policies are not enabled")
     bookmarks = policy.get("ManagedBookmarks", [])
-    if not bookmarks or bookmarks[0].get("toplevel_name") != catalog["managed_folder"]:
+    if not bookmarks or bookmarks[0].get("toplevel_name") != managed_folder:
         raise RuntimeError("Firefox managed bookmark policy is missing")
-    if policy.get("ExtensionSettings", {}).get("*", {}).get("installation_mode") != "allowed":
+    settings = policy.get("ExtensionSettings", {})
+    if settings.get("*", {}).get("installation_mode") != "allowed":
         raise RuntimeError("Firefox extension policy is missing")
+    for record in extensions_catalog["required"]:
+        entry = settings.get(record["id"], {})
+        if entry.get("installation_mode") != "force_installed" or entry.get("install_url") != record["update_url"]:
+            raise RuntimeError("Firefox required extension is not force-installed")
 
     root = Path(tempfile.mkdtemp(prefix="browser-firefox-policy-"))
-    process: subprocess.Popen[bytes] | None = None
     try:
         profile_root = Path.home() / "Library" / "Application Support" / "Firefox"
         profile_count, bookmark_count = snapshot.snapshot_firefox_profiles(profile_root, root / "snapshots")
-        app_copy = root / "Firefox.app"
-        subprocess.run(["ditto", str(firefox.app), str(app_copy)], check=True, timeout=180)
-        copied_policy = app_copy / "Contents" / "Resources" / "distribution" / "policies.json"
-        if capability._sha256(copied_policy) != policy_hash:
-            raise RuntimeError("Firefox isolated app policy differs from production")
-        screenshot = root / "policy.png"
-        # The managed-bookmark policy value is long enough to push later
-        # policies past a default viewport, so capture a tall window and read
-        # the whole active table rather than only its first screen.
-        command = [
-            str(app_copy / "Contents" / "MacOS" / "firefox"),
-            "-headless",
-            "-no-remote",
-            "-profile",
-            str(root / "profile"),
-            "--window-size=1400,20000",
-            "-screenshot",
-            str(screenshot),
-            "about:policies#active",
-        ]
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline and not screenshot.is_file():
-            if process.poll() is not None:
-                break
-            time.sleep(0.25)
-        if not screenshot.is_file():
-            raise RuntimeError("Firefox policy page was not observed")
-        ocr = subprocess.run(
-            ["tesseract", str(screenshot), "stdout"],
-            capture_output=True,
-            text=True,
-            timeout=20,
-        )
-        observed = "managedbookmarks" in ocr.stdout.lower() and "extensionsettings" in ocr.stdout.lower()
-        if not observed:
-            raise RuntimeError("Firefox policy page did not show required policy names")
+        active = firefox_active_policies(firefox.app, root / "profile")
+        if active.get("status") != 1:
+            raise RuntimeError("Firefox policy engine is not active")
+        if {"ManagedBookmarks", "ExtensionSettings"} - set(active.get("names", [])):
+            raise RuntimeError("Firefox did not activate the required policies")
+        if active.get("toplevel") != managed_folder or active.get("wildcard") != "allowed":
+            raise RuntimeError("Firefox active policy values do not match the catalog")
+        required_ids = {str(record["id"]) for record in extensions_catalog["required"]}
+        if required_ids - set(active.get("forced", [])):
+            raise RuntimeError("Firefox active policy is missing a required extension")
     finally:
-        if process is not None:
-            capability._stop_launched_process(process)
         if root.exists():
             capability._trash(root, "TRASH_PROFILE")
     if capability._sha256(policy_path) != policy_hash:
-        raise RuntimeError("Firefox production policy changed during smoke")
+        raise RuntimeError("Firefox managed policy changed during smoke")
     print(
-        "browser Firefox smoke: pass policy=active profile=isolated "
-        f"profiles={profile_count} bookmarks={bookmark_count} wal=verified"
+        "browser Firefox smoke: pass policy=active source=managed-preference bundle=unmodified "
+        f"signature=valid profile=isolated profiles={profile_count} bookmarks={bookmark_count} "
+        f"managed-bookmarks={active.get('bookmarks')} forced-extensions={len(active.get('forced', []))} wal=verified"
     )
 
 

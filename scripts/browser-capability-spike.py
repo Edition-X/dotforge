@@ -779,7 +779,14 @@ def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
     try:
         if browser.name == "Firefox":
             app_copy = temp_dir / "Firefox.app"
-            subprocess.run(["ditto", str(browser.app), str(app_copy)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Strip extended attributes: a freshly installed bundle carries
+            # provenance metadata that makes macOS kill a copy of it outright.
+            subprocess.run(
+                ["ditto", "--noextattr", "--norsrc", str(browser.app), str(app_copy)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             executable = app_copy / "Contents" / "MacOS" / "firefox"
         else:
             executable = browser.executable
