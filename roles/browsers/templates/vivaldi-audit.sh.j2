@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" != "--check" ]; then
+  echo "vivaldi audit: pass --check" >&2
+  exit 2
+fi
+
+exec /usr/bin/python3 - {{ (browsers_vivaldi_profile ~ '/Bookmarks') | quote }} {{ (browsers_vivaldi_profile ~ '/Extensions') | quote }} <<'PY'
+import hashlib
+import json
+import sys
+import time
+from pathlib import Path
+
+bookmarks = Path(sys.argv[1])
+extensions = Path(sys.argv[2])
+lastpass_id = "hdokiejnpimakedhajhdlcegeplioahd"
+
+
+def state(path):
+    metadata = path.stat()
+    return metadata.st_size, metadata.st_mtime_ns
+
+
+def count(node):
+    if isinstance(node, dict):
+        return (1 if node.get("type") == "url" else 0) + sum(count(value) for value in node.values())
+    if isinstance(node, list):
+        return sum(count(value) for value in node)
+    return 0
+
+
+bookmark_count = 0
+profile = "absent"
+if bookmarks.exists():
+    if bookmarks.is_symlink() or not bookmarks.is_file():
+        raise SystemExit("vivaldi audit: failed unsafe-bookmark-source")
+    profile = "present"
+    for attempt in range(3):
+        before = state(bookmarks)
+        payload = bookmarks.read_bytes()
+        after = state(bookmarks)
+        if before == after and hashlib.sha256(payload).digest() == hashlib.sha256(bookmarks.read_bytes()).digest():
+            value = json.loads(payload)
+            bookmark_count = count(value.get("roots", {}))
+            break
+        time.sleep(0.05)
+    else:
+        raise SystemExit("vivaldi audit: failed unstable-bookmark-source")
+
+lastpass = "present" if (extensions / lastpass_id).is_dir() else "absent"
+print(
+    "vivaldi audit: best-effort audit/export "
+    f"profile={profile} bookmarks={bookmark_count} lastpass={lastpass} "
+    "policy=unverified sync=interactive passwords=untouched"
+)
+PY
