@@ -494,15 +494,6 @@ def main() -> int:
     parser.add_argument("--extensions", action="store_true")
     parser.add_argument("--fake-github", action="store_true")
     args = parser.parse_args()
-    extensions_mode = (
-        args.extensions
-        and args.isolated
-        and args.policy
-        and args.all_installed
-        and not args.fixtures
-        and not args.browser
-        and not args.automation
-    )
     automation_mode = (
         args.automation
         and args.isolated
@@ -525,12 +516,11 @@ def main() -> int:
     all_mode = (
         args.all_installed
         and args.isolated
-        and (args.policy or args.capture_read_only)
+        and (args.policy or args.capture_read_only or args.extensions)
         and not args.fixtures
         and not args.browser
-        and not args.extensions
     )
-    if not fixture_mode and not browser_mode and not all_mode and not automation_mode and not extensions_mode:
+    if not fixture_mode and not browser_mode and not all_mode and not automation_mode:
         parser.error(
             "use --fixtures --isolated, --all-installed --isolated --policy, "
             "--automation --isolated --fake-github, "
@@ -562,6 +552,14 @@ def main() -> int:
                 if "Vivaldi" in installed:
                     vivaldi_policy_smoke()
                 print(f"browser policy matrix: pass installed={len(installed)} isolated=true")
+            if args.extensions:
+                for catalog, (name, _) in CHROMIUM_BROWSERS.items():
+                    if name in installed:
+                        chromium_extension_smoke(validator, catalog)
+                if "Firefox" in installed and not args.policy:
+                    firefox_policy_smoke(validator, snapshot)
+                extension_report_smoke()
+                print(f"browser extension matrix: pass installed={len(installed)} isolated=true sign-in=manual")
             if args.capture_read_only:
                 capture = subprocess.run(
                     [sys.executable, str(REPO / "scripts" / "browser-capture.py"), "--dry-run", "--isolated"],
@@ -573,18 +571,6 @@ def main() -> int:
                     raise RuntimeError("browser read-only capture smoke failed")
                 print(capture.stdout, end="")
                 print(f"browser capture matrix: pass installed={len(installed)} isolated=true")
-        elif extensions_mode:
-            capability = load_script("browser_capability_inventory", "browser-capability-spike.py")
-            installed = {browser.name for browser in capability.BROWSERS if browser.app.is_dir()}
-            for catalog, (name, _) in CHROMIUM_BROWSERS.items():
-                if name in installed:
-                    chromium_extension_smoke(validator, catalog)
-            if "Firefox" in installed:
-                firefox_policy_smoke(validator, snapshot)
-            if "Vivaldi" in installed:
-                vivaldi_policy_smoke()
-            extension_report_smoke()
-            print(f"browser extension matrix: pass installed={len(installed)} isolated=true sign-in=manual")
         elif args.browser == "firefox":
             firefox_policy_smoke(validator, snapshot)
         elif args.browser == "vivaldi":
