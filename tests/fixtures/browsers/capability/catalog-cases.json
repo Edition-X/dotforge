@@ -1,0 +1,13 @@
+{
+  "accepted": [
+    "https://fixture.example.invalid/path?a=1&b=2"
+  ],
+  "rejected": [
+    "javascript:alert(1)",
+    "data:text/plain,fake",
+    "file:///tmp/fake",
+    "https://user@example.invalid/",
+    "https://fixture.example.invalid/?access_token=fake",
+    "https://fixture.example.invalid/oauth/callback"
+  ]
+}

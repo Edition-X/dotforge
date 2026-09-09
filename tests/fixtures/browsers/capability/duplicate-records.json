@@ -8,14 +8,14 @@
     },
     {
       "browser": "chrome",
-      "title": "Fake ordinary bookmark",
-      "url": "https://example.invalid/ordinary",
+      "title": "Fake managed bookmark",
+      "url": "https://example.invalid/managed",
       "folder": ["Bookmarks bar"]
     }
   ],
   "expected": {
-    "mode": "additions-only",
+    "mode": "additions_only",
     "real_records": 0,
-    "duplicate_decision": "measure-in-isolated-profile"
+    "duplicate_decision": "keep-managed-and-ordinary-copies"
   }
 }

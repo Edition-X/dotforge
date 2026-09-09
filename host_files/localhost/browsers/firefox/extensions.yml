@@ -1,0 +1,7 @@
+---
+version: 1
+browser: firefox
+enforcement: report_only
+system_components: []
+user_candidates: []
+required: []

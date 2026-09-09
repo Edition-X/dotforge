@@ -10,6 +10,7 @@
   roles:
     - { role: common, tags: ['common'] }
     - { role: packages, tags: ['packages'] }
+    - { role: browsers, tags: ['browsers'] }
     - { role: ssh, tags: ['ssh', 'dot'] }
     - { role: dotfiles, tags: ['dotfiles', 'dot'] }
     - { role: mcp_toolkit, tags: ['mcp', 'dot'] }

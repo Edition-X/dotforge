@@ -1,0 +1,26 @@
+---
+- name: Browser catalogs - Check required files
+  ansible.builtin.stat:
+    path: "{{ browsers_catalog_root }}/{{ item.0 }}/{{ item.1 }}.yml"
+  loop: "{{ browsers_catalog_names | product(['bookmarks', 'extensions', 'policies']) | list }}"
+  register: browsers_catalog_files
+  loop_control:
+    label: "{{ item.0 }}/{{ item.1 }}.yml"
+
+- name: Browser catalogs - Require every browser-owned catalog
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+    fail_msg: "Missing browser catalog: {{ item.item.0 }}/{{ item.item.1 }}.yml"
+    quiet: true
+  loop: "{{ browsers_catalog_files.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}/{{ item.item.1 }}.yml"
+
+- name: Browser catalogs - Validate schema
+  ansible.builtin.command:
+    cmd: >-
+      {{ ansible_playbook_python }}
+      {{ playbook_dir }}/scripts/validate-browser-catalog.py --all
+  changed_when: false
+  check_mode: false
