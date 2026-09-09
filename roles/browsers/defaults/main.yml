@@ -8,10 +8,24 @@ browsers_catalog_names:
   - vivaldi
 
 browsers_state_dir: "{{ user_dir }}/.local/state/macbook-pro/browser-policy"
-browsers_chrome_policy_domain: com.google.Chrome
-browsers_chrome_policy_stage: "{{ browsers_state_dir }}/com.google.Chrome.plist"
-browsers_chrome_policy_dir: "/Library/Managed Preferences/{{ osx_username }}"
-browsers_chrome_policy_path: "{{ browsers_chrome_policy_dir }}/com.google.Chrome.plist"
+browsers_chromium_policy_dir: "/Library/Managed Preferences/{{ osx_username }}"
+browsers_chromium_adapters:
+  - name: Chrome
+    catalog: chrome
+    domain: com.google.Chrome
+    bookmark_policy: ManagedBookmarks
+  - name: Edge
+    catalog: edge
+    domain: com.microsoft.Edge
+    bookmark_policy: ManagedFavorites
+  - name: Brave
+    catalog: brave
+    domain: com.brave.Browser
+    bookmark_policy: ManagedBookmarks
 browsers_generated_paths:
-  - "{{ browsers_chrome_policy_stage }}"
-  - "{{ browsers_chrome_policy_path }}"
+  - "{{ browsers_state_dir }}/com.google.Chrome.plist"
+  - "{{ browsers_chromium_policy_dir }}/com.google.Chrome.plist"
+  - "{{ browsers_state_dir }}/com.microsoft.Edge.plist"
+  - "{{ browsers_chromium_policy_dir }}/com.microsoft.Edge.plist"
+  - "{{ browsers_state_dir }}/com.brave.Browser.plist"
+  - "{{ browsers_chromium_policy_dir }}/com.brave.Browser.plist"

@@ -18,6 +18,11 @@ from pathlib import Path
 from types import ModuleType
 
 REPO = Path(__file__).resolve().parent.parent
+CHROMIUM_BROWSERS = {
+    "chrome": ("Chrome", ("chrome://bookmarks",)),
+    "edge": ("Edge", ("edge://favorites",)),
+    "brave": ("Brave", ("brave://bookmarks", "chrome://bookmarks")),
+}
 
 
 def load_script(name: str, filename: str) -> ModuleType:
@@ -111,31 +116,33 @@ def live_policy_smoke() -> None:
     print("browser live smoke: pass installed=5 isolated=true user-data=unopened")
 
 
-def chrome_policy_smoke(validator: ModuleType) -> None:
+def chromium_policy_smoke(validator: ModuleType, browser_catalog: str) -> None:
     capability = load_script("browser_capability", "browser-capability-spike.py")
-    chrome = next(browser for browser in capability.BROWSERS if browser.name == "Chrome")
-    policy_page, result, evidence = capability.isolated_smoke(chrome)
+    browser_name, bookmarks_pages = CHROMIUM_BROWSERS[browser_catalog]
+    bookmarks_page = bookmarks_pages[0]
+    browser = next(browser for browser in capability.BROWSERS if browser.name == browser_name)
+    policy_page, result, evidence = capability.isolated_smoke(browser)
     if policy_page != "observed" or result != "pass" or not evidence.startswith("required-keys-status-ok-"):
-        raise RuntimeError("Chrome policy page did not accept required policies")
+        raise RuntimeError(f"{browser_name} policy page did not accept required policies")
 
-    catalog_path = REPO / "host_files" / "localhost" / "browsers" / "chrome" / "bookmarks.yml"
+    catalog_path = REPO / "host_files" / "localhost" / "browsers" / browser_catalog / "bookmarks.yml"
     catalog = validator.yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
     managed_folder = catalog["managed_folder"]
     login = pwd.getpwuid(os.getuid()).pw_name
-    policy_path = Path("/Library/Managed Preferences") / login / "com.google.Chrome.plist"
+    policy_path = Path("/Library/Managed Preferences") / login / f"{browser.domain}.plist"
     production_policy_hash = capability._sha256(policy_path)
     with policy_path.open("rb") as stream:
         policy = plistlib.load(stream)
-    bookmarks = policy.get("ManagedBookmarks", [])
+    bookmarks = policy.get(browser.bookmark_policy, [])
     if not bookmarks or bookmarks[0].get("toplevel_name") != managed_folder:
-        raise RuntimeError("Chrome managed-folder policy is missing")
+        raise RuntimeError(f"{browser_name} managed-folder policy is missing")
 
-    root = Path(tempfile.mkdtemp(prefix="browser-chrome-managed-folder-"))
+    root = Path(tempfile.mkdtemp(prefix=f"browser-{browser_catalog}-managed-folder-"))
     profile = root / "profile"
     cfhome = root / "cfhome"
     cfhome.mkdir()
     command = [
-        str(chrome.executable),
+        str(browser.executable),
         "--headless=new",
         "--disable-gpu",
         "--no-sandbox",
@@ -148,12 +155,12 @@ def chrome_policy_smoke(validator: ModuleType) -> None:
         "--remote-debugging-port=0",
         "--remote-allow-origins=*",
         f"--user-data-dir={profile}",
-        "chrome://bookmarks",
+        bookmarks_page,
     ]
     environment = os.environ.copy()
     environment["HOME"] = str(cfhome)
     environment["CFFIXED_USER_HOME"] = str(cfhome)
-    with capability.SystemPolicySession([chrome]):
+    with capability.SystemPolicySession([browser]):
         process = subprocess.Popen(
             command,
             stdout=subprocess.DEVNULL,
@@ -166,11 +173,12 @@ def chrome_policy_smoke(validator: ModuleType) -> None:
             try:
                 client.call("Runtime.enable")
                 client.call("Page.enable")
-                client.call("Page.navigate", {"url": "chrome://bookmarks"})
+                client.call("Page.navigate", {"url": bookmarks_page})
                 fixture_managed_folder = "B0"
                 expression = f"""
                   (() => {{
                     const expected = {json.dumps(fixture_managed_folder)};
+                    const expectedPages = {json.dumps(bookmarks_pages)};
                     const collect = root => {{
                       let value = root.textContent || '';
                       for (const node of root.querySelectorAll('*')) {{
@@ -178,7 +186,8 @@ def chrome_policy_smoke(validator: ModuleType) -> None:
                       }}
                       return value;
                     }};
-                    return location.href.startsWith('chrome://bookmarks') && collect(document).includes(expected);
+                    return expectedPages.some(page => location.href.startsWith(page))
+                      && collect(document).includes(expected);
                   }})()
                 """
                 visible = False
@@ -193,27 +202,27 @@ def chrome_policy_smoke(validator: ModuleType) -> None:
             finally:
                 client.close()
             if not visible:
-                raise RuntimeError("Chrome managed folder was not visible")
+                raise RuntimeError(f"{browser_name} managed folder was not visible")
         finally:
             capability._stop_launched_process(process)
             if root.exists():
                 capability._trash(root, "TRASH_PROFILE")
     if capability._sha256(policy_path) != production_policy_hash:
-        raise RuntimeError("Chrome production policy was not restored byte-for-byte")
-    print("browser Chrome smoke: pass policy=mandatory managed-folder=visible profile=isolated")
+        raise RuntimeError(f"{browser_name} production policy was not restored byte-for-byte")
+    print(f"browser {browser_name} smoke: pass policy=mandatory managed-folder=visible profile=isolated")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixtures", action="store_true")
     parser.add_argument("--isolated", action="store_true")
-    parser.add_argument("--browser", choices=("chrome",))
+    parser.add_argument("--browser", choices=tuple(CHROMIUM_BROWSERS))
     parser.add_argument("--policy", action="store_true")
     args = parser.parse_args()
     fixture_mode = args.fixtures and args.isolated and not args.browser and not args.policy
-    chrome_mode = args.browser == "chrome" and args.isolated and args.policy and not args.fixtures
-    if not fixture_mode and not chrome_mode:
-        parser.error("use --fixtures --isolated or --browser chrome --isolated --policy")
+    browser_mode = args.browser is not None and args.isolated and args.policy and not args.fixtures
+    if not fixture_mode and not browser_mode:
+        parser.error("use --fixtures --isolated or --browser <chrome|edge|brave> --isolated --policy")
     fixtures = REPO / "tests" / "fixtures" / "browsers"
     try:
         validator = load_script("browser_catalog_validator", "validate-browser-catalog.py")
@@ -226,7 +235,7 @@ def main() -> int:
                 raise RuntimeError("fixture snapshot smoke failed")
             live_policy_smoke()
         else:
-            chrome_policy_smoke(validator)
+            chromium_policy_smoke(validator, args.browser)
     except (OSError, ValueError, json.JSONDecodeError, RuntimeError, subprocess.TimeoutExpired) as error:
         print(f"browser smoke: failed ({type(error).__name__}: {error})")
         return 1
