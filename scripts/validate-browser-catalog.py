@@ -87,6 +87,12 @@ def validate_bookmarks(data: dict[str, object], browser: str) -> int:
         if not isinstance(folder, list) or not all(isinstance(part, str) and part.strip() for part in folder):
             raise CatalogError("bookmark folder must be a list of non-empty strings")
         normalized = normalized_url(record["url"])
+        try:
+            record["title"].encode("utf-8")
+            for part in folder:
+                part.encode("utf-8")
+        except UnicodeEncodeError as error:
+            raise CatalogError("bookmark text is not valid UTF-8") from error
         if record["title"] != record["title"].strip() or folder != [part.strip() for part in folder]:
             raise CatalogError("bookmark text fields are not normalized")
         if record["url"] != normalized:

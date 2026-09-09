@@ -305,10 +305,24 @@ def main() -> int:
     parser.add_argument("--isolated", action="store_true")
     parser.add_argument("--browser", choices=(*CHROMIUM_BROWSERS, "firefox", "vivaldi"))
     parser.add_argument("--policy", action="store_true")
+    parser.add_argument("--capture-read-only", action="store_true")
     args = parser.parse_args()
     fixture_mode = args.fixtures and args.isolated and not args.browser and not args.policy and not args.all_installed
-    browser_mode = args.browser is not None and args.isolated and args.policy and not args.fixtures and not args.all_installed
-    all_mode = args.all_installed and args.isolated and args.policy and not args.fixtures and not args.browser
+    browser_mode = (
+        args.browser is not None
+        and args.isolated
+        and args.policy
+        and not args.fixtures
+        and not args.all_installed
+        and not args.capture_read_only
+    )
+    all_mode = (
+        args.all_installed
+        and args.isolated
+        and (args.policy or args.capture_read_only)
+        and not args.fixtures
+        and not args.browser
+    )
     if not fixture_mode and not browser_mode and not all_mode:
         parser.error(
             "use --fixtures --isolated, --all-installed --isolated --policy, "
@@ -328,14 +342,26 @@ def main() -> int:
         elif all_mode:
             capability = load_script("browser_capability_inventory", "browser-capability-spike.py")
             installed = {browser.name for browser in capability.BROWSERS if browser.app.is_dir()}
-            for catalog, (name, _) in CHROMIUM_BROWSERS.items():
-                if name in installed:
-                    chromium_policy_smoke(validator, catalog)
-            if "Firefox" in installed:
-                firefox_policy_smoke(validator, snapshot)
-            if "Vivaldi" in installed:
-                vivaldi_policy_smoke()
-            print(f"browser policy matrix: pass installed={len(installed)} isolated=true")
+            if args.policy:
+                for catalog, (name, _) in CHROMIUM_BROWSERS.items():
+                    if name in installed:
+                        chromium_policy_smoke(validator, catalog)
+                if "Firefox" in installed:
+                    firefox_policy_smoke(validator, snapshot)
+                if "Vivaldi" in installed:
+                    vivaldi_policy_smoke()
+                print(f"browser policy matrix: pass installed={len(installed)} isolated=true")
+            if args.capture_read_only:
+                capture = subprocess.run(
+                    [sys.executable, str(REPO / "scripts" / "browser-capture.py"), "--dry-run", "--isolated"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                if capture.returncode != 0 or "://" in capture.stdout:
+                    raise RuntimeError("browser read-only capture smoke failed")
+                print(capture.stdout, end="")
+                print(f"browser capture matrix: pass installed={len(installed)} isolated=true")
         elif args.browser == "firefox":
             firefox_policy_smoke(validator, snapshot)
         elif args.browser == "vivaldi":
