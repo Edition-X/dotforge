@@ -81,11 +81,18 @@ browser-test: $(PYTHON_VIRTUAL_ENVIRONMENT)
 .PHONY: browser-drift
 browser-drift: validate-browser-catalog
 	@$(call activate, python scripts/browser-capture.py --dry-run --isolated)
+	@$(call activate, python scripts/browser-git-automation.py --check --isolated-root "$(HOME)/.local/state")
 	@echo "browser drift: additions-only comparison complete"
 
 .PHONY: browser-capture
 browser-capture: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, python scripts/browser-capture.py $(RUN_ARGS))
+
+# Publishing side of capture: isolated clone, private-repo recheck, one PR with
+# auto-merge. `--check` is a contract audit with no network and no clone.
+.PHONY: browser-automation
+browser-automation: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python scripts/browser-git-automation.py $(RUN_ARGS))
 
 # Install packages AND upgrade any that are outdated. Kept separate from
 # `apply` so a routine apply never moves versions underneath you.

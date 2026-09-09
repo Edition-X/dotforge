@@ -90,7 +90,33 @@ make packages   # Install missing packages
 make upgrade    # Install missing packages AND upgrade outdated ones
 make ai         # Shared AI harness and OpenCode configuration only
 make mcp        # Docker MCP Toolkit profile/secrets/features only
+make browsers   # Browser catalogs, policies and the capture service
 ```
+
+### 🔖 Browser catalog capture
+
+Bookmark additions are captured from bounded read-only snapshots and published as a
+pull request against this private repository. Nothing runs until it is activated.
+
+```bash
+make validate-browser-catalog                              # schemas only
+make browser-drift                                         # additions-only comparison
+make browser-test RUN_ARGS='--automation --isolated --fake-github'   # stop conditions
+make browser-automation RUN_ARGS='--check --isolated-root "$HOME/.local/state"'
+```
+
+The publishing side never uses this checkout. It works in a dedicated clone under
+`~/.local/state/macbook-pro/browser-automation`, rechecks that the GitHub repository is
+private on every run, refuses a dirty or diverged clone, stages only the five
+per-browser bookmark catalogs, and keeps exactly one pull request on
+`automation/browser-catalog` with auto-merge by merge commit. It never force pushes and
+never adopts extension or settings drift — that is reported, not applied.
+
+The `com.dkelly.browser-capture` launchd job polls about every 15 minutes by interval,
+not `WatchPaths`, so it never fires mid-write while a browser is open. It is installed
+**disabled**: activation is a separate, explicitly authorized step. Logs and
+notifications carry counts only, never bookmark URLs; rejected records stay in a local
+mode-0600 quarantine outside the repository.
 
 ### 📦 Packages
 

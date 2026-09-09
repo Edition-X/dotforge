@@ -1,0 +1,30 @@
+#!/bin/sh
+# Capture bookmark additions from an isolated clone. Never touches the normal
+# checkout, never force pushes, and stops on any contract boundary.
+set -eu
+
+umask 077
+
+PATH="{{ homebrew_prefix }}/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH
+
+AUTOMATION_ROOT={{ browsers_automation_root | quote }}
+AUTOMATION_SCRIPT="${AUTOMATION_ROOT}/repo/scripts/browser-git-automation.py"
+
+if [ ! -d "${AUTOMATION_ROOT}" ]; then
+  mkdir -p "${AUTOMATION_ROOT}"
+  chmod 0700 "${AUTOMATION_ROOT}"
+fi
+
+# Before the first run the isolated clone does not exist yet, so bootstrap from
+# the repository-managed copy of the script; afterwards the clone owns it.
+if [ ! -f "${AUTOMATION_SCRIPT}" ]; then
+  AUTOMATION_SCRIPT={{ (browsers_repo_dir ~ '/scripts/browser-git-automation.py') | quote }}
+fi
+
+# Set by the activation step in B10, never by this template. Without it the
+# script refuses to run live, so an accidental load stays harmless.
+BROWSER_AUTOMATION_AUTHORIZED="${BROWSER_AUTOMATION_AUTHORIZED:-0}"
+export BROWSER_AUTOMATION_AUTHORIZED
+
+exec /usr/bin/env python3 "${AUTOMATION_SCRIPT}" --run --isolated-root "${AUTOMATION_ROOT}"

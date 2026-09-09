@@ -92,6 +92,37 @@
   tags:
     - cleanup
 
+# Browser policy: only the exact files this repo generates. Profiles, bookmark
+# catalogs, saved logins, quarantine and browser data are never removed here —
+# and the isolated automation clone under ~/.local/state is left alone too, so
+# uninstalling policy never discards captured work.
+- name: Cleanup - Stop the browser capture service
+  ansible.builtin.command:
+    argv:
+      - /bin/launchctl
+      - bootout
+      - "gui/{{ ansible_user_uid }}/com.dkelly.browser-capture"
+  register: cleanup_browser_capture_bootout
+  changed_when: cleanup_browser_capture_bootout.rc == 0
+  failed_when: false
+  tags:
+    - cleanup
+
+- name: Cleanup - Generated browser policy and automation files
+  ansible.builtin.file:
+    state: absent
+    path: "{{ item }}"
+  loop:
+    - "{{ user_dir }}/Library/LaunchAgents/com.dkelly.browser-capture.plist"
+    - "{{ user_dir }}/.local/state/macbook-pro/browser-automation/capture-run.sh"
+    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/com.google.Chrome.plist"
+    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/com.microsoft.Edge.plist"
+    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/com.brave.Browser.plist"
+    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/firefox-policies.json"
+    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/vivaldi-audit.sh"
+  tags:
+    - cleanup
+
 # skhd's launchd agent is separate from its config file and does not get
 # removed by deleting the symlink above.
 - name: Cleanup - Stop and remove skhd service

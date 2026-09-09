@@ -237,12 +237,16 @@ def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
         if capability._sha256(copied_policy) != policy_hash:
             raise RuntimeError("Firefox isolated app policy differs from production")
         screenshot = root / "policy.png"
+        # The managed-bookmark policy value is long enough to push later
+        # policies past a default viewport, so capture a tall window and read
+        # the whole active table rather than only its first screen.
         command = [
             str(app_copy / "Contents" / "MacOS" / "firefox"),
             "-headless",
             "-no-remote",
             "-profile",
             str(root / "profile"),
+            "--window-size=1400,20000",
             "-screenshot",
             str(screenshot),
             "about:policies#active",
@@ -298,6 +302,21 @@ def vivaldi_policy_smoke() -> None:
     )
 
 
+def automation_smoke() -> int:
+    """Fake-GitHub automation smoke: stop conditions only, no network and no push."""
+    result = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "browser-automation-smoke.py"), "--fake", "--no-network"],
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    print(result.stdout, end="")
+    if result.returncode != 0 or "://" in result.stdout:
+        print(result.stderr, end="")
+        return 1
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixtures", action="store_true")
@@ -306,7 +325,19 @@ def main() -> int:
     parser.add_argument("--browser", choices=(*CHROMIUM_BROWSERS, "firefox", "vivaldi"))
     parser.add_argument("--policy", action="store_true")
     parser.add_argument("--capture-read-only", action="store_true")
+    parser.add_argument("--automation", action="store_true")
+    parser.add_argument("--fake-github", action="store_true")
     args = parser.parse_args()
+    automation_mode = (
+        args.automation
+        and args.isolated
+        and args.fake_github
+        and not args.fixtures
+        and not args.browser
+        and not args.policy
+        and not args.all_installed
+        and not args.capture_read_only
+    )
     fixture_mode = args.fixtures and args.isolated and not args.browser and not args.policy and not args.all_installed
     browser_mode = (
         args.browser is not None
@@ -323,11 +354,14 @@ def main() -> int:
         and not args.fixtures
         and not args.browser
     )
-    if not fixture_mode and not browser_mode and not all_mode:
+    if not fixture_mode and not browser_mode and not all_mode and not automation_mode:
         parser.error(
             "use --fixtures --isolated, --all-installed --isolated --policy, "
+            "--automation --isolated --fake-github, "
             "or --browser <chrome|edge|brave|firefox|vivaldi> --isolated --policy"
         )
+    if automation_mode:
+        return automation_smoke()
     fixtures = REPO / "tests" / "fixtures" / "browsers"
     try:
         validator = load_script("browser_catalog_validator", "validate-browser-catalog.py")
