@@ -94,18 +94,6 @@
         else 'dialog'
       }}
 
-# Asking for `sudo` explicitly and silently getting a dialog would defeat the
-# point, so an unmet explicit request is an error rather than a downgrade.
-- name: Escalation - Require the requested mode to be available
-  ansible.builtin.assert:
-    that:
-      - browsers_escalation_mode == 'sudo'
-    fail_msg: >-
-      browsers_escalation=sudo was requested but is unavailable:
-      {{ browsers_escalation_reason }}.
-    quiet: true
-  when: browsers_escalation == 'sudo'
-
 - name: Escalation - Explain why the helper is not being used
   ansible.builtin.set_fact:
     browsers_escalation_reason: >-
@@ -118,6 +106,18 @@
           else 'machine is not authorized; run `make browsers-authorize` once'
         )
       }}
+
+# Asking for `sudo` explicitly and silently getting a dialog would defeat the
+# point, so an unmet explicit request is an error rather than a downgrade.
+- name: Escalation - Require the requested mode to be available
+  ansible.builtin.assert:
+    that:
+      - browsers_escalation_mode == 'sudo'
+    fail_msg: >-
+      browsers_escalation=sudo was requested but is unavailable:
+      {{ browsers_escalation_reason }}.
+    quiet: true
+  when: browsers_escalation == 'sudo'
 
 - name: Escalation - Report the selected mode
   ansible.builtin.debug:
