@@ -20,10 +20,14 @@ jobs:
     name: Lint, test & validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      # Pinned to commit SHAs, not tags. A tag is mutable, and this
+      # repository's history carries vault-encrypted SSH keys — a retagged
+      # third-party action would be a direct path to that ciphertext.
+      # Dependabot tracks the github-actions ecosystem and moves these.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -47,13 +51,13 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
         with:
           fetch-depth: 0
 
       # Full-history scan, which the pre-commit hook inside `make ci` cannot do
       # — it only sees the staged change.
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
