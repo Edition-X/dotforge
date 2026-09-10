@@ -89,6 +89,7 @@ browser-test: $(PYTHON_VIRTUAL_ENVIRONMENT)
 browser-drift: validate-browser-catalog
 	@$(call activate, python scripts/browser-capture.py --dry-run --isolated)
 	@$(call activate, python scripts/browser-git-automation.py --check --isolated-root "$(HOME)/.local/state")
+	@$(call activate, python scripts/check-browser-privacy.py --all)
 	@echo "browser drift: additions-only comparison complete"
 
 .PHONY: browser-capture
@@ -191,6 +192,7 @@ test-browser-fixtures: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, python scripts/browser-reconcile.py --fixtures tests/fixtures/browsers --additions-only --check-only)
 	@$(call activate, python scripts/browser-automation-smoke.py --fake --no-network)
 	@$(call activate, python scripts/browser-git-automation.py --check --isolated-root "$(HOME)/.local/state")
+	@$(call activate, python scripts/check-browser-privacy.py --all)
 
 .PHONY: clean
 clean:

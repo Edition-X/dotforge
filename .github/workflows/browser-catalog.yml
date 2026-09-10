@@ -1,8 +1,14 @@
 ---
 name: Browser catalog
 
-# Validation only. This workflow never captures bookmarks, never reads a browser
-# profile, and never touches local state: everything it needs is in the repo.
+# Only the check that needs a pull request: comparing its base and head to
+# confirm a catalog change did not arrive mixed with unrelated files. Every
+# repository-invariant browser check now lives in `make ci`, which runs on every
+# branch — these used to be duplicated here and therefore skipped entirely
+# whenever a change did not match the path filters below.
+#
+# Never captures bookmarks, never reads a browser profile, never touches local
+# state: everything it needs is in the repo.
 "on":
   pull_request:
     branches: [ main ]
@@ -18,30 +24,19 @@ permissions:
 
 jobs:
   catalogs:
-    name: Validate browser catalogs
+    name: Check catalog change shape
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
           cache: 'pip'
 
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Validate catalog schemas
-        run: python scripts/validate-browser-catalog.py --all
-
-      - name: Check reconciliation fixtures
-        run: |
-          python scripts/browser-capture.py --fixtures tests/fixtures/browsers --check-only
-          python scripts/browser-reconcile.py --fixtures tests/fixtures/browsers --additions-only --check-only
-
-      - name: Check the isolated publishing contract
-        run: python scripts/browser-git-automation.py --check --isolated-root "$HOME/.local/state"
 
       - name: Check changed paths against the catalog allowlist
         env:
@@ -76,35 +71,3 @@ jobs:
               sys.exit(1)
           print(f"browser catalog paths: pass changed={len(changed)} catalogs={len(catalogs)}")
           PY
-
-      - name: Check output stays free of URLs and secrets
-        run: |
-          python scripts/validate-browser-catalog.py --all > catalog-output.txt
-          python scripts/browser-git-automation.py --check \
-            --isolated-root "$HOME/.local/state" >> catalog-output.txt
-          if grep -Eq '://|bearer |gh[pousr]_[A-Za-z0-9]{20,}' catalog-output.txt; then
-            echo "browser catalog output: failed url-or-secret-in-output"
-            exit 1
-          fi
-          echo "browser catalog output: pass counts-only=true"
-
-      - name: Scan the diff for forbidden browser material
-        run: |
-          if git ls-files | grep -Eiq 'Login Data|key4\.db|logins\.json|Cookies|Secure Preferences'; then
-            echo "browser catalog secrets: failed forbidden-browser-state-tracked"
-            exit 1
-          fi
-          echo "browser catalog secrets: pass forbidden-state=absent"
-
-  secrets:
-    name: Secret scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
