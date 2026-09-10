@@ -204,7 +204,7 @@ def build(browsers: tuple[str, ...]) -> int:
     work = Path(tempfile.mkdtemp(prefix="browser-extension-report-"))
     report: dict[str, object] = {
         "version": 1,
-        "generated": datetime.datetime.now(tz=datetime.timezone.utc).replace(microsecond=0).isoformat(),
+        "generated": datetime.datetime.now(tz=datetime.UTC).replace(microsecond=0).isoformat(),
         "review": "pending",
         "enforcement": "report_only",
         "browsers": {},

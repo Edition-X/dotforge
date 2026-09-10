@@ -27,7 +27,7 @@ import os
 import sys
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 BILLING_QUERY_URL = "https://billing.grafana.net/api/prom/api/v1/query"
 GB = 1_000_000_000  # decimal GB, as used for Grafana Cloud billing
@@ -109,7 +109,7 @@ def main():
     query = make_querier(token, username)
 
     # Billing period: the current calendar month, to date.
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     elapsed_s = max(int((now - month_start).total_seconds()), 1)
     days_in_month = calendar.monthrange(now.year, now.month)[1]

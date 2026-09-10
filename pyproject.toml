@@ -1,0 +1,34 @@
+# Python tooling contract for the repository's own scripts.
+#
+# There was none, so 6,800 lines of Python that handle secrets, subprocesses
+# and unattended git had no static analysis at all — while the YAML that mostly
+# calls Ansible modules was linted twice. A `.ruff_cache/` from an ad-hoc run
+# was the only trace of a linter ever touching it.
+[project]
+name = "macbook-pro"
+version = "0"
+description = "Ansible-managed macOS configuration"
+# The floor the browser capture scripts need; see browsers_python_minimum.
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [
+    "collections",
+    "node_modules",
+    "venv",
+    "host_files/localhost/nvim",
+]
+
+[tool.ruff.lint]
+# E/F/W  - pycodestyle and pyflakes: the correctness core.
+# I      - import ordering, so diffs stop churning on import blocks.
+# UP     - pyupgrade: keeps syntax current with requires-python.
+# B      - bugbear: real bug shapes (mutable defaults, unused loop vars).
+#
+# PTH, SIM, RET and C4 are deliberately not enabled. They are reasonable
+# rules, but they would rewrite a lot of working, deliberately-written code for
+# style rather than correctness. Worth adopting separately if wanted, not as a
+# side effect of turning linting on.
+select = ["E", "F", "W", "I", "UP", "B"]

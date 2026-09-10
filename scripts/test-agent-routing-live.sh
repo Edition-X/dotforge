@@ -15,14 +15,14 @@ set -uo pipefail
 
 # Associative arrays below need bash 4+; macOS ships bash 3.2 at /bin/bash.
 # Degrade to one clear advisory line instead of a `declare -A` traceback.
-if (( ${BASH_VERSINFO[0]} < 4 )); then
+if (( BASH_VERSINFO[0] < 4 )); then
     printf 'advisory: running under bash %s (need bash 4+); rerun with Homebrew bash on PATH\n' \
         "${BASH_VERSION%%[^0-9.]*}" >&2
     exit 2
 fi
 
 repo_root=$(git rev-parse --show-toplevel)
-cd "$repo_root"
+cd "$repo_root" || exit 1
 
 # Canonical, provider-neutral routing policy -- same source check-agent-config-
 # drift.sh's policy-marker check reads. Never hardcode a model id here.
@@ -145,6 +145,7 @@ before_diff=$(git diff)
 
 log_dir=$(mktemp -d "${TMPDIR:-/tmp}/agent-routing-live.XXXXXX")
 
+# shellcheck disable=SC2329  # invoked by the EXIT trap below
 cleanup() {
     ls -d "$log_dir"
     trash "$log_dir"

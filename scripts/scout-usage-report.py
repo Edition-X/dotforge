@@ -94,7 +94,11 @@ def usage_report(db_path: Path, limit: int, directory: str | None, since_ms: int
         "totals": totals,
         "model_totals": by_model,
         "attribution": attribution,
-        "cost_status": "unavailable: no positive provider-exported session cost" if totals["cost"] == 0 else "provider-recorded only: billing coverage unverified; not a savings estimate",
+        "cost_status": (
+            "unavailable: no positive provider-exported session cost"
+            if totals["cost"] == 0
+            else "provider-recorded only: billing coverage unverified; not a savings estimate"
+        ),
     }
 
 
@@ -127,10 +131,23 @@ def summarize_root(root_id: str, rows: list[sqlite3.Row]) -> dict[str, Any]:
             target[column] += int(row[column] or 0)
         roles[row["agent"] or "unassigned"] += 1
     attribution = {
-        "discovery_sessions": sum(count for role, count in roles.items() if role in {"scout", "explorer", "documentation", "worker-fast"}),
-        "implementation_sessions": sum(count for role, count in roles.items() if role in {"implementer", "worker", "build"}),
+        "discovery_sessions": sum(
+            count
+            for role, count in roles.items()
+            if role in {"scout", "explorer", "documentation", "worker-fast"}
+        ),
+        "implementation_sessions": sum(
+            count for role, count in roles.items() if role in {"implementer", "worker", "build"}
+        ),
     }
-    return {"root_session_id": root_id, "totals": totals, "roles": dict(roles), "models": dict(models), "model_totals": model_totals, "attribution": attribution}
+    return {
+        "root_session_id": root_id,
+        "totals": totals,
+        "roles": dict(roles),
+        "models": dict(models),
+        "model_totals": model_totals,
+        "attribution": attribution,
+    }
 
 
 def t3_evidence(db_path: Path, limit: int, excluded_threads: set[str], project_id: str | None = None) -> dict[str, Any]:
@@ -141,7 +158,10 @@ def t3_evidence(db_path: Path, limit: int, excluded_threads: set[str], project_i
     clause = "WHERE deleted_at IS NULL" + (" AND project_id = ?" if project_id else "")
     rows = connection.execute(
         """SELECT thread_id, project_id, created_at, model_selection_json
-           FROM projection_threads """ + clause + " ORDER BY updated_at DESC LIMIT ?", ((project_id, limit) if project_id else (limit,))
+           FROM projection_threads """
+        + clause
+        + " ORDER BY updated_at DESC LIMIT ?",
+        ((project_id, limit) if project_id else (limit,)),
     ).fetchall()
     connection.close()
     selections: Counter[str] = Counter()
@@ -161,8 +181,22 @@ def t3_evidence(db_path: Path, limit: int, excluded_threads: set[str], project_i
         instance = selection.get("instanceId")
         if isinstance(model, str):
             selections[f"{instance or 'unknown'}/{model}"] += 1
-            providers["anthropic" if model.startswith("claude-") else "openai" if model.startswith("gpt-") else "unknown"] += 1
-    return {"source": "t3", "storage_present": True, "root_selection_evidence": "projection_threads.model_selection_json", "thread_limit": limit, "excluded_threads": excluded, "root_selections": dict(selections), "providers": dict(providers), "token_usage_evidence": "unavailable: T3 state.sqlite has no provider token accounting"}
+            if model.startswith("claude-"):
+                providers["anthropic"] += 1
+            elif model.startswith("gpt-"):
+                providers["openai"] += 1
+            else:
+                providers["unknown"] += 1
+    return {
+        "source": "t3",
+        "storage_present": True,
+        "root_selection_evidence": "projection_threads.model_selection_json",
+        "thread_limit": limit,
+        "excluded_threads": excluded,
+        "root_selections": dict(selections),
+        "providers": dict(providers),
+        "token_usage_evidence": "unavailable: T3 state.sqlite has no provider token accounting",
+    }
 
 
 def main() -> int:
@@ -173,7 +207,12 @@ def main() -> int:
     parser.add_argument("--since-ms", type=int, help="post-policy OpenCode cohort lower bound, Unix milliseconds")
     parser.add_argument("--t3-db", type=Path, default=DEFAULT_T3_DB)
     parser.add_argument("--no-t3", action="store_true")
-    parser.add_argument("--exclude-t3-thread", action="append", default=[], help="thread ID excluded from T3 baseline (repeatable)")
+    parser.add_argument(
+        "--exclude-t3-thread",
+        action="append",
+        default=[],
+        help="thread ID excluded from T3 baseline (repeatable)",
+    )
     parser.add_argument("--t3-project-id", help="filter T3 root selections to one project UUID")
     args = parser.parse_args()
     if args.limit < 1 or args.limit > 100:

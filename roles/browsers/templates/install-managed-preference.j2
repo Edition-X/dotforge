@@ -84,7 +84,15 @@ fi
 /usr/bin/plutil -lint "${source}" >/dev/null 2>&1 || refuse "staged policy is not a valid plist"
 
 assert_safe_target_dir
-/bin/mkdir -p -m 0755 "${TARGET_DIR}"
+
+# `mkdir -p -m` applies the mode only to the deepest directory, so a created
+# parent would get whatever root's umask gives it. Create and set the mode
+# explicitly, and leave an existing directory's mode alone — macOS owns it.
+if [ ! -d "${TARGET_DIR}" ]; then
+    /bin/mkdir -p "${TARGET_DIR}"
+    /bin/chmod 0755 "${TARGET_DIR}"
+fi
+
 /usr/bin/install -o root -g wheel -m 0644 "${source}" "${target}"
 
 # macOS caches managed preferences, so a browser would keep reading the previous

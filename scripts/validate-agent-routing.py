@@ -356,7 +356,10 @@ def check_prompt_contents(workflow: dict) -> list[str]:
         if name == "scout":
             for field in REQUIRED_SCOUT_HANDOFF_FIELDS:
                 if f"`{field}`" not in text:
-                    errors.append(f"{prompt_path.relative_to(REPO_ROOT)} is missing scout handoff field marker: {field}")
+                    errors.append(
+                        f"{prompt_path.relative_to(REPO_ROOT)} is missing scout handoff "
+                        f"field marker: {field}"
+                    )
         else:
             for status in REQUIRED_STATUSES:
                 if status not in text:

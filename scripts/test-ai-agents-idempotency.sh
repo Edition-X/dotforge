@@ -30,6 +30,7 @@ ansible_python_interpreter="${ANSIBLE_PYTHON_INTERPRETER:-${VIRTUAL_ENV:-${repo_
     exit 1
 }
 
+# shellcheck disable=SC2016  # $schema is a literal JSON key, not a variable
 printf '%s\n' '{"$schema":"https://opencode.ai/config.json","mcp":{}}' > "${test_home}/.config/opencode/opencode.jsonc"
 printf '%s\n' 'pre-existing orchestrator configuration' > "${test_home}/.config/opencode/agents/orchestrator.md"
 printf '%s\n' 'pre-existing command configuration' > "${test_home}/.config/opencode/commands/review.md"
@@ -73,6 +74,7 @@ cat "$first_output"
 [[ ! -e "${test_home}/.config/opencode/agents/architect.md" ]] || { printf 'retired agent file still present after first apply\n' >&2; exit 1; }
 [[ -x "${test_home}/.local/bin/claude-work" ]] || { printf 'claude-work wrapper missing or not executable\n' >&2; exit 1; }
 [[ -d "${test_home}/.claude-work" ]] || { printf 'claude-work config directory missing\n' >&2; exit 1; }
+# shellcheck disable=SC2016  # matching the literal $HOME the wrapper contains
 grep -Fq 'export CLAUDE_CONFIG_DIR="$HOME/.claude-work"' "${test_home}/.local/bin/claude-work" || {
     printf 'claude-work wrapper does not set isolated config directory\n' >&2
     exit 1

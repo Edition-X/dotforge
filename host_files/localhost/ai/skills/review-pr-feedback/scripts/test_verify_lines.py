@@ -37,17 +37,17 @@ FORBIDDEN = (
     "pr checkout", "mutation",
 )
 
-FAKE_GH = '''#!/usr/bin/env python3
+FAKE_GH = f'''#!/usr/bin/env python3
 import json, os, sys
 args = sys.argv[1:]
 with open(os.environ["GH_LOG"], "a") as log:
     log.write(json.dumps(args) + "\\n")
 fixtures = os.environ["GH_FIXTURES"]
-head = os.environ.get("GH_HEAD", "{sha}")
+head = os.environ.get("GH_HEAD", "{SHA}")
 joined = " ".join(args)
 
 if args[:2] == ["repo", "view"]:
-    print(json.dumps({{"nameWithOwner": "{repo}"}}))
+    print(json.dumps({{"nameWithOwner": "{REPO}"}}))
 elif args[:1] == ["api"] and "graphql" in args:
     print(open(os.path.join(fixtures, "review_threads.json")).read())
 elif args[:1] == ["api"] and "contents" in joined:
@@ -56,7 +56,7 @@ elif args[:1] == ["api"] and "contents" in joined:
         sys.exit(1)
     print(open(os.path.join(fixtures, "sample_source.py")).read(), end="")
 elif args[:2] == ["pr", "diff"]:
-    print("diff --git a/{path} b/{path}")
+    print("diff --git a/{PATH_IN_REPO} b/{PATH_IN_REPO}")
 elif args[:2] == ["pr", "view"] and "headRefOid" == args[args.index("--json") + 1]:
     print(json.dumps({{"headRefOid": head}}))
 elif args[:2] == ["pr", "view"]:
@@ -66,7 +66,7 @@ elif args[:2] == ["pr", "view"]:
 else:
     sys.stderr.write("fake gh: unhandled " + joined + "\\n")
     sys.exit(1)
-'''.format(sha=SHA, repo=REPO, path=PATH_IN_REPO)
+'''
 
 
 def load(name):

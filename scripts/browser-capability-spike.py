@@ -16,16 +16,16 @@ import os
 import plistlib
 import pwd
 import re
-import signal
 import shutil
+import signal
 import socket
 import struct
 import subprocess
 import sys
 import tempfile
 import time
-import uuid
 import urllib.request
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -43,11 +43,51 @@ class Browser:
 
 
 BROWSERS = (
-    Browser("Chrome", Path("/Applications/Google Chrome.app"), Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"), "chrome://policy", "com.google.Chrome", "ManagedBookmarks", "ExtensionSettings"),
-    Browser("Edge", Path("/Applications/Microsoft Edge.app"), Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"), "edge://policy", "com.microsoft.Edge", "ManagedFavorites", "ExtensionSettings"),
-    Browser("Brave", Path("/Applications/Brave Browser.app"), Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"), "brave://policy", "com.brave.Browser", "ManagedBookmarks", "ExtensionSettings"),
-    Browser("Firefox", Path("/Applications/Firefox.app"), Path("/Applications/Firefox.app/Contents/MacOS/firefox"), "about:policies", "Firefox distribution", "ManagedBookmarks", "ExtensionSettings"),
-    Browser("Vivaldi", Path("/Applications/Vivaldi.app"), Path("/Applications/Vivaldi.app/Contents/MacOS/Vivaldi"), "vivaldi://policy", "unverified", "best effort", "best effort"),
+    Browser(
+        "Chrome",
+        Path("/Applications/Google Chrome.app"),
+        Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+        "chrome://policy",
+        "com.google.Chrome",
+        "ManagedBookmarks",
+        "ExtensionSettings",
+    ),
+    Browser(
+        "Edge",
+        Path("/Applications/Microsoft Edge.app"),
+        Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+        "edge://policy",
+        "com.microsoft.Edge",
+        "ManagedFavorites",
+        "ExtensionSettings",
+    ),
+    Browser(
+        "Brave",
+        Path("/Applications/Brave Browser.app"),
+        Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"),
+        "brave://policy",
+        "com.brave.Browser",
+        "ManagedBookmarks",
+        "ExtensionSettings",
+    ),
+    Browser(
+        "Firefox",
+        Path("/Applications/Firefox.app"),
+        Path("/Applications/Firefox.app/Contents/MacOS/firefox"),
+        "about:policies",
+        "Firefox distribution",
+        "ManagedBookmarks",
+        "ExtensionSettings",
+    ),
+    Browser(
+        "Vivaldi",
+        Path("/Applications/Vivaldi.app"),
+        Path("/Applications/Vivaldi.app/Contents/MacOS/Vivaldi"),
+        "vivaldi://policy",
+        "unverified",
+        "best effort",
+        "best effort",
+    ),
 )
 
 # Counts came from the pre-B0 sanitized baseline in the approved playbook.
@@ -679,7 +719,14 @@ def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
             "pass" if accepted else "failed",
             f"required-keys-status-ok-{level}" if accepted else diagnostic,
         )
-    except (OSError, RuntimeError, TimeoutError, ValueError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+    except (
+        OSError,
+        RuntimeError,
+        TimeoutError,
+        ValueError,
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+    ) as error:
         safe_errors = {
             "browser exited before DevTools became ready": "browser-exited-before-devtools",
             "DevTools target did not become ready": "devtools-target-missing",
@@ -700,6 +747,13 @@ def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
             _trash(temp_dir, "TRASH_PROFILE")
 
 
+def _local_verdict(browser: Browser, evidence: str) -> str:
+    """Summarise whether local policy acceptance was proven for one browser."""
+    if evidence.startswith("required-keys-status-ok-") or evidence == "temp-app-copy-key-observed":
+        return "accepted"
+    return "unsupported" if browser.name == "Vivaldi" else "not-proven"
+
+
 def discover() -> int:
     installed = [browser for browser in BROWSERS if browser.app.is_dir()]
     if not installed:
@@ -717,7 +771,7 @@ def discover() -> int:
         bookmarks, enabled, components = BASELINE[browser.name]
         print(
             f"{browser.name}: version={version(browser)} policy_page={smoke} smoke={result} evidence={evidence} "
-            f"local={'accepted' if evidence.startswith('required-keys-status-ok-') or evidence == 'temp-app-copy-key-observed' else ('unsupported' if browser.name == 'Vivaldi' else 'not-proven')} "
+            f"local={_local_verdict(browser, evidence)} "
             f"bookmark_policy={browser.bookmark_policy} "
             f"extension_policy={browser.extension_policy} baseline_bookmarks={bookmarks} baseline_enabled={enabled} "
             f"baseline_components={components} baseline_user_candidates=0 snapshot_hash=not-collected"
@@ -743,7 +797,12 @@ def check_report(path: Path) -> int:
         print(f"report check failed: missing report {path}")
         return 1
     text = path.read_text(encoding="utf-8")
-    required = ("# Browser capability spike", "## Capability matrix", "## Sanitized inventory", "## Duplicate experiment")
+    required = (
+        "# Browser capability spike",
+        "## Capability matrix",
+        "## Sanitized inventory",
+        "## Duplicate experiment",
+    )
     missing = [heading for heading in required if heading not in text]
     forbidden = ("Login Data", "key4.db", "logins.json", "Cookies", "OAuth", "account email")
     if missing:

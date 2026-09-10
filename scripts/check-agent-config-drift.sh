@@ -166,7 +166,7 @@ fi
 # may be absent or missing PyYAML, and the inline parse can fail if the
 # policy YAML is malformed.
 routing_dir="${ai_dir}/routing"
-if (( ${BASH_VERSINFO[0]} < 4 )); then
+if (( BASH_VERSINFO[0] < 4 )); then
     drift+=("policy-marker check skipped: running under bash ${BASH_VERSION%%[^0-9.]*} (need bash 4+ for associative arrays); rerun with a newer bash on PATH")
 elif ! command -v python3 >/dev/null 2>&1; then
     drift+=("policy-marker check skipped: python3 not found on PATH")

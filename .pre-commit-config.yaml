@@ -68,6 +68,19 @@ repos:
         files: >-
           ^(scripts/codex-agent-settings-sync\.py|scripts/test-codex-agent-settings-sync\.sh)$
 
+  # 6,800 lines of Python and 2,200 of shell had no static analysis at all,
+  # while the YAML that mostly calls modules was linted twice.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.7
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+
   # Credential-shape detection. Deliberately the same engine CI runs, so a
   # local pass and a CI pass mean the same thing.
   - repo: https://github.com/gitleaks/gitleaks
