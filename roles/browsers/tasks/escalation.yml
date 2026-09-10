@@ -101,17 +101,29 @@
     that:
       - browsers_escalation_mode == 'sudo'
     fail_msg: >-
-      browsers_escalation=sudo was requested but this machine is not authorized.
-      Run `make browsers-authorize` once to install the privileged helper.
+      browsers_escalation=sudo was requested but is unavailable:
+      {{ browsers_escalation_reason }}.
     quiet: true
   when: browsers_escalation == 'sudo'
+
+- name: Escalation - Explain why the helper is not being used
+  ansible.builtin.set_fact:
+    browsers_escalation_reason: >-
+      {{
+        'authorized'
+        if browsers_helper_trusted and (browsers_sudo_probe.rc | default(1)) == 0
+        else (
+          'helper is out of date; re-run `make browsers-authorize`'
+          if browsers_helper_installed.stat.exists
+          else 'machine is not authorized; run `make browsers-authorize` once'
+        )
+      }}
 
 - name: Escalation - Report the selected mode
   ansible.builtin.debug:
     msg: >-
       Browser policy escalation: {{ browsers_escalation_mode }}
-      {{ '(non-interactive)' if browsers_escalation_mode == 'sudo'
-         else '(interactive; run `make browsers-authorize` once to remove the prompt)' }}
+      ({{ 'non-interactive' if browsers_escalation_mode == 'sudo' else browsers_escalation_reason }})
 
 # One-time bootstrap. Installing the helper and the sudoers rule needs root
 # before the NOPASSWD rule exists, so this is the single place the dialog is
@@ -122,6 +134,10 @@
     - not ansible_check_mode
     - not browsers_helper_trusted
   block:
+    - name: Escalation - Report what authorization will change
+      ansible.builtin.debug:
+        msg: "Authorizing this machine: {{ browsers_escalation_reason }}"
+
     - name: Escalation - Validate the staged sudoers rule before installing it
       ansible.builtin.command:
         argv:
