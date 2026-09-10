@@ -7,6 +7,14 @@ browsers_catalog_names:
   - firefox
   - vivaldi
 
+# Every non-interactive entry point runs this exact interpreter. `python3` from
+# PATH is not a contract: this machine has four (venv 3.13, pyenv 3.10,
+# Homebrew 3.14, /usr/bin 3.9), only one of which has the dependencies these
+# scripts import, and the LaunchAgent was resolving to a different one than
+# every test.
+browsers_python: "{{ browsers_repo_dir }}/venv/bin/python"
+browsers_python_minimum: "3.12"
+
 # Bookmark-addition capture service. Static paths, so they belong here rather
 # than in a set_fact: a fact is invisible until the role runs, which is what
 # pushed the cleanup role into hardcoding its own copy of these paths.

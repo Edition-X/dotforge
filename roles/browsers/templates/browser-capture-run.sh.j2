@@ -27,4 +27,37 @@ fi
 BROWSER_AUTOMATION_AUTHORIZED="${BROWSER_AUTOMATION_AUTHORIZED:-0}"
 export BROWSER_AUTOMATION_AUTHORIZED
 
-exec /usr/bin/env python3 "${AUTOMATION_SCRIPT}" --run --isolated-root "${AUTOMATION_ROOT}"
+# Pinned at render time. PATH still matters for git, gh and osascript, but the
+# interpreter is never resolved from it.
+PYTHON={{ browsers_python | quote }}
+
+notify() {
+  /usr/bin/osascript -e "display notification \"$1\" with title \"Browser catalog\"" \
+    >/dev/null 2>&1 || true
+}
+
+# Fail at line one on an unusable interpreter rather than part-way through a
+# capture. Exit 78 is EX_CONFIG: the environment is wrong, not the data.
+if [ ! -x "${PYTHON}" ]; then
+  notify "Browser capture stopped: interpreter missing."
+  echo "browser automation: stop (interpreter ${PYTHON} is missing or not executable)" >&2
+  exit 78
+fi
+
+if ! "${PYTHON}" - <<'PREFLIGHT'
+import sys
+
+minimum = tuple(int(part) for part in "{{ browsers_python_minimum }}".split("."))
+if sys.version_info[: len(minimum)] < minimum:
+    raise SystemExit(f"python {sys.version.split()[0]} is older than {'.'.join(map(str, minimum))}")
+import yaml  # noqa: F401  third-party dependency the capture scripts need
+PREFLIGHT
+then
+  notify "Browser capture stopped: interpreter unusable."
+  echo "browser automation: stop (interpreter ${PYTHON} failed preflight)" >&2
+  exit 78
+fi
+
+exec "${PYTHON}" "${AUTOMATION_SCRIPT}" --run \
+  --isolated-root "${AUTOMATION_ROOT}" \
+  --python "${PYTHON}"

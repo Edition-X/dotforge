@@ -34,6 +34,31 @@
 - name: Browser policies - Configure Vivaldi
   ansible.builtin.import_tasks: vivaldi.yml
 
+# The service runs unattended, so an unusable interpreter must fail here,
+# during an apply someone is watching, rather than every 15 minutes later.
+- name: Browser automation - Verify the pinned interpreter
+  ansible.builtin.command:
+    argv:
+      - "{{ browsers_python }}"
+      - -c
+      - >-
+        import sys, yaml;
+        assert sys.version_info >= tuple(int(p) for p in "{{ browsers_python_minimum }}".split(".")),
+        sys.version.split()[0];
+        print(sys.version.split()[0])
+  register: browsers_interpreter
+  changed_when: false
+  check_mode: false
+
+- name: Browser automation - Require a usable pinned interpreter
+  ansible.builtin.assert:
+    that:
+      - browsers_interpreter.rc == 0
+      - browsers_interpreter.stdout | trim is version(browsers_python_minimum, '>=')
+    fail_msg: >-
+      {{ browsers_python }} cannot run the capture scripts; rebuild the venv with `make venv`
+    quiet: true
+
 - name: Browser automation - Create the isolated automation root
   ansible.builtin.file:
     path: "{{ browsers_automation_root }}"
@@ -85,7 +110,7 @@
 - name: Browser automation - Check the isolated publishing contract
   ansible.builtin.command:
     argv:
-      - "{{ ansible_playbook_python }}"
+      - "{{ browsers_python }}"
       - "{{ playbook_dir }}/scripts/browser-git-automation.py"
       - --check
       - --isolated-root
