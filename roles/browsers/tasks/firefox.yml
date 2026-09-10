@@ -161,6 +161,7 @@
     - not ansible_check_mode
     - browsers_firefox_policy_changed
   changed_when: true
+  notify: Flush the managed preference cache
 
 - name: Firefox policy - Validate installed plist
   ansible.builtin.command:

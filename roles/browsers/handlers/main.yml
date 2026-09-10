@@ -1,0 +1,16 @@
+---
+# macOS caches managed preferences in cfprefsd, so a browser keeps reading the
+# previous policy after a new plist is installed — a newly added extension entry
+# simply never appears. Flushing costs nothing (the daemon restarts on demand
+# and rereads /Library/Managed Preferences), but it does discard other
+# applications' in-flight preference writes, so it runs only when a policy
+# actually changed rather than on every apply.
+- name: Flush the managed preference cache
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/killall
+      - cfprefsd
+  register: browsers_preference_cache
+  changed_when: false
+  failed_when: false
+  when: not ansible_check_mode

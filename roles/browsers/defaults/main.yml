@@ -7,6 +7,17 @@ browsers_catalog_names:
   - firefox
   - vivaldi
 
+# Bookmark-addition capture service. Static paths, so they belong here rather
+# than in a set_fact: a fact is invisible until the role runs, which is what
+# pushed the cleanup role into hardcoding its own copy of these paths.
+browsers_capture_label: com.dkelly.browser-capture
+browsers_capture_interval: 900
+browsers_automation_root: "{{ user_dir }}/.local/state/macbook-pro/browser-automation"
+browsers_capture_run_script: "{{ browsers_automation_root }}/capture-run.sh"
+browsers_capture_log: "{{ user_dir }}/Library/Logs/browser-capture.log"
+browsers_capture_plist: "{{ user_dir }}/Library/LaunchAgents/{{ browsers_capture_label }}.plist"
+browsers_repo_dir: "{{ playbook_dir }}"
+
 browsers_state_dir: "{{ user_dir }}/.local/state/macbook-pro/browser-policy"
 browsers_chromium_policy_dir: "/Library/Managed Preferences/{{ osx_username }}"
 browsers_chromium_adapters:

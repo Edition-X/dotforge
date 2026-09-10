@@ -34,30 +34,6 @@
 - name: Browser policies - Configure Vivaldi
   ansible.builtin.import_tasks: vivaldi.yml
 
-# macOS caches managed preferences in cfprefsd, so a browser can keep reading
-# the previous policy after a new plist is installed — a newly added extension
-# entry simply never appears. Flushing the per-user cache costs nothing: the
-# daemon restarts on demand and rereads /Library/Managed Preferences.
-- name: Browser policies - Flush the managed preference cache
-  ansible.builtin.command:
-    argv:
-      - /usr/bin/killall
-      - cfprefsd
-  register: browsers_preference_cache
-  changed_when: false
-  failed_when: false
-  when: not ansible_check_mode
-
-- name: Browser automation - Resolve managed automation paths
-  ansible.builtin.set_fact:
-    browsers_capture_label: com.dkelly.browser-capture
-    browsers_capture_interval: 900
-    browsers_automation_root: "{{ user_dir }}/.local/state/macbook-pro/browser-automation"
-    browsers_capture_run_script: "{{ user_dir }}/.local/state/macbook-pro/browser-automation/capture-run.sh"
-    browsers_capture_log: "{{ user_dir }}/Library/Logs/browser-capture.log"
-    browsers_capture_plist: "{{ user_dir }}/Library/LaunchAgents/com.dkelly.browser-capture.plist"
-    browsers_repo_dir: "{{ playbook_dir }}"
-
 - name: Browser automation - Create the isolated automation root
   ansible.builtin.file:
     path: "{{ browsers_automation_root }}"
