@@ -61,6 +61,22 @@ and website sessions are never read, copied or deployed.
 Browsers are Brewfile-managed, so this role never installs or uninstalls one, and never
 uses `--zap`.
 
+## One interpreter, declared
+
+`browsers_python` in the role defaults names the interpreter every
+non-interactive entry point uses, and it is rendered into both the capture
+runner and the launchd job. `python3` from `PATH` is not a contract: this
+machine carries four (repo venv 3.13, pyenv 3.10, Homebrew 3.14, `/usr/bin`
+3.9) and only the venv has the dependencies these scripts import. The service
+was resolving to a different one than every test, so it could never have run.
+
+Three guards keep it that way. The role fails an apply when the pinned
+interpreter cannot import `yaml` or is older than `browsers_python_minimum`.
+The runner repeats that preflight and exits 78 (`EX_CONFIG`) before touching a
+browser. `browser-git-automation.py --run` takes `--python` and refuses an
+interpreter that fails the same probe, so the capture child process can never
+re-derive a different one from `sys.executable`.
+
 ## Publishing captured additions
 
 `scripts/browser-git-automation.py` owns the Git side. `--check` audits the contract with

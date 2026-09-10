@@ -224,15 +224,25 @@ def validate_catalogs(clone: Path) -> int:
     return result.returncode
 
 
-def live_capture(clone: Path) -> None:
-    result = subprocess.run(
-        [sys.executable, str(clone / "scripts" / "browser-capture.py"), "--enable-capture", "--isolated"],
-        capture_output=True,
-        text=True,
-        timeout=900,
-    )
-    if result.returncode != 0 or "://" in result.stdout:
-        raise AutomationStop("isolated capture failed or produced unsafe output")
+def live_capture_with(interpreter: str) -> Callable[[Path], None]:
+    """Bind the capture step to one interpreter.
+
+    `sys.executable` is not safe here: the service runs this script under
+    whichever python the runner resolved, and passing that on would spread a
+    wrong interpreter rather than correct it. The caller states it explicitly.
+    """
+
+    def capture(clone: Path) -> None:
+        result = subprocess.run(
+            [interpreter, str(clone / "scripts" / "browser-capture.py"), "--enable-capture", "--isolated"],
+            capture_output=True,
+            text=True,
+            timeout=900,
+        )
+        if result.returncode != 0 or "://" in result.stdout:
+            raise AutomationStop("isolated capture failed or produced unsafe output")
+
+    return capture
 
 
 def publish(git: Git, hub: object, paths: Sequence[str], remote_branch: str = AUTOMATION_BRANCH) -> int:
@@ -279,6 +289,21 @@ def run(
 
 def origin_url() -> str:
     return f"https://github.com/{REPO_SLUG}.git"
+
+
+def require_usable_interpreter(interpreter: str) -> None:
+    """Refuse to start when the named interpreter cannot run the capture scripts."""
+    probe = (
+        "import sys, yaml;"
+        "assert sys.version_info >= (3, 12), sys.version.split()[0];"
+        "print(sys.version.split()[0])"
+    )
+    try:
+        result = subprocess.run([interpreter, "-c", probe], capture_output=True, text=True, timeout=60)
+    except OSError as error:
+        raise AutomationStop(f"interpreter {interpreter} is not runnable") from error
+    if result.returncode != 0:
+        raise AutomationStop(f"interpreter {interpreter} failed preflight")
 
 
 def self_check(isolated_root: Path) -> int:
@@ -330,6 +355,11 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--isolated-root", type=Path, required=True)
+    parser.add_argument(
+        "--python",
+        default=sys.executable,
+        help="interpreter used for the capture step; defaults to the current one",
+    )
     args = parser.parse_args()
     if args.check == args.run:
         parser.error("pass exactly one of --check or --run")
@@ -338,7 +368,8 @@ def main() -> int:
             return self_check(args.isolated_root)
         if os.environ.get("BROWSER_AUTOMATION_AUTHORIZED") != "1":
             raise AutomationStop("live run needs BROWSER_AUTOMATION_AUTHORIZED=1 from an activated service")
-        return run(args.isolated_root, GitHubHub(), origin_url(), live_capture)
+        require_usable_interpreter(args.python)
+        return run(args.isolated_root, GitHubHub(), origin_url(), live_capture_with(args.python))
     except (AutomationStop, OSError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired) as error:
         message = f"stop ({type(error).__name__}: {error})"
         print(f"browser automation: {message}" if "://" not in str(error) else "browser automation: stop (redacted)")
