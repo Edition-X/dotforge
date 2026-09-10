@@ -100,6 +100,11 @@ repos:
           )$
       - id: check-added-large-files
       - id: check-merge-conflict
+      # ci.yml already sets `SKIP: no-commit-to-branch`, but the hook it names
+      # was never configured — so the skip guarded nothing and no guard
+      # existed. Work lands on main through a merge, never a direct commit.
+      - id: no-commit-to-branch
+        args: [--branch, main]
       - id: mixed-line-ending
         args: ['--fix=lf']
 
