@@ -1,0 +1,25 @@
+# Secret scanning configuration, shared by the pre-commit hook and CI so both
+# use the same engine and the same rules. The bespoke regex scanner this
+# replaced required credential values to be quoted, knew only three key names,
+# and only looked at YAML — it reported a clean tree for a file containing
+# `password: hunter2`, a quoted AWS-shaped `api_key` and `vault_pass:`.
+title = "macbook-pro"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored third-party trees. Not ours to fix, and gitignored anyway."
+paths = [
+  '''^collections/''',
+  '''^node_modules/''',
+  '''^venv/''',
+  '''^host_files/localhost/nvim/autoload/plugged/''',
+  '''^host_files/localhost/nvim/pack/github/start/copilot\.vim/''',
+]
+regexTarget = "match"
+regexes = [
+  # Ansible Vault ciphertext is a hex blob and safe to hold in the repository;
+  # that is the point of encrypting it.
+  '''\$ANSIBLE_VAULT;1\.[0-9];AES256''',
+]

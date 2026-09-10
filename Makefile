@@ -133,6 +133,7 @@ validate-agent-routing: $(PYTHON_VIRTUAL_ENVIRONMENT)
 .PHONY: lint
 lint: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(MAKE) validate-agent-routing
+	@$(call activate, python scripts/check-unencrypted-secrets.py --all)
 	@$(call activate, ansible-lint)
 	@$(call activate, yamllint .)
 	@./scripts/check-skills.sh
