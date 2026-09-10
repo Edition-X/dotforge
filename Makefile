@@ -130,15 +130,13 @@ dump:
 validate-agent-routing: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ./scripts/validate-agent-routing.py)
 
+# Every static check lives in .pre-commit-config.yaml and `make lint` runs that
+# file, so a local pass and a CI pass mean the same thing. This target used to
+# list a hand-picked subset (ansible-lint, yamllint, skills, routing) while CI
+# ran pre-commit instead — two definitions of "lint" that had already drifted.
 .PHONY: lint
 lint: $(PYTHON_VIRTUAL_ENVIRONMENT)
-	@$(MAKE) validate-agent-routing
-	@$(call activate, python scripts/check-unencrypted-secrets.py --all)
-	@$(call activate, ruff check .)
-	@shellcheck scripts/*.sh
-	@$(call activate, ansible-lint)
-	@$(call activate, yamllint .)
-	@./scripts/check-skills.sh
+	@$(call activate, pre-commit run --all-files)
 
 .PHONY: setup-git-hooks
 setup-git-hooks: $(PYTHON_VIRTUAL_ENVIRONMENT)
@@ -149,8 +147,10 @@ setup-git-hooks: $(PYTHON_VIRTUAL_ENVIRONMENT)
 pre-commit: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, pre-commit run --all-files)
 
+# The single definition of "CI". .github/workflows/ci.yml runs exactly this, so
+# the two cannot drift: anything added here is picked up there for free.
 .PHONY: ci
-ci: lint test-scout test-review-pr-feedback
+ci: lint test
 	@$(call activate, ansible-playbook site.yml --syntax-check)
 	@echo "CI checks passed!"
 
@@ -163,17 +163,34 @@ test-ai-agents: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ./scripts/test-ai-agents-idempotency.sh)
 	@$(call activate, ./scripts/test-codex-agent-settings-sync.sh)
 
+# Everything offline and machine-independent. This is what CI can run, and it
+# is the whole of what `make ci` tests.
+.PHONY: test
+test: test-scout test-review-pr-feedback test-ai-agents test-browser-fixtures
+
 # Offline scout evidence checks. No billed calls.
 .PHONY: test-scout
-test-scout:
-	@python3 scripts/test-scout-usage-report.py
-	@python3 scripts/test-scout-routing-evidence.py
+test-scout: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python scripts/test-scout-usage-report.py)
+	@$(call activate, python scripts/test-scout-routing-evidence.py)
 
 # Offline checks for the read-only PR review skill: line verification, head-SHA
 # pinning and the read-only gh contract, against a fake gh. No billed calls.
 .PHONY: test-review-pr-feedback
-test-review-pr-feedback:
-	@python3 host_files/localhost/ai/skills/review-pr-feedback/scripts/test_verify_lines.py
+test-review-pr-feedback: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python host_files/localhost/ai/skills/review-pr-feedback/scripts/test_verify_lines.py)
+
+# Browser checks that need no browser: schema, reconciliation fixtures and the
+# publishing contract against fake remotes. The evidence that needs real
+# installed browsers, isolated profiles and a GUI session lives in
+# `make browser-test`, which a hosted runner cannot execute.
+.PHONY: test-browser-fixtures
+test-browser-fixtures: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, python scripts/validate-browser-catalog.py --all)
+	@$(call activate, python scripts/browser-capture.py --fixtures tests/fixtures/browsers --check-only)
+	@$(call activate, python scripts/browser-reconcile.py --fixtures tests/fixtures/browsers --additions-only --check-only)
+	@$(call activate, python scripts/browser-automation-smoke.py --fake --no-network)
+	@$(call activate, python scripts/browser-git-automation.py --check --isolated-root "$(HOME)/.local/state")
 
 .PHONY: clean
 clean:
