@@ -10,7 +10,6 @@ import json
 import os
 import shutil
 import sqlite3
-import subprocess
 import sys
 import tempfile
 import time
@@ -171,15 +170,29 @@ def materialize_firefox_fixture(fixtures: Path, work: Path) -> tuple[Path, sqlit
 
 
 def trash(path: Path) -> None:
+    """Move a temporary snapshot to recoverable Trash and prove it left source.
+
+    Moves the directory directly rather than shelling out to `trash`: the
+    external tool is absent on a CI runner, and the check below needs the move
+    to have completed when it runs. Retried because a process still exiting can
+    recreate the directory just after the move.
+    """
     print(f"TRASH_SNAPSHOT {path.resolve()}")
-    command = shutil.which("trash")
-    if command:
-        subprocess.run([command, str(path)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    else:
-        destination = Path.home() / ".Trash" / f"{path.name}-{uuid.uuid4().hex}"
-        shutil.move(str(path), str(destination))
-    if path.exists():
-        raise RuntimeError("snapshot cleanup could not be proven")
+    trash_dir = Path.home() / ".Trash"
+    trash_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for _ in range(5):
+        if not path.exists():
+            return
+        destination = trash_dir / f"{path.name}-{uuid.uuid4().hex}"
+        try:
+            shutil.move(str(path), str(destination))
+        except OSError:
+            time.sleep(0.2)
+            continue
+        if not path.exists():
+            return
+        time.sleep(0.2)
+    raise RuntimeError("snapshot cleanup could not be proven")
 
 
 def check_fixtures(fixtures: Path) -> int:

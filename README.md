@@ -416,6 +416,28 @@ macOS will not grant that non-interactively. After `make apply`, go to
 `make apply` installs and starts the skhd service either way, so once the
 permission is granted it takes effect on its own — no re-run needed.
 
+### ✅ What CI runs
+
+`make ci` is the single definition, and `.github/workflows/ci.yml` runs exactly
+that — so the two cannot drift. It is `make lint` (every hook in
+`.pre-commit-config.yaml`) plus `make test` (offline, machine-independent
+checks) plus a playbook syntax check.
+
+```bash
+make ci        # everything CI runs, locally
+make lint      # static checks only
+make test      # offline tests only
+```
+
+Evidence that needs this Mac stays out of CI by necessity, and is listed here
+so the gap is explicit rather than assumed:
+
+| Not in CI | Why | Run with |
+|---|---|---|
+| Browser policy/extension smokes | real installed browsers, isolated profiles, a GUI session | `make browser-test RUN_ARGS='--all-installed --isolated --policy --extensions --capture-read-only'` |
+| Applying any role | macOS-only modules, and privileged policy installs | `make check` then `make apply` |
+| `scripts/validate-opencode-config.sh` | needs an authenticated OpenCode CLI | run by hand |
+
 ### 🔍 Code Quality
 
 The repository uses pre-commit hooks to maintain high code quality. `make` is
