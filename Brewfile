@@ -83,6 +83,8 @@ brew "antoniorodr/memo/memo"
 ## Git ##
 # Distributed revision control system
 brew "git"
+# Secret scanning, run by pre-commit and by CI against the same rules.
+brew "gitleaks"
 # Git extension for versioning large files
 brew "git-lfs"
 # GitHub command-line tool
