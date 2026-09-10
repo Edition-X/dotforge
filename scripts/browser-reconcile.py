@@ -30,7 +30,12 @@ def clean_text(value: object) -> str:
     return str(value).strip().encode("utf-8", errors="replace").decode("utf-8")
 
 
-def reconcile(catalog: dict[str, object], records: list[dict[str, object]], validator: ModuleType, quarantine: object) -> tuple[int, int]:
+def reconcile(
+    catalog: dict[str, object],
+    records: list[dict[str, object]],
+    validator: ModuleType,
+    quarantine: object,
+) -> tuple[int, int]:
     browser = str(catalog["browser"])
     existing = {str(record["fingerprint"]) for record in catalog["bookmarks"]}
     additions: list[dict[str, object]] = []

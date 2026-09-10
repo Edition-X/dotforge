@@ -29,7 +29,9 @@ class EvidenceTests(unittest.TestCase):
             write(parent, [call, activity])
             write(child, [{'type': 'session_meta', 'payload': {'id': 'child'}},
                           {'type': 'turn_context', 'payload': {'turn_id': 'parent-turn', 'model': 'expensive'}},
-                          {'type': 'turn_context', 'payload': {'turn_id': 'child-turn', 'model': 'cheap', 'sandbox_policy': {'type': 'read-only'}}},
+                          {'type': 'turn_context',
+                           'payload': {'turn_id': 'child-turn', 'model': 'cheap',
+                                       'sandbox_policy': {'type': 'read-only'}}},
                           {'type': 'token_usage_record', 'payload': {'thread_id': 'child', 'turn_id': 'child-turn'}}])
             self.assertEqual(evidence.codex(parent, home, 'cheap')[0]['child_id'], 'child')
             with self.assertRaises(ValueError):
@@ -63,8 +65,10 @@ class EvidenceTests(unittest.TestCase):
             home = Path(directory)
             parent = home / 'parent.jsonl'
             write(parent, [
-                {'message': {'content': [{'type': 'tool_use', 'id': 'tool1', 'name': 'Agent', 'input': {'subagent_type': 'scout'}}]}},
-                {'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'tool1'}]}, 'toolUseResult': {'agentId': 'child'}}])
+                {'message': {'content': [{'type': 'tool_use', 'id': 'tool1', 'name': 'Agent',
+                                          'input': {'subagent_type': 'scout'}}]}},
+                {'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'tool1'}]},
+                 'toolUseResult': {'agentId': 'child'}}])
             child = home / 'agent-child.jsonl'
             write(child, [{'type': 'assistant', 'agentId': 'child', 'message': {'model': 'cheap'}}])
             self.assertEqual(evidence.claude(parent, home, 'cheap')[0]['model'], 'cheap')

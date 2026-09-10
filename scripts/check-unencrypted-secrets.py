@@ -100,9 +100,9 @@ def is_encrypted(content: str) -> bool:
     return content.startswith(VAULT_MARKER)
 
 
-def literal_findings(document: object, trail: tuple[str, ...] = ()) -> list[tuple[str, str]]:
+def literal_findings(document: object, trail: tuple[str, ...] = ()) -> list[str]:
     """Report credential-shaped keys whose value is a literal, not a reference."""
-    findings: list[tuple[str, str]] = []
+    findings: list[str] = []
     if isinstance(document, dict):
         for key, value in document.items():
             name = str(key)
@@ -119,7 +119,7 @@ def literal_findings(document: object, trail: tuple[str, ...] = ()) -> list[tupl
             # convention this repository follows.
             if "{{" in text or not text.strip():
                 continue
-            findings.append((".".join(path), name))
+            findings.append(".".join(path))
     elif isinstance(document, list):
         for index, value in enumerate(document):
             findings.extend(literal_findings(value, (*trail, str(index))))
@@ -160,9 +160,9 @@ def check(paths: list[str], staged: bool) -> int:
                 continue
             yaml_checked += 1
             for document in documents:
-                for key_path, name in literal_findings(document):
+                for key_path in literal_findings(document):
                     print(f"❌ {path}: `{key_path}` holds a literal value under a credential-shaped key.")
-                    print(f"   Move it into host_vars/<host>/vault.yml and reference it as {{{{ vault_… }}}}.")
+                    print("   Move it into host_vars/<host>/vault.yml and reference it as {{ vault_… }}.")
                     failures += 1
 
     if failures:

@@ -28,6 +28,26 @@
   check_mode: false
   diff: false
 
+# The helper runs as root, so it gets the same static analysis as any other
+# shell in the repo. The template cannot be linted directly (Jinja is not
+# shell), but the rendered result can.
+- name: Escalation - Find shellcheck
+  ansible.builtin.command:
+    argv: [/usr/bin/which, shellcheck]
+  register: browsers_shellcheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Escalation - Lint the staged privileged helper
+  ansible.builtin.command:
+    argv:
+      - "{{ browsers_shellcheck.stdout | trim }}"
+      - "{{ browsers_privileged_helper_stage }}"
+  changed_when: false
+  check_mode: false
+  when: browsers_shellcheck.rc == 0
+
 - name: Escalation - Inspect the installed helper
   ansible.builtin.stat:
     path: "{{ browsers_privileged_helper }}"
@@ -153,7 +173,7 @@
           - /usr/bin/osascript
           - -e
           - >-
-            do shell script ("/bin/mkdir -p -m 0755 "
+            do shell script ("/bin/mkdir -p "
             & quoted form of "{{ browsers_privileged_helper | dirname }}"
             & " && /usr/sbin/chown root:wheel "
             & quoted form of "{{ browsers_privileged_helper | dirname }}"

@@ -17,7 +17,22 @@ class UsageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             path = Path(home) / 'usage.db'
             db = sqlite3.connect(path)
-            db.execute('CREATE TABLE session (id TEXT, parent_id TEXT, agent TEXT, model TEXT, directory TEXT, time_created INTEGER, cost REAL, tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER)')
+            db.execute(
+                'CREATE TABLE session ('
+                'id TEXT, '
+                'parent_id TEXT, '
+                'agent TEXT, '
+                'model TEXT, '
+                'directory TEXT, '
+                'time_created INTEGER, '
+                'cost REAL, '
+                'tokens_input INTEGER, '
+                'tokens_output INTEGER, '
+                'tokens_reasoning INTEGER, '
+                'tokens_cache_read INTEGER, '
+                'tokens_cache_write INTEGER'
+                ')'
+            )
             model = json.dumps({'providerID': 'openai', 'id': 'cheap', 'variant': 'medium'})
             rows = [('root', None, 'orchestrator', model, '/repo', 20),
                     ('child', 'root', 'scout', model, '/repo', 21),

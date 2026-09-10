@@ -9,3 +9,7 @@ yamllint>=1.33.0
 # config.toml is owned by the ChatGPT desktop app, so the sync script must
 # round-trip comments/formatting for every section it does not touch.
 tomlkit>=0.13
+
+# Python linting for the repo's own scripts. Kept in step with the ruff rev
+# pinned in .pre-commit-config.yaml, for the same reason as ansible-lint above.
+ruff>=0.14.7
