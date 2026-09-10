@@ -15,6 +15,19 @@ browsers_catalog_names:
 browsers_python: "{{ browsers_repo_dir }}/venv/bin/python"
 browsers_python_minimum: "3.12"
 
+# How root-owned policy files get installed.
+#   auto   - use the privileged helper when this machine is authorized,
+#            otherwise fall back to the interactive dialog
+#   sudo   - require the helper; fail rather than prompt
+#   dialog - always prompt (what the role did before it had a helper)
+browsers_escalation: auto
+browsers_escalation_timeout: 120
+browsers_privileged_helper: /usr/local/libexec/macbook-pro/install-managed-preference
+browsers_privileged_helper_stage: "{{ browsers_state_dir }}/install-managed-preference"
+browsers_sudoers_path: /etc/sudoers.d/macbook-pro-browsers
+browsers_sudoers_stage: "{{ browsers_state_dir }}/browsers-sudoers"
+browsers_sudoers_user: "{{ osx_username }}"
+
 # Bookmark-addition capture service. Static paths, so they belong here rather
 # than in a set_fact: a fact is invisible until the role runs, which is what
 # pushed the cleanup role into hardcoding its own copy of these paths.

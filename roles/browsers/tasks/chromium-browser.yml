@@ -137,6 +137,24 @@
   changed_when: browsers_chromium_policy_changed
   when: ansible_check_mode
 
+- name: "Chromium policy - Install through the privileged helper - {{ browsers_chromium_name }}"
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - -n
+      - "{{ browsers_privileged_helper }}"
+      - --install
+      - "{{ browsers_chromium_domain }}"
+  when:
+    - not ansible_check_mode
+    - browsers_chromium_policy_changed
+    - browsers_escalation_mode == 'sudo'
+  changed_when: true
+  notify: Flush the managed preference cache
+
+# Fallback for a machine that has not run `make browsers-authorize`. The
+# timeout matters: without one an unanswered dialog stalls the play until
+# something else kills it.
 - name: "Chromium policy - Install through macOS administrator authorization - {{ browsers_chromium_name }}"
   ansible.builtin.command:
     argv:
@@ -150,7 +168,9 @@
   when:
     - not ansible_check_mode
     - browsers_chromium_policy_changed
+    - browsers_escalation_mode == 'dialog'
   changed_when: true
+  timeout: "{{ browsers_escalation_timeout }}"
   notify: Flush the managed preference cache
 
 - name: "Chromium policy - Validate installed plist - {{ browsers_chromium_name }}"

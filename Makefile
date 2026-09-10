@@ -70,6 +70,13 @@ packages: $(PYTHON_VIRTUAL_ENVIRONMENT)
 browsers: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags browsers $(RUN_ARGS))
 
+# One-time, interactive: installs the root-owned policy helper and a NOPASSWD
+# rule scoped to it, so every later apply — and the capture service — installs
+# managed preferences without a dialog. Asks for an administrator password once.
+.PHONY: browsers-authorize
+browsers-authorize: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-playbook -i $(ANSIBLE_INVENTORY_FILE) -l $(ANSIBLE_LIMIT) $(ANSIBLE_PLAYBOOK_FILE) --tags browsers -e browsers_authorize=true)
+
 .PHONY: validate-browser-catalog
 validate-browser-catalog: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, python scripts/validate-browser-catalog.py --all)
