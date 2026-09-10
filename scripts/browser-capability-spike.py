@@ -16,7 +16,6 @@ import os
 import plistlib
 import pwd
 import re
-import shlex
 import signal
 import shutil
 import socket
@@ -24,10 +23,9 @@ import struct
 import subprocess
 import sys
 import tempfile
-import textwrap
 import time
-import urllib.request
 import uuid
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -53,21 +51,9 @@ BROWSERS = (
 )
 
 # Counts came from the pre-B0 sanitized baseline in the approved playbook.
-BASELINE = {"Chrome": (97, 0, 0), "Edge": (532, 0, 0), "Brave": (0, 0, 0), "Vivaldi": (31, 0, 0), "Firefox": (16, 0, 0)}
-ROOT_POLICY_HELPER = r'''#!/usr/bin/python3
-import hashlib
-import json
-import os
-import plistlib
-import pwd
-import signal
-import stat
-import sys
-import tempfile
-import time
-from pathlib import Path
-
-ALLOWED_DOMAINS = ("com.google.Chrome", "com.microsoft.Edge", "com.brave.Browser")
+# Fake policy used only inside an isolated smoke, to prove a browser accepts a
+# mandatory managed preference at all. Never real bookmark data: the URL is
+# .invalid and the folder name is a fixture marker.
 POLICY_PAYLOADS = {
     "com.google.Chrome": {
         "HomepageLocation": "B0-Fake-Policy",
@@ -94,208 +80,7 @@ POLICY_PAYLOADS = {
         "ExtensionSettings": {"*": {"installation_mode": "allowed"}},
     },
 }
-
-
-def digest(path):
-    value = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(65536), b""):
-            value.update(chunk)
-    return value.hexdigest()
-
-
-def atomic_policy(path, payload):
-    descriptor, temporary_name = tempfile.mkstemp(prefix=".b0-policy-", dir=path.parent)
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            plistlib.dump(payload, stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.chown(temporary, 0, 0)
-        os.chmod(temporary, 0o644)
-        os.replace(temporary, path)
-    finally:
-        if temporary.exists():
-            os.replace(temporary, recovery / (temporary.name + ".unused"))
-
-
-def write_marker(path, value, uid, gid):
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(descriptor, "w", encoding="ascii") as stream:
-        stream.write(value)
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.chown(path, uid, gid)
-
-
-def move_created(path, destination):
-    if path.is_symlink() or not path.exists():
-        raise RuntimeError("created-path-state-unexpected")
-    os.replace(path, destination)
-    if path.exists():
-        raise RuntimeError("created-path-removal-unproven")
-
-
-def copy_exact(source, destination, mode=0o600):
-    with source.open("rb") as input_stream, destination.open("xb") as output_stream:
-        while True:
-            chunk = input_stream.read(65536)
-            if not chunk:
-                break
-            output_stream.write(chunk)
-        output_stream.flush()
-        os.fsync(output_stream.fileno())
-    os.chown(destination, 0, 0)
-    os.chmod(destination, mode)
-
-
-def restore_entry(entry):
-    path = Path(entry["path"])
-    if not entry["existed"]:
-        if path.exists() or path.is_symlink():
-            move_created(path, recovery / (str(entry["index"]) + ".created-policy"))
-        return
-    backup = Path(entry["backup"])
-    descriptor, temporary_name = tempfile.mkstemp(prefix=".browser-policy-restore-", dir=path.parent)
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(descriptor, "wb") as output_stream, backup.open("rb") as input_stream:
-            while True:
-                chunk = input_stream.read(65536)
-                if not chunk:
-                    break
-                output_stream.write(chunk)
-            output_stream.flush()
-            os.fsync(output_stream.fileno())
-        os.chown(temporary, entry["uid"], entry["gid"])
-        os.chmod(temporary, entry["mode"])
-        os.replace(temporary, path)
-    finally:
-        if temporary.exists():
-            os.replace(temporary, recovery / (temporary.name + ".failed-restore"))
-    metadata = path.stat()
-    if digest(path) != entry["hash"]:
-        raise RuntimeError("restore-hash-mismatch")
-    if (metadata.st_uid, metadata.st_gid, stat.S_IMODE(metadata.st_mode)) != (
-        entry["uid"], entry["gid"], entry["mode"]
-    ):
-        raise RuntimeError("restore-metadata-mismatch")
-
-
-def stop(_signum, _frame):
-    raise KeyboardInterrupt
-
-
-request_arg = Path(sys.argv[1])
-request_fd = os.open(request_arg, os.O_RDONLY | os.O_NOFOLLOW)
-request_metadata = os.fstat(request_fd)
-with os.fdopen(request_fd, "r", encoding="utf-8") as request_stream:
-    request = json.load(request_stream)
-uid = int(request["uid"])
-gid = int(request["gid"])
-account = pwd.getpwuid(uid)
-if request_metadata.st_uid != uid or stat.S_IMODE(request_metadata.st_mode) != 0o400:
-    raise SystemExit(20)
-if account.pw_name != request["login"] or account.pw_gid != gid:
-    raise SystemExit(21)
-request_path = request_arg.resolve()
-work = Path(request["work"]).resolve()
-started = work / "started"
-ready = work / "ready"
-release = work / "release"
-result = work / "result.json"
-recovery = Path(request["recovery"]).resolve()
-managed = Path("/Library/Managed Preferences")
-user_managed = managed / request["login"]
-paths = [
-    user_managed / (domain + ".plist")
-    for domain in request["domains"]
-]
-work_metadata = work.lstat()
-trash = Path(account.pw_dir) / ".Trash"
-if os.geteuid() != 0 or request_path.parent != work or work.is_symlink():
-    raise SystemExit(22)
-if work_metadata.st_uid != uid or stat.S_IMODE(work_metadata.st_mode) != 0o700:
-    raise SystemExit(23)
-requested_domains = tuple(request["domains"])
-if not requested_domains or requested_domains != tuple(
-    domain for domain in ALLOWED_DOMAINS if domain in requested_domains
-):
-    raise SystemExit(24)
-if managed != Path(request["managed"]) or user_managed != Path(request["user_managed"]):
-    raise SystemExit(25)
-if trash.is_symlink() or not trash.is_dir() or trash.stat().st_uid != uid:
-    raise SystemExit(26)
-if recovery.parent != trash or not recovery.name.startswith("browser-policy-b0-recovery-"):
-    raise SystemExit(27)
-for candidate in (managed, user_managed):
-    if candidate.is_symlink() or (candidate.exists() and (not candidate.is_dir() or candidate.stat().st_uid != 0)):
-        raise SystemExit(28)
-for candidate in paths:
-    if candidate.is_symlink() or (candidate.exists() and (not candidate.is_file() or candidate.stat().st_uid != 0)):
-        raise SystemExit(29)
-signal.signal(signal.SIGTERM, stop)
-signal.signal(signal.SIGINT, stop)
-recovery.mkdir(mode=0o700)
-os.chown(recovery, 0, 0)
-write_marker(started, "started", uid, gid)
-entries = []
-managed_created = False
-user_managed_created = False
-try:
-    if not managed.exists():
-        managed.mkdir(mode=0o755)
-        managed_created = True
-    if not user_managed.exists():
-        user_managed.mkdir(mode=0o755)
-        user_managed_created = True
-    for index, (domain, path) in enumerate(zip(requested_domains, paths)):
-        entry = {"index": index, "path": str(path), "existed": path.exists()}
-        if entry["existed"]:
-            metadata = path.stat()
-            backup = recovery / (str(index) + ".original")
-            entry.update(
-                uid=metadata.st_uid,
-                gid=metadata.st_gid,
-                mode=stat.S_IMODE(metadata.st_mode),
-                hash=digest(path),
-                backup=str(backup),
-            )
-            copy_exact(path, backup)
-            if digest(backup) != entry["hash"]:
-                raise RuntimeError("backup-hash-mismatch")
-        entries.append(entry)
-        atomic_policy(path, POLICY_PAYLOADS[domain])
-    write_marker(ready, "ready", uid, gid)
-    deadline = time.monotonic() + 180
-    while not release.exists() and time.monotonic() < deadline:
-        time.sleep(0.2)
-    if not release.exists():
-        raise RuntimeError("release-timeout")
-finally:
-    restore_error = None
-    for entry in reversed(entries):
-        try:
-            restore_entry(entry)
-        except Exception as error:
-            restore_error = type(error).__name__
-    try:
-        if user_managed_created and user_managed.exists():
-            if next(user_managed.iterdir(), None) is not None:
-                raise RuntimeError("managed-user-directory-not-empty")
-            move_created(user_managed, recovery / "created-managed-user-directory")
-        if managed_created and managed.exists():
-            if next(managed.iterdir(), None) is not None:
-                raise RuntimeError("managed-directory-not-empty")
-            move_created(managed, recovery / "created-managed-directory")
-    except Exception as error:
-        restore_error = type(error).__name__
-    payload = {"status": "restored" if restore_error is None else "restore-failed"}
-    write_marker(result, json.dumps(payload), uid, gid)
-    if restore_error is not None:
-        raise SystemExit(30)
-'''
+BASELINE = {"Chrome": (97, 0, 0), "Edge": (532, 0, 0), "Brave": (0, 0, 0), "Vivaldi": (31, 0, 0), "Firefox": (16, 0, 0)}
 
 
 @dataclass
@@ -305,10 +90,6 @@ class PolicyState:
 
 class AuthorizationDenied(RuntimeError):
     pass
-
-
-def _apple_script_string(value: str) -> str:
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def _flush_preference_cache() -> None:
@@ -327,131 +108,123 @@ def _flush_preference_cache() -> None:
     )
 
 
+PRIVILEGED_HELPER = Path("/usr/local/libexec/macbook-pro/install-managed-preference")
+
+
+def _helper_paths() -> tuple[Path, Path]:
+    """Ask the privileged helper where it stages from and installs to.
+
+    Reading the paths back rather than restating them keeps one definition of
+    them: the helper is rendered from the role's variables, so a change there
+    cannot leave this script pointing somewhere else.
+    """
+    result = subprocess.run(
+        ["/usr/bin/sudo", "-n", str(PRIVILEGED_HELPER), "--check"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        raise AuthorizationDenied(
+            "privileged policy helper is unavailable; run `make browsers-authorize` once"
+        )
+    fields = dict(
+        line.split("=", 1)
+        for line in result.stdout.splitlines()
+        if "=" in line and not line.startswith("managed-preference")
+    )
+    try:
+        return Path(fields["stage"]), Path(fields["target"])
+    except KeyError as error:
+        raise RuntimeError("privileged policy helper did not report its paths") from error
+
+
+def _helper(verb: str, domain: str) -> None:
+    result = subprocess.run(
+        ["/usr/bin/sudo", "-n", str(PRIVILEGED_HELPER), verb, domain],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"privileged policy helper refused {verb} ({result.returncode})")
+
+
 class SystemPolicySession:
-    """One-dialog root helper with byte-exact restore for allowlisted policy files."""
+    """Temporarily swap managed policy for a fixture, then put it back exactly.
+
+    Replaces a self-installing root helper that was launched through an
+    AppleScript administrator dialog. That could not run unattended or in CI,
+    and an unanswered prompt stalled the caller until something killed it. This
+    drives the same managed helper the role uses for real installs: no root
+    process outlives a single call, and restoring is just installing the saved
+    bytes back.
+    """
 
     def __init__(self, browsers: list[Browser]):
-        self.browsers = browsers
-        self.work: Path | None = None
-        self.release: Path | None = None
-        self.result: Path | None = None
-        self.recovery: Path | None = None
-        self.process: subprocess.Popen[str] | None = None
-        self.started: Path | None = None
+        # Only browsers with a proven system-policy contract are swapped;
+        # Firefox uses an app-copy fixture and Vivaldi has no contract.
+        self.browsers = [browser for browser in browsers if browser.domain in POLICY_PAYLOADS]
+        self.stage: Path | None = None
+        self.target: Path | None = None
+        self.saved: dict[str, bytes | None] = {}
+        self.saved_stage: dict[str, bytes | None] = {}
 
     def __enter__(self) -> SystemPolicySession:
-        login = pwd.getpwuid(os.getuid()).pw_name
-        trash = Path.home() / ".Trash"
-        if not trash.is_dir():
-            raise RuntimeError("user Trash directory unavailable")
-        self.work = Path(tempfile.mkdtemp(prefix="browser-system-policy-helper-"))
-        self.release = self.work / "release"
-        self.result = self.work / "result.json"
-        self.started = self.work / "started"
-        self.recovery = trash / f"browser-policy-b0-recovery-{uuid.uuid4().hex}"
-        helper = self.work / "root-policy-helper.py"
-        request = self.work / "request.json"
-        helper.write_text(textwrap.dedent(ROOT_POLICY_HELPER), encoding="utf-8")
-        helper.chmod(0o500)
-        request.write_text(
-            json.dumps(
-                {
-                    "work": str(self.work.resolve()),
-                    "recovery": str(self.recovery.resolve()),
-                    "managed": "/Library/Managed Preferences",
-                    "user_managed": f"/Library/Managed Preferences/{login}",
-                    "login": login,
-                    "domains": [browser.domain for browser in self.browsers],
-                    "uid": os.getuid(),
-                    "gid": os.getgid(),
-                },
-                separators=(",", ":"),
-            ),
-            encoding="utf-8",
-        )
-        request.chmod(0o400)
-        helper_hash = _sha256(helper)
-        bootstrap = (
-            "import hashlib,os,stat,sys;"
-            "p=sys.argv[1];fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW);s=os.fstat(fd);"
-            "b=b'';"
-            "\nwhile True:\n c=os.read(fd,65536)\n if not c: break\n b+=c\n"
-            "os.close(fd);"
-            "assert s.st_uid==int(sys.argv[4]) and stat.S_IMODE(s.st_mode)==0o500;"
-            "assert hashlib.sha256(b).hexdigest()==sys.argv[3];"
-            "sys.argv=[p,sys.argv[2]];exec(compile(b,p,'exec'))"
-        )
-        command = " ".join(
-            (
-                shlex.quote("/usr/bin/python3"),
-                "-c",
-                shlex.quote(bootstrap),
-                shlex.quote(str(helper.resolve())),
-                shlex.quote(str(request.resolve())),
-                shlex.quote(helper_hash),
-                shlex.quote(str(os.getuid())),
-            )
-        )
-        apple_script = f"do shell script {_apple_script_string(command)} with administrator privileges"
-        self.process = subprocess.Popen(
-            ["/usr/bin/osascript", "-e", apple_script],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-        ready = self.work / "ready"
-        deadline = time.monotonic() + 180
-        while time.monotonic() < deadline:
-            if ready.is_file():
-                _flush_preference_cache()
-                return self
-            if self.process.poll() is not None:
-                if self.started.is_file():
-                    self._require_restored()
-                    raise AuthorizationDenied("system policy helper declined before install")
-                self._cleanup_work()
-                raise AuthorizationDenied("administrator authorization denied")
-            time.sleep(0.25)
-        # Release may be created before authorization. If approval arrives later,
-        # helper installs then immediately restores without waiting for this process.
-        self.release.touch(mode=0o600)
-        if self.started.is_file():
-            self._wait_for_restoration(timeout=210)
-        raise AuthorizationDenied("administrator authorization timed out")
+        self.stage, self.target = _helper_paths()
+        for browser in self.browsers:
+            domain = browser.domain
+            installed = self.target / f"{domain}.plist"
+            staged = self.stage / f"{domain}.plist"
+            # Remember both what is live and what the role had staged, so the
+            # fixture leaves no trace in either place.
+            self.saved[domain] = installed.read_bytes() if installed.is_file() else None
+            self.saved_stage[domain] = staged.read_bytes() if staged.is_file() else None
+            self._stage_and_install(domain, plistlib.dumps(POLICY_PAYLOADS[domain]))
+        _flush_preference_cache()
+        return self
 
     def __exit__(self, _error_type: object, _error: object, _traceback: object) -> None:
-        if self.release is None or self.result is None or self.process is None:
-            raise RuntimeError("system policy helper state incomplete")
-        self.release.touch(mode=0o600)
-        self._wait_for_restoration(timeout=210)
+        failures = []
+        for browser in self.browsers:
+            domain = browser.domain
+            try:
+                self._restore(domain)
+            except (OSError, RuntimeError) as error:
+                failures.append(f"{domain}: {error}")
         _flush_preference_cache()
+        if failures:
+            raise RuntimeError(f"system policy restoration could not be proven ({'; '.join(failures)})")
 
-    def _wait_for_restoration(self, timeout: int) -> None:
-        if self.process is None:
-            raise RuntimeError("system policy helper process missing")
-        try:
-            self.process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired as error:
-            raise RuntimeError("system policy helper restoration timed out") from error
-        self._require_restored()
+    def _stage_and_install(self, domain: str, payload: bytes) -> None:
+        assert self.stage is not None
+        staged = self.stage / f"{domain}.plist"
+        staged.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        staged.write_bytes(payload)
+        staged.chmod(0o600)
+        _helper("--install", domain)
 
-    def _require_restored(self) -> None:
-        if self.result is None or self.process is None:
-            raise RuntimeError("system policy helper result missing")
-        restored = False
-        if self.result.is_file():
-            payload = json.loads(self.result.read_text(encoding="ascii"))
-            restored = payload.get("status") == "restored"
-        recovery = self.recovery
-        if recovery is not None:
-            print(f"SYSTEM_POLICY_RECOVERY {recovery.resolve()}")
-        if self.process.returncode != 0 or not restored:
-            raise RuntimeError("system policy restoration could not be proven")
-        self._cleanup_work()
-
-    def _cleanup_work(self) -> None:
-        if self.work is not None and self.work.exists():
-            _trash(self.work, "TRASH_POLICY_HELPER")
+    def _restore(self, domain: str) -> None:
+        assert self.stage is not None and self.target is not None
+        original = self.saved[domain]
+        installed = self.target / f"{domain}.plist"
+        if original is None:
+            _helper("--remove", domain)
+            if installed.exists():
+                raise RuntimeError("policy was not removed")
+        else:
+            self._stage_and_install(domain, original)
+            if not installed.is_file() or installed.read_bytes() != original:
+                raise RuntimeError("policy was not restored byte-for-byte")
+        # Put the role's own staged file back, so a later apply still sees the
+        # state it rendered rather than a fixture.
+        staged = self.stage / f"{domain}.plist"
+        previous = self.saved_stage[domain]
+        if previous is None:
+            staged.unlink(missing_ok=True)
+        else:
+            staged.write_bytes(previous)
+            staged.chmod(0o600)
 
 
 def version(browser: Browser) -> str:
@@ -513,23 +286,33 @@ def _sha256(path: Path) -> str:
 
 
 def _trash(path: Path, marker: str) -> None:
-    """Move one temporary path to recoverable Trash and prove it left source."""
+    """Move one temporary path to recoverable Trash and prove it left source.
+
+    Moves the directory directly rather than shelling out to `trash`: the check
+    below has to run after the move has completed, and one less thing needs to
+    be on PATH in a launchd context.
+
+    Retried because a browser that is still shutting down can recreate its
+    profile directory just after the move, which failed this check
+    intermittently. Each attempt keeps whatever it moved, so nothing is lost;
+    at worst the Trash gains two entries for one profile.
+    """
     print(f"{marker} {path.resolve()}")
-    trash = shutil.which("trash")
-    if trash:
-        subprocess.run(
-            [trash, str(path)],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    else:
-        trash_dir = Path.home() / ".Trash"
-        trash_dir.mkdir(mode=0o700, exist_ok=True)
+    trash_dir = Path.home() / ".Trash"
+    trash_dir.mkdir(mode=0o700, exist_ok=True)
+    for _ in range(5):
+        if not path.exists():
+            return
         destination = trash_dir / f"{path.name}-{uuid.uuid4().hex}"
-        shutil.move(str(path), str(destination))
-    if path.exists():
-        raise RuntimeError("recoverable trash move could not be proven")
+        try:
+            shutil.move(str(path), str(destination))
+        except OSError:
+            time.sleep(0.2)
+            continue
+        if not path.exists():
+            return
+        time.sleep(0.2)
+    raise RuntimeError("recoverable trash move could not be proven")
 
 
 class DevToolsSocket:

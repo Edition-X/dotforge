@@ -78,6 +78,13 @@ and a target directory that is not root-owned. It is `/bin/sh` plus `plutil` on
 purpose, so nothing root runs depends on an interpreter inside a user-writable
 repository.
 
+The smoke suite uses the same helper. It saves the live policy, installs a
+fixture through `--install`, runs its probe, then puts the original bytes back
+(or `--remove`s the file if there was none) and checks the result is
+byte-identical. No root process outlives a single call, and the whole matrix
+runs unattended — it previously needed an administrator dialog per browser and
+would stall indefinitely if nobody answered.
+
 `browsers_escalation` selects the mechanism: `auto` (helper when authorized,
 dialog otherwise), `sudo` (require the helper, fail rather than prompt) or
 `dialog`. The dialog path now carries `browsers_escalation_timeout`, because an

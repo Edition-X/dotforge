@@ -24,7 +24,7 @@ refuse() {
 }
 
 usage() {
-    echo "usage: $(basename "$0") --check | --install <domain>" >&2
+    echo "usage: $(basename "$0") --check | --install <domain> | --remove <domain>" >&2
     exit 64
 }
 
@@ -42,9 +42,11 @@ case "${1:-}" in
     --check)
         assert_safe_target_dir
         echo "managed-preference helper: ready domains=$(echo "${ALLOWED_DOMAINS}" | wc -w | tr -d ' ')"
+        echo "stage=${STAGE_DIR}"
+        echo "target=${TARGET_DIR}"
         exit 0
         ;;
-    --install) ;;
+    --install|--remove) ;;
     *) usage ;;
 esac
 
@@ -59,6 +61,18 @@ done
 
 source="${STAGE_DIR}/${domain}.plist"
 target="${TARGET_DIR}/${domain}.plist"
+
+# Restoring "there was no policy here" is part of leaving a machine as it was
+# found. The path is fully computed from an allowlisted domain, so there is no
+# caller-supplied path to sanitise.
+if [ "${1}" = "--remove" ]; then
+    assert_safe_target_dir
+    [ ! -L "${target}" ] || refuse "target is a symlink"
+    /bin/rm -f "${target}"
+    /usr/bin/killall cfprefsd >/dev/null 2>&1 || true
+    echo "managed-preference helper: removed ${domain}"
+    exit 0
+fi
 
 [ ! -L "${source}" ] || refuse "staged policy is a symlink"
 [ -f "${source}" ] || refuse "staged policy is missing"
