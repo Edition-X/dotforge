@@ -147,6 +147,21 @@
   changed_when: browsers_firefox_policy_changed
   when: ansible_check_mode
 
+- name: Firefox policy - Install through the privileged helper
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - -n
+      - "{{ browsers_privileged_helper }}"
+      - --install
+      - "{{ browsers_firefox_policy_domain }}"
+  when:
+    - not ansible_check_mode
+    - browsers_firefox_policy_changed
+    - browsers_escalation_mode == 'sudo'
+  changed_when: true
+  notify: Flush the managed preference cache
+
 - name: Firefox policy - Install through macOS administrator authorization
   ansible.builtin.command:
     argv:
@@ -160,7 +175,9 @@
   when:
     - not ansible_check_mode
     - browsers_firefox_policy_changed
+    - browsers_escalation_mode == 'dialog'
   changed_when: true
+  timeout: "{{ browsers_escalation_timeout }}"
   notify: Flush the managed preference cache
 
 - name: Firefox policy - Validate installed plist

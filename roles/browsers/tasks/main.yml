@@ -25,6 +25,9 @@
   changed_when: false
   check_mode: false
 
+- name: Browser policies - Decide how to escalate
+  ansible.builtin.import_tasks: escalation.yml
+
 - name: Browser policies - Configure Chrome
   ansible.builtin.import_tasks: chromium.yml
 

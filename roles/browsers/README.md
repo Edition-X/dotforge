@@ -61,6 +61,29 @@ and website sessions are never read, copied or deployed.
 Browsers are Brewfile-managed, so this role never installs or uninstalls one, and never
 uses `--zap`.
 
+## Privilege escalation
+
+Root-owned policy files are installed by `sudo -n` against one root-owned
+helper, `/usr/local/libexec/macbook-pro/install-managed-preference`, granted by
+`/etc/sudoers.d/macbook-pro-browsers`. Run `make browsers-authorize` once per
+machine to install both; every apply after that is non-interactive, and the
+capture service can install policy without a GUI session.
+
+The sudoers rule deliberately contains no wildcards — wildcard command
+arguments are a known escalation route. The helper enforces the argument space
+itself: one flag plus a domain from a fixed allowlist, with every path baked in
+at render time. It refuses an unknown domain, a missing or symlinked staged
+file, a staged file owned by another account, a file that is not a valid plist,
+and a target directory that is not root-owned. It is `/bin/sh` plus `plutil` on
+purpose, so nothing root runs depends on an interpreter inside a user-writable
+repository.
+
+`browsers_escalation` selects the mechanism: `auto` (helper when authorized,
+dialog otherwise), `sudo` (require the helper, fail rather than prompt) or
+`dialog`. The dialog path now carries `browsers_escalation_timeout`, because an
+unanswered prompt used to stall a play until something else killed it — which
+once left a browser half-configured.
+
 ## One interpreter, declared
 
 `browsers_python` in the role defaults names the interpreter every
