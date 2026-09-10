@@ -418,7 +418,9 @@ permission is granted it takes effect on its own — no re-run needed.
 
 ### 🔍 Code Quality
 
-The repository uses pre-commit hooks to maintain high code quality:
+The repository uses pre-commit hooks to maintain high code quality. `make` is
+the only entry point — there is deliberately no wrapper script, because the one
+that used to live here returned success even when hooks failed:
 
 ```bash
 # Set up git hooks (run once after cloning)
@@ -430,6 +432,10 @@ make pre-commit
 # Run linting only
 make lint
 ```
+
+Vault-encrypted files need no special handling: `ansible-lint` skips them via
+`exclude_paths` in `.ansible-lint`. To bypass a single hook deliberately, use
+pre-commit's own mechanism — `SKIP=ansible-lint git commit ...`.
 
 Pre-commit checks include:
 - ✅ YAML syntax validation
