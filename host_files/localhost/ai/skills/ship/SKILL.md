@@ -103,9 +103,11 @@ scripts/pr-checks-green.sh <n> && gh pr merge <n> --merge --delete-branch
 After the merge, confirm the `main` push run is green too:
 `gh run list --branch main --limit 1 --json conclusion`.
 
-If the repo has a ruleset that blocks the merge until checks pass, use
-`gh pr merge <n> --merge --auto --delete-branch` and wait with
-`gh pr view <n> --json state,mergedAt`. Never `--admin`, never `--squash` or `--rebase`,
+The `main` ruleset requires a pull request, the `Lint, test & validate` and `Secret scan`
+checks, a merge commit, and forbids force-pushes and deletion. So the merge can also be
+queued as soon as the review is done: `gh pr merge <n> --merge --auto --delete-branch`,
+then wait with `gh pr view <n> --json state,mergedAt` — GitHub merges the moment the
+checks go green and refuses otherwise. Never `--admin`, never `--squash` or `--rebase`,
 never force-push.
 
 ## 6. Deploy and verify on this Mac
