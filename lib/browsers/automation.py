@@ -212,9 +212,16 @@ def _child_environment() -> dict[str, str]:
     return environment
 
 
-def validate_catalogs(clone: Path) -> int:
+def validate_catalogs(clone: Path, interpreter: str) -> int:
+    """Run the isolated clone's own catalog validator under the declared interpreter.
+
+    `sys.executable` is not safe here for the same reason `live_capture_with`
+    documents: the service runs this module under whichever python the runner
+    resolved, and passing that on would spread a wrong interpreter instead of
+    the one `run()` was told to use.
+    """
     result = subprocess.run(
-        [sys.executable, str(clone / "scripts" / "validate-browser-catalog.py"), "--all", "--root",
+        [interpreter, str(clone / "scripts" / "validate-browser-catalog.py"), "--all", "--root",
          str(clone / "host_files" / "localhost" / "browsers")],
         capture_output=True,
         text=True,
@@ -312,7 +319,7 @@ def run(
     require_private(hub)
     git = prepare_clone(clone, remote, git_factory)
     capture(clone)
-    validate_catalogs(clone)
+    validate_catalogs(clone, interpreter)
     paths = check_staged_paths(git)
     if not paths:
         report("pass additions=0 published=false")
