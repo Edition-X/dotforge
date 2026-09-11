@@ -110,6 +110,7 @@ These requests have a fixed procedure. Load the skill first, then follow it.
 | Change Arcane's code, release it, or update it on this Mac | `arcane-dev` |
 | Anything about a Sunrise robot cell (moon, mars, bg4, IPC, Orin, RTC) or running commands on one | `sunrise-cells` |
 | Execute an approved playbook or multi-ticket effort, ticket by ticket | `execute-playbook` |
+| Land a finished macbook-pro change: branch, PR, AI review, CI, merge, deploy to this Mac | `ship` |
 
 Do not improvise these from memory. If a skill and this file disagree, the skill wins for that task.
 
@@ -117,7 +118,10 @@ Do not improvise these from memory. If a skill and this file disagree, the skill
 
 - `trash` over `rm`. Recoverable beats gone.
 - Confirm before destructive or irreversible commands.
-- Don't push, publish, or send anything outward without asking.
+- In `~/Projects/macbook-pro`, branches, pull requests and merges to `main` go through
+  the `ship` skill and need no further permission. Everywhere else, and for anything the
+  `ship` skill lists under "Stop and ask" (repo visibility, rulesets, history rewrites,
+  secrets), don't push, publish, or send anything outward without asking.
 - Never write secrets to memory, logs, or committed files.
 
 ## Completion discipline
