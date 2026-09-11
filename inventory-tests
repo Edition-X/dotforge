@@ -1,0 +1,17 @@
+# Inventory for the AI agent deployment test.
+#
+# A separate host alias on purpose: Ansible auto-loads host_vars/<host>/ for
+# whichever host a play targets, so running this against `localhost` pulled in
+# host_vars/localhost/vault.yml and the test could not run without the real
+# vault password. It deploys agent configuration into a throwaway home and
+# needs no secrets at all.
+#
+# The host name is not `localhost`, so host_files_dir would resolve to a
+# directory that does not exist; the test passes it explicitly, alongside the
+# throwaway home it already supplies.
+#
+# Kept beside the main inventory rather than under tests/, because Ansible
+# resolves group_vars/ relative to the inventory file's own directory — from
+# tests/ the repository's group_vars/macbooks.yml would not be loaded at all.
+[macbooks]
+ai-agents-test ansible_connection=local ansible_host=127.0.0.1

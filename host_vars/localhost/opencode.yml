@@ -1,6 +1,0 @@
----
-# OpenCode host-specific settings. Model IDs, variants, roles, and parallelism
-# limits are canonical and provider-neutral under
-# host_files/localhost/ai/routing/ (models.yml, workflow.yml); this file keeps
-# only what is genuinely specific to this OpenCode install.
-opencode_schema_version: "1.18.10"

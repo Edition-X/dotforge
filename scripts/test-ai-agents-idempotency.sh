@@ -53,12 +53,15 @@ args = ["mcp"]
 EOF
 printf '%s\n' 'pre-existing worker configuration' > "${test_home}/.codex/agents/worker.toml"
 
+# The OpenCode config template embeds the gateway token, which normally comes
+# from the vault. This test checks structure and idempotency, not the token, so
+# it supplies its own placeholder rather than requiring the real vault password
+# — which is why this test could never run in CI.
 run_playbook() {
     ansible-playbook \
-        -i "${repo_root}/inventory" \
-        -l local \
+        -i "${repo_root}/inventory-tests" \
         "${repo_root}/tests/ai_agents.yml" \
-        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_external_skills\":[],\"ai_agents_prune_unused\":false}"
+        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_external_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
 }
 
 first_output="${tmp_root}/first-run.log"
