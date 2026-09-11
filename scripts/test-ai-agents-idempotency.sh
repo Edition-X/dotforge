@@ -185,7 +185,7 @@ second_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 [[ "$before_codex_backup" == "$after_codex_backup" ]] || { printf 'Codex agent backup changed on second run\n' >&2; exit 1; }
 [[ "$first_codex_config" == "$second_codex_config" ]] || { printf 'Codex config.toml changed on second run\n' >&2; exit 1; }
 [[ ! -e "${test_home}/.config/opencode/agents/architect.md" ]] || { printf 'retired agent file reappeared after second apply\n' >&2; exit 1; }
-! rg -q 'changed=[1-9]' "$second_output" || { printf 'second run still changed a task\n' >&2; exit 1; }
+! grep -Eq 'changed=[1-9]' "$second_output" || { printf 'second run still changed a task\n' >&2; exit 1; }
 
 for agent in worker verifier rescue documentation scout; do
     [[ -f "${test_home}/.claude-work/agents/${agent}.md" ]] || { printf 'Claude work agent missing after second run: %s\n' "$agent" >&2; exit 1; }

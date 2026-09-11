@@ -12,13 +12,13 @@ required_models=(
 )
 
 for model in "${required_models[@]}"; do
-    rg -Fq "$model" "$routing_file" || {
+    grep -Fq -- "$model" "$routing_file" || {
         printf 'missing selected model from routing policy: %s\n' "$model" >&2
         exit 1
     }
 done
 
-if rg -n --fixed-strings -- '-fast' "$routing_file" >/dev/null; then
+if grep -nF -- '-fast' "$routing_file" >/dev/null; then
     printf 'fast OpenCode model IDs are prohibited\n' >&2
     exit 1
 fi
