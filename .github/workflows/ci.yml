@@ -47,7 +47,13 @@ jobs:
       # The single definition of CI lives in the Makefile. Adding a check there
       # is picked up here for free, which is the point: this workflow and
       # `make ci` used to run different sets and both called themselves CI.
+      # A push to main checks out the branch `main`, and the no-commit-to-branch
+      # hook then refuses on principle: it exists to stop a local commit on
+      # main, not to judge a merge commit GitHub already accepted. Skipped only
+      # here; pull requests check out a detached merge ref and run it.
       - name: make ci
+        env:
+          SKIP: ${{ github.ref == 'refs/heads/main' && 'no-commit-to-branch' || '' }}
         run: make ci
 
   secrets:
