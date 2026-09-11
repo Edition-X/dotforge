@@ -26,14 +26,3 @@
     mode: '0644'
   tags:
     - dot
-
-- name: Ansible Vault - Password file
-  no_log: false
-  ansible.builtin.file:
-    src: "{{ host_files_dir }}/vault_pass.txt"
-    dest: "{{ user_dir }}/.vault_pass.txt"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
-    state: link
-  tags:
-    - dot

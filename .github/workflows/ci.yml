@@ -36,7 +36,10 @@ jobs:
       # installed twice. The vault password is a placeholder: no step here
       # decrypts anything, it only lets ansible-lint parse vaulted files.
       - name: Provide a placeholder vault password
-        run: echo "ci-placeholder-not-a-real-password" > credentials.txt
+        run: |
+          install -m 700 -d ~/.config/macbook-pro
+          printf '%s' 'ci-placeholder-not-a-real-password' > ~/.config/macbook-pro/vault-pass
+          chmod 600 ~/.config/macbook-pro/vault-pass
 
       # No opencode CLI is installed: nothing reachable from `make ci` invokes
       # it. The old workflow installed it to run `opencode --version`, which
