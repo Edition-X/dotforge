@@ -16,7 +16,7 @@ from pathlib import Path
 from browsers import REPO
 
 MARKER = b"$ANSIBLE_VAULT"
-DEFAULT_PASSWORD_FILE = "~/.config/macbook-pro/vault-pass"
+DEFAULT_PASSWORD_FILE = "~/.config/dotforge/vault-pass"
 
 
 class VaultUnavailable(RuntimeError):

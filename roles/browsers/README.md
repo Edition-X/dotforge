@@ -56,7 +56,7 @@ rename catalog entries. Rejected records go to a local mode-0600 quarantine outs
 their values never appear in command output.
 
 Cleanup removes only exact generated paths — the launchd job, the capture runner, the
-staged policy files under `~/.local/state/macbook-pro`, and the root-owned managed
+staged policy files under `~/.local/state/dotforge`, and the root-owned managed
 preferences under `/Library/Managed Preferences`, which it removes through the same
 privileged helper the role uses to install them (skipped with a report if the machine
 is not authorized). It never removes profiles, catalogs, login state, quarantine, the
@@ -69,7 +69,7 @@ left for a deliberate, privileged removal.
 live extension state in memory — the preference store is never copied or written — and
 classifies browser components apart from user extensions. Output is counts only: no
 extension identifiers, names or URLs. The detailed candidate list lands in a local
-mode-0600 report under `~/.local/state/macbook-pro/browser-policy/`, outside the
+mode-0600 report under `~/.local/state/dotforge/browser-policy/`, outside the
 repository, for one explicit migration review.
 
 Catalogs manage presence only. `enforcement` stays `report_only`, so unlisted extensions
@@ -171,7 +171,7 @@ re-derive a different one from `sys.executable`.
 `scripts/browser-git-automation.py` owns the Git side. `--check` audits the contract with
 no network and no clone; `--run` publishes, and refuses to do anything live unless the
 activated service passes `BROWSER_AUTOMATION_AUTHORIZED=1`. Every run works in
-`~/.local/state/macbook-pro/browser-automation/repo`, never this checkout, and stops on a
+`~/.local/state/dotforge/browser-automation/repo`, never this checkout, and stops on a
 plaintext bookmark catalog, dirty or diverged clone, non-fast-forward, push conflict, a
 changed path outside the five bookmark catalogs, more than one open automation pull
 request, or a force push. Additions stack on one `automation/browser-catalog` pull request

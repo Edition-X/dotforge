@@ -24,7 +24,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 
 CATALOG_ROOT = REPO / "host_files" / "localhost" / "browsers"
 MANIFEST_PATH = CATALOG_ROOT / "manifest.yml"
-STATE_ROOT = Path.home() / ".local" / "state" / "macbook-pro"
+STATE_ROOT = Path.home() / ".local" / "state" / "dotforge"
 POLICY_STATE = STATE_ROOT / "browser-policy"
 
 APPLICATION_SUPPORT = Path.home() / "Library" / "Application Support"

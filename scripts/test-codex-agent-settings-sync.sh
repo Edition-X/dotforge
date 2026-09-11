@@ -55,7 +55,7 @@ max_concurrent_threads_per_session = 1
 default_subagent_model = "stale-model"
 default_subagent_reasoning_effort = "low"
 
-[projects."/Users/dkelly/Projects/macbook-pro"]
+[projects."/Users/dkelly/Projects/dotforge"]
 trust_level = "trusted"
 
 [plugins."documents@openai-primary-runtime"]
@@ -105,7 +105,7 @@ assert agents["default_subagent_reasoning_effort"] == "medium", agents["default_
 assert agents["some_future_flag"] is True
 assert doc["personality"] == "pragmatic"
 assert doc["mcp_servers"]["playwright"]["command"] == "npx"
-assert doc["projects"]["/Users/dkelly/Projects/macbook-pro"]["trust_level"] == "trusted"
+assert doc["projects"]["/Users/dkelly/Projects/dotforge"]["trust_level"] == "trusted"
 assert doc["plugins"]["documents@openai-primary-runtime"]["enabled"] is True
 print("managed keys changed, unrelated slices preserved")
 PY

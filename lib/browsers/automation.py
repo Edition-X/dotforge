@@ -17,13 +17,13 @@ from pathlib import Path
 
 from browsers import BROWSERS, REPO, vault
 
-REPO_SLUG = "Edition-X/macbook-pro"
+REPO_SLUG = "Edition-X/dotforge"
 AUTOMATION_BRANCH = "automation/browser-catalog"
 COMMIT_MESSAGE = "chore(browsers): capture bookmark additions"
 MERGE_METHOD = "--merge"
 STAGE_ALLOWLIST = tuple(f"host_files/localhost/browsers/{name}/bookmarks.yml" for name in BROWSERS)
 VALIDATOR_ALLOWLIST = ("scripts/validate-browser-catalog.py",)
-STATE_RELATIVE = Path("macbook-pro") / "browser-automation"
+STATE_RELATIVE = Path("dotforge") / "browser-automation"
 
 
 class AutomationStop(RuntimeError):

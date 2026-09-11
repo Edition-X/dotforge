@@ -3,7 +3,7 @@
 **Status:** ready to execute
 **Written:** 2026-09-06
 **Audience:** an AI coding agent (Claude Sonnet) working one ticket at a time, reviewed by a stronger model
-**Repo:** `~/Projects/macbook-pro` (all tickets). Reads `~/Projects/Grafana_local_mcp` in M4 only.
+**Repo:** `~/Projects/dotforge` (all tickets). Reads `~/Projects/Grafana_local_mcp` in M4 only.
 **Companion:** `docs/playbooks/arcane-harness-hardening.md` established the conventions reused here (A3 `claude mcp` pattern, A5 settings merge pattern, A7/A8 drift checker).
 
 ---
@@ -23,7 +23,7 @@ One long-running Docker MCP Toolkit gateway on this Mac serves the Sunrise Robot
 4b. **No secret ever enters git, plaintext or history.** The only place a secret value may be written inside the repo is `host_vars/localhost/vault.yml`, and only through `ansible-vault edit`. Before every commit run the Secret hygiene checklist below. Never `git add -A` or `git add .`; add named files. If a secret was ever staged or committed, STOP and report; do not try to rewrite history yourself.
 5. **Run every verification step before committing.** If one fails, stop and report the exact command and output. Do not switch to a different approach.
 6. **Conventional Commits with scope**, matching this repo: `feat(mcp):`, `fix(mcp):`, `chore(mcp):`, `docs(mcp):`.
-7. **After each commit, save one Arcane memory** with `/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code ...`. Describe what you actually did.
+7. **After each commit, save one Arcane memory** with `/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code ...`. Describe what you actually did.
 8. **Stop conditions are real stops.** Where a ticket says STOP, end your turn with the report. Do not improvise around it.
 9. **`docs/` is untracked in this repo and stays that way.** Never `git add docs/`.
 10. **Secret gate protocol.** When a ticket reaches a step that needs a secret or API key that is not yet in the vault, STOP and end your turn with a message to Dan in exactly this shape:
@@ -54,7 +54,7 @@ One long-running Docker MCP Toolkit gateway on this Mac serves the Sunrise Robot
 ### Secret hygiene checklist (run before every commit)
 
 ```bash
-cd ~/Projects/macbook-pro
+cd ~/Projects/dotforge
 git status --short                                   # only the files you meant to change
 head -c 14 host_vars/localhost/vault.yml              # must print $ANSIBLE_VAULT
 git diff --cached | grep -nE 'ntn_[A-Za-z0-9]|glsa_[A-Za-z0-9]|lin_api_[A-Za-z0-9]|[0-9a-f]{64}|Bearer [A-Za-z0-9]' && echo "SECRET-LIKE STRING STAGED, STOP" || echo "staged diff clean"
@@ -81,7 +81,7 @@ Jinja placeholders such as `Bearer {{ mcp_gateway_sunrise_token }}` are fine; th
 All are Sunrise Robotics work credentials. Sonnet does not create any of them. When a ticket reaches a gate and the vault key is missing, Sonnet STOPs and repeats the relevant block to Dan (rule 10). Values go into the vault only:
 
 ```bash
-cd ~/Projects/macbook-pro && source venv/bin/activate && unset ANSIBLE_VAULT_PASSWORD_FILE
+cd ~/Projects/dotforge && source venv/bin/activate && unset ANSIBLE_VAULT_PASSWORD_FILE
 ansible-vault edit host_vars/localhost/vault.yml
 ```
 
@@ -130,7 +130,7 @@ All experiments happen in a scratch profile named `spike` and a scratch secret n
 
 5. **Linear token proof, the gate.** Replace the scratch Linear secret with Dan's REAL key for this one test, without printing it:
    ```bash
-   cd ~/Projects/macbook-pro && source venv/bin/activate && unset ANSIBLE_VAULT_PASSWORD_FILE
+   cd ~/Projects/dotforge && source venv/bin/activate && unset ANSIBLE_VAULT_PASSWORD_FILE
    ansible-vault view host_vars/localhost/vault.yml | awk -F': ' '/^linear_api_key:/{gsub(/"/,"",$2); print $2}' | docker mcp secret set linear.personal_access_token
    ```
    Start the gateway again (real token in place, throwaway gateway token is fine), and through an MCP session call one read-only Linear tool. The response must show the `sunrise-robotics-corporation` workspace or a Sunrise team; a different workspace means the vault holds the wrong key: STOP (rule 10, `linear_api_key` row). Call (whatever `tools/list` shows as the viewer or "me" style tool, or a list-teams tool). Record: did it return real data without any browser or OAuth prompt? Check `docker mcp oauth ls`: `linear` must NOT be listed as requiring authorization for the call to have worked via token.

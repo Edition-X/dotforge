@@ -18,7 +18,7 @@ Ask: **is the change in the arcane repo's code, or in what this Mac runs?**
   `~/Projects/arcane`, ends in a PR. You never push to `main` there or merge your
   own PR.
 - Deploy (this Mac is running an old version, bump the pin) → §3, work happens in
-  this repo (`macbook-pro`), ends in `make packages`.
+  this repo (`dotforge`), ends in `make packages`.
 
 Don't mix them: a code change never edits the `Brewfile` pin itself (no tag exists
 for unreleased code), and a deploy never edits arcane's source.

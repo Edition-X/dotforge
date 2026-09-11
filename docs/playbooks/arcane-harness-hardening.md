@@ -3,7 +3,7 @@
 **Status:** ready to execute
 **Written:** 2026-09-05, from a usage audit of Arcane across Claude Code, Codex, OpenCode, T3 Code and Forge
 **Audience:** an AI coding agent (Claude Sonnet, medium reasoning) working one ticket at a time
-**Repos touched:** `~/Projects/macbook-pro` (this repo) and `~/Projects/arcane`
+**Repos touched:** `~/Projects/dotforge` (this repo) and `~/Projects/arcane`
 
 ---
 
@@ -43,7 +43,7 @@ Arcane is Dan's engineering-memory MCP server. It holds 1,497 memories across 74
 Create these once, before ticket A1 and B1 respectively. They already exist if `git branch --list 'integration/*'` prints them.
 
 ```bash
-cd ~/Projects/macbook-pro && git checkout main && git pull --ff-only && git checkout -b integration/arcane-harness-hardening
+cd ~/Projects/dotforge && git checkout main && git pull --ff-only && git checkout -b integration/arcane-harness-hardening
 cd ~/Projects/arcane      && git checkout main && git pull --ff-only && git checkout -b integration/arcane-harness-hardening
 ```
 
@@ -64,14 +64,14 @@ All ticket branches are cut from, and merge back into, `integration/arcane-harne
 
 | Order | Ticket | Repo | Branch |
 |---|---|---|---|
-| 1 | A1 Remove echovault | macbook-pro | `chore/remove-echovault` |
-| 2 | A2 Wire the `claude-work` profile | macbook-pro | `feat/claude-work-harness` |
-| 3 | A3 Manage Claude MCP registration | macbook-pro | `feat/claude-mcp-registration` |
-| 4 | A4 One Arcane path everywhere, pin the install | macbook-pro | `fix/arcane-install-path` |
-| 5 | A5 SessionStart hook for Claude | macbook-pro | `feat/claude-session-start-hook` |
-| 6 | A6 Tighten AGENTS.md rules | macbook-pro | `docs/agents-memory-rules` |
-| 7 | A7 Drift checker covers MCP config | macbook-pro | `fix/drift-check-mcp` |
-| 7b | A8 Test isolation and drift gaps from verification | macbook-pro | `fix/claude-mcp-test-isolation` |
+| 1 | A1 Remove echovault | dotforge | `chore/remove-echovault` |
+| 2 | A2 Wire the `claude-work` profile | dotforge | `feat/claude-work-harness` |
+| 3 | A3 Manage Claude MCP registration | dotforge | `feat/claude-mcp-registration` |
+| 4 | A4 One Arcane path everywhere, pin the install | dotforge | `fix/arcane-install-path` |
+| 5 | A5 SessionStart hook for Claude | dotforge | `feat/claude-session-start-hook` |
+| 6 | A6 Tighten AGENTS.md rules | dotforge | `docs/agents-memory-rules` |
+| 7 | A7 Drift checker covers MCP config | dotforge | `fix/drift-check-mcp` |
+| 7b | A8 Test isolation and drift gaps from verification | dotforge | `fix/claude-mcp-test-isolation` |
 | 7c | A9 Auto-bump Brewfile pin on Arcane release | both | `feat/arcane-release-dispatch`, `feat/auto-bump-arcane` |
 | 8 | B1 Park the OpenCode analytics spike | arcane | `spike/opencode-model-routing` |
 | 9 | B2 Collapse worktree project variants | arcane | `fix/collapse-worktree-projects` |
@@ -83,12 +83,12 @@ All ticket branches are cut from, and merge back into, `integration/arcane-harne
 
 ---
 
-## Phase A: macbook-pro repo
+## Phase A: dotforge repo
 
 Before every Phase A ticket:
 
 ```bash
-cd ~/Projects/macbook-pro
+cd ~/Projects/dotforge
 git checkout integration/arcane-harness-hardening
 git status --short        # expect only "?? docs/"
 git checkout -b <branch-from-table>
@@ -205,7 +205,7 @@ so skill symlinks whose repo source disappears are removed on apply.
 
 **Arcane memory:**
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code --category decision \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code --category decision \
   --title "Removed echovault skill and tool" \
   --what "Deleted host_files/localhost/ai/skills/echovault, the Brewfile uv entry, and the installed uv tool. Added an Ansible task that removes dangling skill symlinks." \
   --why "echovault was a predecessor of Arcane; its skill loaded in every harness with instructions that conflicted with AGENTS.md, and its uv tool competed for the memory entrypoint." \
@@ -246,7 +246,7 @@ so skill symlinks whose repo source disappears are removed on apply.
    ```bash
    make check RUN_ARGS='--tags ai'    # expect new symlink for ~/.claude-work/CLAUDE.md and ~21 skill links
    make ai
-   readlink ~/.claude-work/CLAUDE.md  # expect /Users/dkelly/Projects/macbook-pro/host_files/localhost/ai/AGENTS.md
+   readlink ~/.claude-work/CLAUDE.md  # expect /Users/dkelly/Projects/dotforge/host_files/localhost/ai/AGENTS.md
    ls ~/.claude-work/skills | wc -l   # expect the same count as: ls ~/.claude/skills | wc -l
    diff <(ls ~/.claude/skills) <(ls ~/.claude-work/skills)   # expect no output
    make ai                            # second run: ai_agents changed=0
@@ -271,7 +271,7 @@ instructions. Adds it as a sixth harness, ensures harness directories
 exist before linking, and teaches the drift checker about it.
 ```
 
-**Arcane memory:** category `bug`, project `macbook-pro`, title `claude-work profile had no instructions`. In `--what` state that `~/.claude-work` lacked `CLAUDE.md` and skills since the profile split on 2026-09-04, and that it is now a member of `ai_harnesses`. In `--why` state the root cause: `t3.yml` created the directory but the profile was never added to the harness list. Add `--details "Recognise it by: claude-work sessions never call memory_context and have no /skills. Check: readlink ~/.claude-work/CLAUDE.md."`
+**Arcane memory:** category `bug`, project `dotforge`, title `claude-work profile had no instructions`. In `--what` state that `~/.claude-work` lacked `CLAUDE.md` and skills since the profile split on 2026-09-04, and that it is now a member of `ai_harnesses`. In `--why` state the root cause: `t3.yml` created the directory but the profile was never added to the harness list. Add `--details "Recognise it by: claude-work sessions never call memory_context and have no /skills. Check: readlink ~/.claude-work/CLAUDE.md."`
 
 ---
 
@@ -389,7 +389,7 @@ and reconciles both profiles through the claude CLI, using the absolute
 installed binary.
 ```
 
-**Arcane memory:** category `decision`, project `macbook-pro`, title `Claude MCP registration managed via claude CLI`. `--details` must record the alternative considered (templating `.claude.json`) and why it was rejected (file is app-owned and holds auth state).
+**Arcane memory:** category `decision`, project `dotforge`, title `Claude MCP registration managed via claude CLI`. `--details` must record the alternative considered (templating `.claude.json`) and why it was rejected (file is app-owned and holds auth state).
 
 ---
 
@@ -458,7 +458,7 @@ entry used the pre-rename package name and an unpinned local source.
 Both now point at arcane-mcp v0.2.0-beta.18 via ~/.local/bin/arcane.
 ```
 
-**Arcane memory:** category `decision`, project `macbook-pro`, title `Single arcane binary path across harnesses`. State the path, the pinned tag, and that the pin must be bumped after each Arcane release.
+**Arcane memory:** category `decision`, project `dotforge`, title `Single arcane binary path across harnesses`. State the path, the pinned tag, and that the pin must be bumped after each Arcane release.
 
 ---
 
@@ -594,7 +594,7 @@ profiles, so recall no longer depends on the model choosing to call it.
 Hooks are merged into settings.json; all other keys are preserved.
 ```
 
-**Arcane memory:** category `decision`, project `macbook-pro`, title `SessionStart hook injects Arcane context`. Note in `--details` that the managed list replaces `hooks.SessionStart` wholesale, so any hand-added SessionStart hook must move into `ai_claude_hooks`.
+**Arcane memory:** category `decision`, project `dotforge`, title `SessionStart hook injects Arcane context`. Note in `--details` that the managed list replaces `hooks.SessionStart` wholesale, so any hand-added SessionStart hook must move into `ai_claude_hooks`.
 
 ---
 
@@ -657,7 +657,7 @@ produced commit-level milestones that duplicate git history. Arcane
 resolves project from the git remote; instructions now say to omit it.
 ```
 
-**Arcane memory:** category `decision`, project `macbook-pro`, title `AGENTS.md: omit project, milestone means shipped`. In `--details` cite the numbers: six worktree-variant projects holding 38 memories, 266 milestones before the rule.
+**Arcane memory:** category `decision`, project `dotforge`, title `AGENTS.md: omit project, milestone means shipped`. In `--details` cite the numbers: six worktree-variant projects holding 38 memories, 266 milestones before the rule.
 
 ---
 
@@ -735,7 +735,7 @@ or mis-pathed arcane MCP registration in any harness went unnoticed.
 Also adds the linear and plan commands to both stale command lists.
 ```
 
-**Arcane memory:** category `pattern`, project `macbook-pro`, title `Drift checker must cover MCP config, not just symlinks`.
+**Arcane memory:** category `pattern`, project `dotforge`, title `Drift checker must cover MCP config, not just symlinks`.
 
 ---
 
@@ -878,37 +878,37 @@ The drift checker now reports instruction files and Forge .mcp.json
 that are missing outright, not only ones with wrong content.
 ```
 
-**Arcane memory:** category `bug`, project `macbook-pro`, title `Idempotency test rewrote real ~/.claude.json`. `--details` must state how to recognise it (`claude mcp get arcane` shows a `/var/folders/.../ai-agents.*` path and `Failed to connect`) and the fix (`make ai`).
+**Arcane memory:** category `bug`, project `dotforge`, title `Idempotency test rewrote real ~/.claude.json`. `--details` must state how to recognise it (`claude mcp get arcane` shows a `/var/folders/.../ai-agents.*` path and `Failed to connect`) and the fix (`make ai`).
 
 ---
 
 ### A9. Auto-bump the Brewfile pin when Arcane releases
 
-**Branches:** `feat/arcane-release-dispatch` in arcane, `feat/auto-bump-arcane` in macbook-pro
-**Why:** Every merge to arcane `main` cuts a tag. The Brewfile pin in macbook-pro then lags until someone edits it. Dan wants this fully automatic with no manual PR. The install on the Mac itself stays manual (`git pull && make packages`); CI cannot run brew here.
+**Branches:** `feat/arcane-release-dispatch` in arcane, `feat/auto-bump-arcane` in dotforge
+**Why:** Every merge to arcane `main` cuts a tag. The Brewfile pin in dotforge then lags until someone edits it. Dan wants this fully automatic with no manual PR. The install on the Mac itself stays manual (`git pull && make packages`); CI cannot run brew here.
 
-**Design:** arcane's release workflow sends a `repository_dispatch` event to macbook-pro after the GitHub release exists. A new macbook-pro workflow receives it, verifies the tag is real, rewrites one Brewfile line, runs the repo's pre-commit hooks on that file, and commits straight to `main` as `github-actions[bot]` using the workflow's own `GITHUB_TOKEN`. Only the dispatch needs a cross-repo secret: a fine-grained PAT scoped to macbook-pro with Contents read/write, stored as the Actions secret `MACBOOK_PRO_DISPATCH_TOKEN` in the **arcane** repo. Not Ansible vault: CI cannot read vault, and the Mac never needs this token. The dispatch step is skipped, not failed, when the secret is absent so releases keep working before the secret exists.
+**Design:** arcane's release workflow sends a `repository_dispatch` event to dotforge after the GitHub release exists. A new dotforge workflow receives it, verifies the tag is real, rewrites one Brewfile line, runs the repo's pre-commit hooks on that file, and commits straight to `main` as `github-actions[bot]` using the workflow's own `GITHUB_TOKEN`. Only the dispatch needs a cross-repo secret: a fine-grained PAT scoped to dotforge with Contents read/write, stored as the Actions secret `MACBOOK_PRO_DISPATCH_TOKEN` in the **arcane** repo. Not Ansible vault: CI cannot read vault, and the Mac never needs this token. The dispatch step is skipped, not failed, when the secret is absent so releases keep working before the secret exists.
 
 **Part 1, arcane repo (`.github/workflows/release.yml`):**
 
 Append after the "Create GitHub release" step:
 ```yaml
-      - name: Notify macbook-pro to bump the Brewfile pin
+      - name: Notify dotforge to bump the Brewfile pin
         if: steps.version.outputs.skip != 'true' && env.DISPATCH_TOKEN != ''
         env:
           DISPATCH_TOKEN: ${{ secrets.MACBOOK_PRO_DISPATCH_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          # Fine-grained PAT scoped to Edition-X/macbook-pro, Contents: read/write.
+          # Fine-grained PAT scoped to Edition-X/dotforge, Contents: read/write.
           # Skipped (not failed) when the secret is missing so releases never block on it.
-          gh api --method POST repos/Edition-X/macbook-pro/dispatches \
+          gh api --method POST repos/Edition-X/dotforge/dispatches \
             -H "Authorization: Bearer ${DISPATCH_TOKEN}" \
             -f event_type=arcane-released \
             -f "client_payload[tag]=${TAG}"
 ```
 Note `gh api` normally uses `GH_TOKEN`; the explicit `Authorization` header overrides it. If `gh` refuses because no `GH_TOKEN` is set, set `GH_TOKEN: ${{ secrets.MACBOOK_PRO_DISPATCH_TOKEN }}` instead of the header and drop the `-H`. Do not print the token. Validate with `actionlint` if available (`brew install actionlint`), else `python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/release.yml'))"`.
 
-**Part 2, macbook-pro repo, new file `.github/workflows/bump-arcane.yml`:**
+**Part 2, dotforge repo, new file `.github/workflows/bump-arcane.yml`:**
 ```yaml
 name: Bump arcane pin
 
@@ -983,11 +983,11 @@ The `sed` must match the exact Brewfile line from A4. Test the regex locally fir
 
 Also add to `scripts/check-agent-config-drift.sh`, in the MCP section: if `brew` exists, `brew bundle check --file="${repo_root}/Brewfile" --no-upgrade 2>&1 | grep -qi arcane && drift+=("arcane-mcp: installed version does not match the Brewfile pin; run make packages")`. Read `brew bundle check` output format first to get the match right.
 
-Validate with `actionlint` and `make lint`. Then test the macbook-pro workflow **manually** once it is on `main`: `gh workflow run bump-arcane.yml -f tag=v0.2.0-beta.18` (current pin, so it must exit with `changed=false` and no commit), then `gh run watch`.
+Validate with `actionlint` and `make lint`. Then test the dotforge workflow **manually** once it is on `main`: `gh workflow run bump-arcane.yml -f tag=v0.2.0-beta.18` (current pin, so it must exit with `changed=false` and no commit), then `gh run watch`.
 
-**Commits:** arcane `ci(release): dispatch a Brewfile bump to macbook-pro after tagging`; macbook-pro `ci: auto-bump arcane-mcp Brewfile pin on release dispatch`.
+**Commits:** arcane `ci(release): dispatch a Brewfile bump to dotforge after tagging`; dotforge `ci: auto-bump arcane-mcp Brewfile pin on release dispatch`.
 
-**Arcane memory:** category `decision`, project `macbook-pro`, title `Arcane release auto-bumps Brewfile via repository_dispatch`, details covering why direct commit not PR, why PAT lives in arcane Actions secrets not vault, and the renewal date of the PAT.
+**Arcane memory:** category `decision`, project `dotforge`, title `Arcane release auto-bumps Brewfile via repository_dispatch`, details covering why direct commit not PR, why PAT lives in arcane Actions secrets not vault, and the renewal date of the PAT.
 
 ---
 
@@ -1071,7 +1071,7 @@ ruff check src tests && ruff format --check src tests
   --why "Off-mission for a memory server: OpenCode-only cost analytics with a hand-maintained price table and an escalation heuristic already judged dead signal." \
   --impact "main has 16 fewer modified files and no dirty tree. Work is recoverable from the branch if the idea returns." \
   --tags "spike,opencode,model-routing,cleanup" \
-  --details "Options: merge as-is, finish the two open wayfinder tickets first, delete outright, park on branch. Chose park: zero maintenance cost, nothing lost. Forge previously ran this code live via the dev venv path; A4 in the macbook-pro playbook moves Forge to the installed binary."
+  --details "Options: merge as-is, finish the two open wayfinder tickets first, delete outright, park on branch. Chose park: zero maintenance cost, nothing lost. Forge previously ran this code live via the dev venv path; A4 in the dotforge playbook moves Forge to the installed binary."
 ```
 
 ---
@@ -1401,7 +1401,7 @@ No branch. This operates on `~/.arcane/index.db`. Take a backup first. Do the re
    ```
    Expected: the "fragmented project" finding is gone. Duplicate-title and empty-project findings remain; handle next.
 
-4. The seven memories with an empty project are mixed (personal, macbook-pro, sunrise-robot-sw). `merge-projects '' <dest>` would move all seven to one project, which is wrong for some. List them for Dan and let him assign:
+4. The seven memories with an empty project are mixed (personal, dotforge, sunrise-robot-sw). `merge-projects '' <dest>` would move all seven to one project, which is wrong for some. List them for Dan and let him assign:
    ```bash
    sqlite3 -header -column ~/.arcane/index.db "SELECT id, substr(created_at,1,10) d, title FROM memories WHERE project='';"
    ```

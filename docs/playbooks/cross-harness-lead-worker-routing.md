@@ -3,7 +3,7 @@
 **Status:** ready to execute
 **Written:** 2026-09-06, from OpenCode usage analysis and a successful T3 Code execution trace
 **Audience:** a Sol lead at medium reasoning, delegating every implementation ticket to a Luna worker at medium reasoning
-**Repo:** `~/Projects/macbook-pro`
+**Repo:** `~/Projects/dotforge`
 
 ---
 
@@ -109,10 +109,10 @@ Use this assignment shape:
 
 ```text
 Execute only ticket Rn from
-/Users/dkelly/Projects/macbook-pro/docs/playbooks/cross-harness-lead-worker-routing.md.
+/Users/dkelly/Projects/dotforge/docs/playbooks/cross-harness-lead-worker-routing.md.
 
 Model: gpt-5.6-luna. Reasoning: medium.
-Read ticket and shared Rules fully. Work in /Users/dkelly/Projects/macbook-pro.
+Read ticket and shared Rules fully. Work in /Users/dkelly/Projects/dotforge.
 Start from integration/cross-harness-lead-worker-routing and create exact ticket branch.
 Do not edit files outside ticket scope. Preserve "?? docs/" and all unrelated changes.
 Never use rm or git add -A. Never push.
@@ -130,7 +130,7 @@ Include full output only for failures.
 Lead review after every worker:
 
 ```bash
-cd /Users/dkelly/Projects/macbook-pro
+cd /Users/dkelly/Projects/dotforge
 git status --short
 git log --oneline -1 <ticket-branch>
 git diff --check integration/cross-harness-lead-worker-routing...<ticket-branch>
@@ -181,7 +181,7 @@ Official format references:
 Create once:
 
 ```bash
-cd /Users/dkelly/Projects/macbook-pro
+cd /Users/dkelly/Projects/dotforge
 git checkout main
 git pull --ff-only
 git status --short
@@ -304,7 +304,7 @@ Add one short row/paragraph to `AGENTS.md` routing approved playbook execution t
 **Verify:**
 
 ```bash
-cd /Users/dkelly/Projects/macbook-pro
+cd /Users/dkelly/Projects/dotforge
 source venv/bin/activate
 python - <<'PY'
 from pathlib import Path
@@ -346,7 +346,7 @@ Live read-only skill trigger:
 
 ```bash
 timeout 240 codex exec --ephemeral \
-  -C /Users/dkelly/Projects/macbook-pro \
+  -C /Users/dkelly/Projects/dotforge \
   -m gpt-5.6-sol \
   -c 'model_reasoning_effort="medium"' \
   'Read-only question. An approved playbook has two implementation tickets. Explain which role owns planning, implementation, review, correction, rescue, and final verification under current global instructions. Do not edit or run tests.'
@@ -365,7 +365,7 @@ feat(ai): add provider-neutral lead-worker routing policy
 **Arcane memory:**
 
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code \
   --category decision \
   --title "Adopt lead-worker routing across AI harnesses" \
   --what "Added provider-neutral model tiers, role prompts, and execute-playbook procedure: Sol/Fable medium lead, Luna/Sonnet medium workers, one correction, fresh verifier, direct strong rescue." \
@@ -442,7 +442,7 @@ Expected reply contains exactly `COMPLETE`, `CORRECTION_REQUIRED`, `HANDOFF_REQU
 **Arcane memory:**
 
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code \
   --category pattern \
   --title "Validate agent routing before harness rendering" \
   --what "Added source validator and Ansible assertions for provider tiers, roles, prompts, escalation limits and the execute-playbook contract." \
@@ -592,7 +592,7 @@ done
 canary="routing-r3-worker-$(date +%s)"
 timeout 300 opencode run \
   --agent orchestrator \
-  --dir /Users/dkelly/Projects/macbook-pro \
+  --dir /Users/dkelly/Projects/dotforge \
   --format json \
   --title "$canary" \
   'Read-only routing canary. Delegate exactly one bounded task to worker: report first Markdown heading in README.md and git status exit code. Do not inspect README yourself. Worker must not edit, commit, merge, push, deploy, or delegate. Return worker evidence, then accept or reject it.'
@@ -621,7 +621,7 @@ Expected one child row `worker | gpt-5.6-luna | medium` and no diff.
 canary="routing-r3-verifier-$(date +%s)"
 timeout 300 opencode run \
   --agent orchestrator \
-  --dir /Users/dkelly/Projects/macbook-pro \
+  --dir /Users/dkelly/Projects/dotforge \
   --format json \
   --title "$canary" \
   'Read-only routing canary. Delegate exactly one task to verifier: run make validate-agent-routing and report command, exit code, and result. Do not run it yourself. Verifier must not edit or delegate. Inspect its evidence and return final acceptance.'
@@ -634,7 +634,7 @@ Query database as above. Expected `verifier | gpt-5.6-luna | medium`. Git diff u
 **Arcane memory:**
 
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code \
   --category decision \
   --title "OpenCode uses Sol lead and Luna whole-ticket workers" \
   --what "Replaced normal nine-agent specialist chain with orchestrator, worker, verifier and rescue; retained documentation only as a Linear permission boundary." \
@@ -755,7 +755,7 @@ Run `make ai` again. Expected `changed=0`.
 **Arcane memory:**
 
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code \
   --category decision \
   --title "Claude profiles use Fable lead and Sonnet workers" \
   --what "Rendered worker, verifier, rescue and documentation agents into personal and work Claude profiles from shared routing policy." \
@@ -859,7 +859,7 @@ Live delegation:
 ```bash
 codex_out=$(mktemp "${TMPDIR:-/tmp}/codex-routing.XXXXXX")
 timeout 300 codex exec --ephemeral --json \
-  -C /Users/dkelly/Projects/macbook-pro \
+  -C /Users/dkelly/Projects/dotforge \
   -m gpt-5.6-sol \
   -c 'model_reasoning_effort="medium"' \
   'Read-only routing canary. Delegate exactly one task to custom worker: return first Markdown heading in README.md and git status exit code. Worker must not edit or delegate. Review its evidence, then finish.' \
@@ -884,7 +884,7 @@ Run `make ai` again; expect `changed=0`.
 **Arcane memory:**
 
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code \
   --category decision \
   --title "Codex defaults to Sol lead and Luna workers" \
   --what "Added native Codex worker/verifier/rescue agents and surgically managed only model and agents defaults in app-owned config.toml." \
@@ -960,7 +960,7 @@ Live Forge reduced-mode call:
 
 ```bash
 timeout 240 forge \
-  -C /Users/dkelly/Projects/macbook-pro \
+  -C /Users/dkelly/Projects/dotforge \
   --agent forge \
   -p 'Read-only. An approved playbook is ready. Explain current global execute-playbook workflow and state honestly whether this Forge version can create a Luna custom worker. Do not edit or run tests.'
 git diff --exit-code
@@ -986,7 +986,7 @@ T3 evidence:
 **Arcane memory:**
 
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code \
   --category context \
   --title "T3 inherits routing while Forge uses reduced mode" \
   --what "Documented and validated T3 inheritance from claude-work and Codex, plus Forge shared-skill-only support." \
@@ -1057,7 +1057,7 @@ acceptance.
 **Arcane memory:**
 
 ```bash
-/Users/dkelly/.local/bin/arcane save --project macbook-pro --source claude-code \
+/Users/dkelly/.local/bin/arcane save --project dotforge --source claude-code \
   --category pattern \
   --title "Live canaries prove agent routing behavior" \
   --what "Added opt-in read-only canaries for OpenCode, Claude, Codex, T3 evidence and Forge reduced mode." \
@@ -1076,7 +1076,7 @@ lead reruns critical checks, inspects integration diff, and makes final acceptan
 ### 1. Repository and history
 
 ```bash
-cd /Users/dkelly/Projects/macbook-pro
+cd /Users/dkelly/Projects/dotforge
 git checkout integration/cross-harness-lead-worker-routing
 git status --short
 git log --oneline --decorate main..HEAD
@@ -1134,7 +1134,7 @@ Run direct rescue smoke tests once because normal canaries must not escalate:
 ```bash
 timeout 240 opencode run \
   --agent rescue \
-  --dir /Users/dkelly/Projects/macbook-pro \
+  --dir /Users/dkelly/Projects/dotforge \
   'Read-only rescue registration canary. Return your role, configured model tier, and first README heading. Do not edit.'
 
 timeout 240 claude-work \

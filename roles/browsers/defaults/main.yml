@@ -21,6 +21,9 @@ browsers_python_minimum: "3.12"
 #   dialog - always prompt (what the role did before it had a helper)
 browsers_escalation: auto
 browsers_escalation_timeout: 120
+# Root-owned and installed once by `make browsers-authorize` (asks for an
+# administrator password), so these two kept the repository's old name when it
+# became dotforge: renaming them means re-authorizing on every machine.
 browsers_privileged_helper: /usr/local/libexec/macbook-pro/install-managed-preference
 browsers_privileged_helper_stage: "{{ browsers_state_dir }}/install-managed-preference"
 browsers_sudoers_path: /etc/sudoers.d/macbook-pro-browsers
@@ -32,13 +35,13 @@ browsers_sudoers_user: "{{ osx_username }}"
 # pushed the cleanup role into hardcoding its own copy of these paths.
 browsers_capture_label: com.dkelly.browser-capture
 browsers_capture_interval: 900
-browsers_automation_root: "{{ user_dir }}/.local/state/macbook-pro/browser-automation"
+browsers_automation_root: "{{ user_dir }}/.local/state/dotforge/browser-automation"
 browsers_capture_run_script: "{{ browsers_automation_root }}/capture-run.sh"
 browsers_capture_log: "{{ user_dir }}/Library/Logs/browser-capture.log"
 browsers_capture_plist: "{{ user_dir }}/Library/LaunchAgents/{{ browsers_capture_label }}.plist"
 browsers_repo_dir: "{{ playbook_dir }}"
 
-browsers_state_dir: "{{ user_dir }}/.local/state/macbook-pro/browser-policy"
+browsers_state_dir: "{{ user_dir }}/.local/state/dotforge/browser-policy"
 browsers_chromium_policy_dir: "/Library/Managed Preferences/{{ osx_username }}"
 browsers_chromium_adapters: >-
   {{

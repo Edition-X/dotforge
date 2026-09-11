@@ -1,4 +1,4 @@
-# macbook-pro repository rules
+# dotforge repository rules
 
 ## Repository shape
 

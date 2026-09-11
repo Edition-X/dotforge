@@ -3,7 +3,7 @@
 # replaced required credential values to be quoted, knew only three key names,
 # and only looked at YAML — it reported a clean tree for a file containing
 # `password: hunter2`, a quoted AWS-shaped `api_key` and `vault_pass:`.
-title = "macbook-pro"
+title = "dotforge"
 
 [extend]
 useDefault = true
