@@ -4,6 +4,19 @@ This role owns declarative, browser-specific catalogs. B1 validates source only;
 not install policy or touch browser profiles. Chrome, Edge, Brave, Firefox and Vivaldi
 remain separate ownership roots. Missing records never mean delete, move or rename.
 
+## Bookmark catalogs are vault-encrypted
+
+Every `bookmarks.yml` is Ansible-Vault ciphertext in git. The repository is public; the
+URLs in those files are personal. Ansible reads them natively (`include_vars`), and the
+Python side goes through `lib/browsers/vault.py`, which takes the password from the file
+`ansible.cfg` names. The validator refuses a plaintext bookmark catalog, capture always
+writes ciphertext, and the publishing automation refuses to stage plaintext — that check
+replaced the old "repository must be private" gate. A hosted runner has no vault
+password by design, so under `CI` the validator reports encrypted catalogs as skipped
+rather than failed; everything else about them is still checked locally by `make ci`.
+
+Edit a catalog only through capture, or `ansible-vault edit host_files/localhost/browsers/<browser>/bookmarks.yml`.
+
 ## Bookmarks are recorded, never pushed
 
 The per-browser `bookmarks.yml` catalogs are a capture of what each profile holds — a
@@ -159,7 +172,7 @@ re-derive a different one from `sys.executable`.
 no network and no clone; `--run` publishes, and refuses to do anything live unless the
 activated service passes `BROWSER_AUTOMATION_AUTHORIZED=1`. Every run works in
 `~/.local/state/macbook-pro/browser-automation/repo`, never this checkout, and stops on a
-non-private repository, dirty or diverged clone, non-fast-forward, push conflict, a
+plaintext bookmark catalog, dirty or diverged clone, non-fast-forward, push conflict, a
 changed path outside the five bookmark catalogs, more than one open automation pull
 request, or a force push. Additions stack on one `automation/browser-catalog` pull request
 with auto-merge by merge commit; a merged branch restarts from `main`.

@@ -112,12 +112,24 @@ done
 
 # Only flags skills this repo owns. A harness holding extra skills installed by
 # other means is fine and is not drift.
+# A skill whose SKILL.md is vault-encrypted deploys as a decrypted copy, so for
+# those a real directory is correct and a link would be the drift.
 while IFS= read -r skill_path; do
     skill=$(basename "$skill_path")
+    encrypted=0
+    if [[ -f "$skill_path/SKILL.md" ]] && head -c 14 "$skill_path/SKILL.md" | grep -q '^[$]ANSIBLE_VAULT'; then
+        encrypted=1
+    fi
     for d in "${skills_dirs[@]}"; do
         deployed="${d}/${skill}"
         [[ -e "$deployed" ]] || continue
-        if [[ ! -L "$deployed" ]]; then
+        if [[ "$encrypted" -eq 1 ]]; then
+            if [[ -L "$deployed" ]]; then
+                drift+=("${deployed/#$HOME/\~} is a link, but the skill is vault-encrypted and must be a decrypted copy")
+            elif head -c 14 "$deployed/SKILL.md" 2>/dev/null | grep -q '^[$]ANSIBLE_VAULT'; then
+                drift+=("${deployed/#$HOME/\~}/SKILL.md is still ciphertext; re-run make ai")
+            fi
+        elif [[ ! -L "$deployed" ]]; then
             drift+=("${deployed/#$HOME/\~} is a real directory, not a link into this repo")
         fi
     done

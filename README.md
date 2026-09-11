@@ -103,7 +103,8 @@ make browsers   # Browser catalogs, policies and the capture service
 Bookmark additions are captured from bounded read-only snapshots into per-browser
 catalogs and published as a pull request. The catalogs are a record only — nothing is
 pushed back into a browser as managed bookmarks, so your bookmark bars stay exactly as
-you left them. Nothing runs until it is activated.
+you left them. They are vault-encrypted in the repository: the repository is public, the
+URLs are not. Nothing runs until it is activated.
 
 ```bash
 make validate-browser-catalog                              # schemas only
@@ -113,8 +114,8 @@ make browser-automation RUN_ARGS='--check --isolated-root "$HOME/.local/state"'
 ```
 
 The publishing side never uses this checkout. It works in a dedicated clone under
-`~/.local/state/macbook-pro/browser-automation`, rechecks that the GitHub repository is
-private on every run, refuses a dirty or diverged clone, stages only the five
+`~/.local/state/macbook-pro/browser-automation`, refuses to stage a bookmark catalog that
+is not vault-encrypted, refuses a dirty or diverged clone, stages only the five
 per-browser bookmark catalogs, and keeps exactly one pull request on
 `automation/browser-catalog` with auto-merge by merge commit. It never force pushes and
 never adopts extension or settings drift — that is reported, not applied.

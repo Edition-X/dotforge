@@ -32,6 +32,15 @@ T3 must be restarted after applying changes.
 Drop a directory under `skills/` and re-apply. The role discovers them with
 `find` rather than from a list, so there is no role edit.
 
+## Encrypted skills
+
+A skill that names an employer's customers, sites or hosts is vault-encrypted
+(`ansible-vault encrypt skills/<name>/SKILL.md`) and listed in
+`ai_encrypted_skills` in `group_vars/macbooks.yml`. Those deploy as a decrypted
+copy rather than a link, so edit them with `ansible-vault edit` and re-apply;
+`check-unencrypted-secrets.py` refuses a plaintext commit of them, and
+`check-skills.sh` lints their plaintext when the vault password is present.
+
 ## Vendored skills
 
 Some skills here are third-party, copied in rather than authored. Update them by

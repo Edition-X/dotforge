@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from browsers import REPO
+from browsers import REPO, vault
 from browsers import automation as automation_module
 from browsers import catalog as catalog_module
 from browsers import snapshot as snapshot_module
@@ -45,16 +45,12 @@ def git(root: Path, *arguments: str) -> str:
 class FakeHub:
     """Stand-in for `gh`; records calls instead of reaching GitHub."""
 
-    def __init__(self, private: bool = True, open_pulls: list[int] | None = None):
-        self.private = private
+    def __init__(self, open_pulls: list[int] | None = None):
         self.open_pulls = list(open_pulls or [])
         self.created = 0
         self.updated: list[int] = []
         self.auto_merged: list[tuple[int, str]] = []
         self.bodies: list[str] = []
-
-    def is_private(self) -> bool:
-        return self.private
 
     def pull_requests(self, branch: str) -> list[int]:
         return list(self.open_pulls)
@@ -102,9 +98,13 @@ def seed_source(root: Path) -> Path:
     for browser in AUTOMATION.BROWSERS:
         (catalogs / browser).mkdir(parents=True)
         for kind, document in catalog_documents(browser).items():
-            (catalogs / browser / f"{kind}.yml").write_text(
-                yaml.safe_dump(document, sort_keys=False, explicit_start=True), encoding="utf-8"
-            )
+            rendered = yaml.safe_dump(document, sort_keys=False, explicit_start=True)
+            # Bookmark catalogs are vault-encrypted in the real repository, and
+            # the validator refuses a plaintext one, so the fixture matches.
+            if kind == "bookmarks":
+                (catalogs / browser / f"{kind}.yml").write_bytes(vault.encrypt_text(rendered))
+            else:
+                (catalogs / browser / f"{kind}.yml").write_text(rendered, encoding="utf-8")
     for helper in ("validate-browser-catalog.py", "check-unencrypted-secrets.py"):
         (source / "scripts" / helper).write_text(
             (REPO / "scripts" / helper).read_text(encoding="utf-8"), encoding="utf-8"
@@ -140,9 +140,9 @@ def fresh_remote(root: Path, source: Path, name: str) -> Path:
     return remote
 
 
-def write_addition(clone: Path, url: str, browser: str = "chrome") -> None:
+def write_addition(clone: Path, url: str, browser: str = "chrome", encrypt: bool = True) -> None:
     path = clone / "host_files" / "localhost" / "browsers" / browser / "bookmarks.yml"
-    catalog = yaml.safe_load(path.read_text(encoding="utf-8"))
+    catalog = yaml.safe_load(vault.read_text(path))
     record = {
         "browser": browser,
         "title": "Fixture",
@@ -157,7 +157,11 @@ def write_addition(clone: Path, url: str, browser: str = "chrome") -> None:
     except VALIDATOR.CatalogError:
         pass
     catalog["bookmarks"].append(record)
-    path.write_text(yaml.safe_dump(catalog, sort_keys=False, explicit_start=True), encoding="utf-8")
+    rendered = yaml.safe_dump(catalog, sort_keys=False, explicit_start=True)
+    if encrypt:
+        path.write_bytes(vault.encrypt_text(rendered))
+    else:
+        path.write_text(rendered, encoding="utf-8")
 
 
 def configure_clone(clone: Path) -> None:
@@ -238,8 +242,14 @@ def case_no_additions(state: Path, remote: Path) -> None:
         raise RuntimeError("empty capture opened a pull request")
 
 
-def case_public(state: Path, remote: Path) -> None:
-    expect_stop("public repository", AUTOMATION.run, state, FakeHub(private=False), str(remote), configure_clone)
+def case_plaintext_catalog(state: Path, remote: Path) -> None:
+    """A catalog written in the clear must never be staged, whatever it holds."""
+
+    def capture(clone: Path) -> None:
+        configure_clone(clone)
+        write_addition(clone, "https://fixture.example.invalid/plain", encrypt=False)
+
+    expect_stop("plaintext catalog", AUTOMATION.run, state, FakeHub(), str(remote), capture)
 
 
 def case_dirty(state: Path, remote: Path) -> None:
@@ -373,7 +383,7 @@ def main() -> int:
     cases = 0
     try:
         source = seed_source(root)
-        for case in (case_happy, case_no_additions, case_public, case_unexpected_path, case_suspicious_url,
+        for case in (case_happy, case_no_additions, case_plaintext_catalog, case_unexpected_path, case_suspicious_url,
                      case_non_fast_forward, case_two_pull_requests, case_dirty,
                      case_secret_gate):
             state = Path(tempfile.mkdtemp(prefix="state-", dir=root))
