@@ -18,6 +18,10 @@ skills_dir="${repo_root}/host_files/localhost/ai/skills"
 # The one password location, read from ansible.cfg so the two never disagree.
 vault_password_file=$(sed -n 's/^vault_password_file[[:space:]]*=[[:space:]]*//p' "${repo_root}/ansible.cfg")
 vault_password_file="${vault_password_file/#\~/$HOME}"
+# One scratch directory for every decrypted skill, removed on exit — a trap set
+# per file would replace the previous handler and orphan the earlier plaintext.
+scratch=$(mktemp -d)
+trap 'rm -rf "${scratch}"' EXIT
 
 # Real PEM header, not any prose that merely mentions "PRIVATE KEY" (e.g. a
 # footer like "-----END OPENSSH PRIVATE KEY-----" quoted in a skill's prose).
@@ -52,8 +56,7 @@ for dir in "${skills_dir}"/*/; do
             echo "SKIP ${name}: vault-encrypted, no vault password here"
             continue
         fi
-        decrypted=$(mktemp)
-        trap 'rm -f "${decrypted}"' EXIT
+        decrypted="${scratch}/${name}.md"
         if ! ansible-vault view --vault-password-file "${vault_password_file}" "${file}" >"${decrypted}" 2>/dev/null; then
             echo "FAIL ${name}: vault-encrypted SKILL.md could not be decrypted"
             fail=1
