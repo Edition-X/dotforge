@@ -106,6 +106,23 @@ jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.cl
     printf 'Claude personal settings missing managed model/effortLevel\n' >&2
     exit 1
 }
+for managed_bin in oc-ticket claude-edit-guard; do
+    [[ -x "${test_home}/.local/bin/${managed_bin}" ]] || { printf 'managed executable missing or not executable: %s\n' "$managed_bin" >&2; exit 1; }
+done
+# The edit guard is a work-profile hook only: T3 launches claude-work, and the
+# personal profile stays a general-purpose CLI.
+jq -e '.hooks.PreToolUse[0].hooks[0].command | endswith("/claude-edit-guard")' "${test_home}/.claude-work/settings.json" >/dev/null || {
+    printf 'claude-work settings lack the claude-edit-guard PreToolUse hook\n' >&2
+    exit 1
+}
+jq -e '.hooks.SessionStart | length == 1' "${test_home}/.claude-work/settings.json" >/dev/null || {
+    printf 'claude-work settings lost the shared SessionStart hook\n' >&2
+    exit 1
+}
+jq -e '(.hooks.PreToolUse // []) | length == 0' "${test_home}/.claude/settings.json" >/dev/null || {
+    printf 'personal claude settings must not carry the edit guard hook\n' >&2
+    exit 1
+}
 jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.claude-work/settings.json" >/dev/null || {
     printf 'Claude work settings missing managed model/effortLevel\n' >&2
     exit 1

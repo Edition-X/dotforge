@@ -1,6 +1,8 @@
 ---
 # Merges managed hooks into each Claude profile's settings.json while
-# preserving every other key Dan has set by hand.
+# preserving every other key Dan has set by hand. A profile's own `hooks`
+# (ai_claude_profiles[].hooks) are added on top of the shared ai_claude_hooks,
+# so the work profile can carry the edit guard without the personal one.
 
 - name: Claude settings - Check settings file
   ansible.builtin.stat:
@@ -27,7 +29,7 @@
     ai_agents_claude_settings_desired: >-
       {{ ai_agents_claude_settings_desired | default({}) | combine({
            item.item.item.name: (
-             _existing | combine({'hooks': ai_claude_hooks}, recursive=True)
+             _existing | combine({'hooks': _hooks}, recursive=True)
                        | combine({'permissions': {'allow':
                            _existing_allow + (ai_claude_permission_allow | difference(_existing_allow))
                          }}, recursive=True)
@@ -45,6 +47,8 @@
     # so it reorders this list on every run and the settings task never
     # reaches "no changes" on a second apply.
     _existing_allow: "{{ (_existing.permissions | default({})).allow | default([]) }}"
+    # Shared hooks plus this profile's own (the work profile's edit guard).
+    _hooks: "{{ ai_claude_hooks | combine(item.item.item.hooks | default({})) }}"
   loop: "{{ ai_agents_claude_settings_raw.results }}"
   loop_control:
     label: "{{ item.item.item.name }}"

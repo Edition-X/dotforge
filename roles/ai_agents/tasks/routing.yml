@@ -132,3 +132,22 @@
       identical_failure_limit={{ ai_routing_workflow.identical_failure_limit }}
       max_parallel_workers={{ ai_routing_workflow.max_parallel_workers }}.
     success_msg: "routing escalation limits valid"
+
+# The one cross-harness bridge (Claude lead -> OpenCode builder). Its roles must
+# be delivery roles that exist, never the lead; scripts/validate-agent-routing.py
+# additionally checks the bridge executable and skill exist.
+- name: Routing - Require the Claude to OpenCode bridge
+  ansible.builtin.assert:
+    that:
+      - ai_routing_workflow.bridges | length == 1
+      - ai_routing_workflow.bridges[0]['from'] == 'claude'
+      - ai_routing_workflow.bridges[0].to == 'opencode'
+      - ai_routing_workflow.bridges[0].via == 'oc-ticket'
+      - ai_routing_workflow.bridges[0].roles | sort == ['rescue', 'verifier', 'worker']
+      - ai_routing_workflow.bridges[0].resume_for_correction | bool
+      - "'orchestrator' not in ai_routing_workflow.bridges[0].roles"
+    fail_msg: >-
+      workflow.yml bridges must be exactly one claude -> opencode bridge via
+      oc-ticket addressing worker, rescue and verifier with
+      resume_for_correction true. Found {{ ai_routing_workflow.bridges | default([]) }}.
+    success_msg: "routing bridge claude -> opencode valid"

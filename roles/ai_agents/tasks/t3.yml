@@ -19,15 +19,16 @@
   tags:
     - claude
 
-- name: Claude work - Managed executable
+- name: Claude work - Managed executables
   ansible.builtin.file:
-    src: "{{ host_files_dir }}/bin/claude-work"
-    dest: "{{ config_paths.claude_work_executable }}"
+    src: "{{ host_files_dir }}/bin/{{ item }}"
+    dest: "{{ config_paths.local_bin }}/{{ item }}"
     state: link
     follow: false
     force: true
     owner: "{{ ansible_user_id }}"
     group: "{{ ansible_user_gid }}"
+  loop: "{{ ai_managed_bin }}"
   tags:
     - claude
 

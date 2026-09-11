@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Claude Code PreToolUse hook: keep the T3/work profile a planner and reviewer.
+
+Installed only in the ``claude-work`` profile (the one T3 Code launches). It
+lets Claude write freely to plans, docs, scratch and this Mac's config repo,
+and gives every session a small budget of source files it may edit directly
+(a "quick task"). Past that budget the edit is denied with a message pointing
+at the ``build`` skill, which hands the ticket to an OpenCode worker instead.
+
+Dan can lift the guard for a repo when he asks Claude to do the work itself:
+
+    claude-edit-guard off      # from inside the repo; expires after 12 hours
+    claude-edit-guard on       # restore
+    claude-edit-guard status
+
+With no argument the script is the hook: it reads the PreToolUse JSON on
+stdin and answers with a permission decision on stdout. Any internal error
+fails open (allow, exit 0) so a hook bug can never wedge a session.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+GUARDED_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+# Distinct source files one session may edit directly before the guard trips.
+# Three files is the working definition of a "quick task"; anything wider is a
+# ticket for OpenCode.
+SOURCE_FILE_BUDGET = 3
+DIRECT_MODE_TTL_SECONDS = 12 * 60 * 60
+FREE_SUFFIXES = {".md", ".markdown", ".txt", ".rst", ".adoc"}
+FREE_SEGMENTS = {"docs", "doc", ".scratch", ".claude", ".claude-work", ".opencode", ".codex"}
+CONFIG_REPO = "Projects/dotforge"
+
+
+def state_dir() -> Path:
+    override = os.environ.get("CLAUDE_EDIT_GUARD_STATE")
+    if override:
+        return Path(override)
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR") or str(Path.home() / ".claude-work")
+    return Path(config_dir) / "edit-guard"
+
+
+def repo_root(cwd: str) -> str:
+    try:
+        out = subprocess.run(
+            ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return str(Path(cwd).resolve())
+
+
+def direct_marker(cwd: str) -> Path:
+    digest = hashlib.sha256(repo_root(cwd).encode()).hexdigest()[:16]
+    return state_dir() / "direct" / digest
+
+
+def direct_mode_active(cwd: str) -> bool:
+    marker = direct_marker(cwd)
+    if not marker.is_file():
+        return False
+    try:
+        started = float(marker.read_text().strip() or "0")
+    except ValueError:
+        started = 0.0
+    if time.time() - started > DIRECT_MODE_TTL_SECONDS:
+        marker.unlink(missing_ok=True)
+        return False
+    return True
+
+
+def is_free_path(path: Path, home: Path) -> bool:
+    if path.suffix.lower() in FREE_SUFFIXES:
+        return True
+    parts = set(path.parts)
+    if parts & FREE_SEGMENTS:
+        return True
+    text = str(path)
+    # Claude Code's own per-session scratchpad, never a project tree.
+    if text.startswith(("/private/tmp/claude-", "/tmp/claude-")):
+        return True
+    if text.startswith(str(home / CONFIG_REPO) + "/"):
+        return True
+    if text.startswith(str(home / ".claude")) or text.startswith(str(home / ".config")):
+        return True
+    return False
+
+
+def touched_files(session_id: str) -> tuple[Path, set[str]]:
+    ledger = state_dir() / "sessions" / f"{session_id}.json"
+    if ledger.is_file():
+        try:
+            return ledger, set(json.loads(ledger.read_text()))
+        except (ValueError, OSError):
+            pass
+    return ledger, set()
+
+
+def deny(reason: str) -> int:
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }))
+    return 0
+
+
+def hook() -> int:
+    try:
+        payload = json.load(sys.stdin)
+    except ValueError:
+        return 0
+    if payload.get("tool_name") not in GUARDED_TOOLS:
+        return 0
+    tool_input = payload.get("tool_input") or {}
+    raw = tool_input.get("file_path") or tool_input.get("notebook_path")
+    if not raw:
+        return 0
+    cwd = payload.get("cwd") or os.getcwd()
+    path = Path(raw)
+    if not path.is_absolute():
+        path = Path(cwd) / path
+    path = Path(os.path.normpath(path))
+    home = Path.home()
+
+    if is_free_path(path, home) or direct_mode_active(cwd):
+        return 0
+
+    session_id = str(payload.get("session_id") or "unknown")
+    ledger, files = touched_files(session_id)
+    key = str(path)
+    if key in files:
+        return 0
+    if len(files) < SOURCE_FILE_BUDGET:
+        files.add(key)
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        ledger.write_text(json.dumps(sorted(files)))
+        return 0
+
+    listed = ", ".join(Path(f).name for f in sorted(files))
+    return deny(
+        f"Edit guard: this session already edited {SOURCE_FILE_BUDGET} source files "
+        f"directly ({listed}). That is past a quick task. Write the change up as a "
+        "ticket and dispatch it with the `build` skill (oc-ticket --role worker), or "
+        "if Dan asked you to do it yourself, run `claude-edit-guard off` in this repo "
+        "and retry."
+    )
+
+
+def cli(command: str) -> int:
+    cwd = os.getcwd()
+    marker = direct_marker(cwd)
+    root = repo_root(cwd)
+    if command == "off":
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(f"{time.time():.0f}\n")
+        print(f"edit guard OFF for {root} (direct edits allowed for 12h)")
+        return 0
+    if command == "on":
+        marker.unlink(missing_ok=True)
+        print(f"edit guard ON for {root}")
+        return 0
+    if command == "status":
+        state = "OFF (direct edits allowed)" if direct_mode_active(cwd) else "ON"
+        print(f"edit guard {state} for {root}; budget {SOURCE_FILE_BUDGET} source files per session")
+        return 0
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) > 1:
+        return cli(argv[1])
+    try:
+        return hook()
+    except Exception:  # noqa: BLE001 - a hook must never block on its own bug
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

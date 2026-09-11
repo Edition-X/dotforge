@@ -245,7 +245,12 @@ for agent in orchestrator worker verifier rescue scout; do
     }
 done
 
-if jq -e '.agent.orchestrator.mode == "primary" and ([.agent | to_entries[] | select(.key != "orchestrator") | .value.mode] | all(. == "subagent"))' "$resolved_file" >/dev/null; then
+# orchestrator is the only primary. worker, verifier and rescue are `all` so the
+# oc-ticket bridge can address them with `opencode run --agent`; everything
+# else stays a plain subagent.
+if jq -e '.agent.orchestrator.mode == "primary"
+    and ([.agent | to_entries[] | select(.key == "worker" or .key == "verifier" or .key == "rescue") | .value.mode] | all(. == "all"))
+    and ([.agent | to_entries[] | select(.key != "orchestrator" and .key != "worker" and .key != "verifier" and .key != "rescue") | .value.mode] | all(. == "subagent"))' "$resolved_file" >/dev/null; then
     :
 else
     printf 'agent modes are incorrect\n' >&2
