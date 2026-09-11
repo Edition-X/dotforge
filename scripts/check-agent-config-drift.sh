@@ -299,7 +299,7 @@ if command -v docker >/dev/null 2>&1; then
             ! diff -q <(sort "${mcp_toolkit_drift_dir}/profile.export.yaml") <(sort "${mcp_gateway_profile_export}") >/dev/null 2>&1; then
             drift+=("mcp-sunrise profile: docker mcp profile export sunrise no longer matches ${mcp_gateway_profile_export/#$HOME/\~}")
         fi
-        trash "${mcp_toolkit_drift_dir}"
+        rm -rf "${mcp_toolkit_drift_dir}"  # self-created mktemp dir, not user data
     else
         drift+=("mcp-sunrise profile: ${mcp_gateway_profile_export/#$HOME/\~} is missing")
     fi
