@@ -107,9 +107,13 @@ def check_url_confinement(paths: list[str]) -> list[str]:
         unexpected = {
             host
             for match in URL.findall(content)
-            # A templated URL names no host until it is rendered.
+            # A templated URL names no host until it is rendered. A host with
+            # no dot is not an address either: the URL pattern stops at a
+            # backslash, so a regex like `https://github\.com/...` yields the
+            # bare token "github".
             if "{{" not in match
             and (host := (urlsplit(match).hostname or "").lower())
+            and "." in host
             and host not in ALLOWED_HOSTS
             and not host.endswith(".invalid")
             and not host.endswith(".example.com")
