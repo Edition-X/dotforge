@@ -64,3 +64,6 @@ jobs:
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Writing a pull request comment would need pull-requests: write.
+          # The job status is the signal; least privilege is worth more.
+          GITLEAKS_ENABLE_COMMENTS: false
