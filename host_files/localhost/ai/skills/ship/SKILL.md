@@ -7,7 +7,7 @@ description: Land any change to the macbook-pro repo end to end without Dan in t
 
 Work in `~/Projects/macbook-pro` lands through a pull request, never a direct push to
 `main`. This skill is the whole path from "edit is ready" to "running on this Mac", and
-it is meant to run without asking Dan anything. Ask only at the boundaries in section 6.
+it is meant to run without asking Dan anything. Ask only at the boundaries in section 7.
 
 Every step prints one line of evidence on pass and the full output on failure. Never
 report a step you skipped as done.
