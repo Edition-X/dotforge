@@ -118,6 +118,17 @@ changed path outside the five bookmark catalogs, more than one open automation p
 request, or a force push. Additions stack on one `automation/browser-catalog` pull request
 with auto-merge by merge commit; a merged branch restarts from `main`.
 
+Every git call goes through one helper that sets `GIT_TERMINAL_PROMPT=0` and
+refuses force flags. The clone used to bypass it — and the clone is the first
+thing that runs under launchd, where a credential prompt has no terminal to
+answer it and would block until the timeout.
+
+Before committing, the automation runs the repository's own secret gate over
+the staged paths. The commit still carries `--no-verify`, but only because a
+throwaway clone has no hooks installed; the check it would have skipped now
+happens explicitly, so the one commit path that runs unattended is no longer
+the only one exempt from it.
+
 The `com.dkelly.browser-capture` launchd job is installed disabled and polls about every
 15 minutes by interval rather than watching paths, so it never fires mid-write. Activation
 happens separately, after this code is on `main`.
