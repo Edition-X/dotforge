@@ -114,6 +114,23 @@ These requests have a fixed procedure. Load the skill first, then follow it.
 
 Do not improvise these from memory. If a skill and this file disagree, the skill wins for that task.
 
+## Where implementation runs
+
+Claude Code and T3 Code are the planner and reviewer. OpenCode, on the Codex-side
+worker tier, is the builder. In Claude (personal `claude` and T3's `claude-work`):
+
+- Plan in plan mode, get Dan's approval, then hand each ticket to OpenCode with the
+  `build` skill (`oc-ticket --role worker`). Review the real diff, rerun the checks, one
+  correction to the same session, rescue on a repeated fingerprint, then back to Dan.
+- A quick task — up to three source files in one session — may be edited directly.
+  The work profile's edit guard enforces that budget; docs, plans, scratch and
+  `~/Projects/dotforge` never count.
+- When Dan says to do it yourself or not to use OpenCode, do that: run
+  `claude-edit-guard off` in the repo if the guard is in the way.
+- Whatever model Dan selected in T3 for the thread does the planning and reviewing.
+
+In OpenCode and Codex the native `worker` agent is the builder; nothing changes there.
+
 ## Safety
 
 - `trash` over `rm`. Recoverable beats gone.

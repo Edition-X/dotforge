@@ -90,9 +90,41 @@ full procedure.
 | Claude Code (personal, `~/.claude`) | Root/default profile, selected at Opus 5 medium | Native subagents under `~/.claude/agents/*.md` | Full native support; no custom `orchestrator` agent — the root profile *is* the lead. |
 | Claude Code (work, `~/.claude-work`) | Same as personal | Native subagents under `~/.claude-work/agents/*.md`, byte-identical to personal | Same policy, isolated auth/state; this is what T3 Code's Claude provider runs. |
 | Codex CLI (`~/.codex`) | Root CLI, `config.toml` top-level `model`/`model_reasoning_effort` pinned to lead tier | Native subagents under `~/.codex/agents/*.toml` | Full native support; `agents.default_subagent_model`/`default_subagent_reasoning_effort` in `config.toml` default new subagent threads to the worker tier. |
-| T3 Code (Claude provider) | Inherited: same root profile as `claude-work` | Inherited: same files as Claude work profile | No duplicate T3 agent definitions, and no live canary row (see below). T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
+| T3 Code (Claude provider) | Inherited: same root profile as `claude-work`, planner and reviewer | **Bridged to OpenCode**: `build` skill → `oc-ticket --role worker\|rescue\|verifier` (see "Claude plans, OpenCode builds" below); the native Claude subagents remain as a fallback | No duplicate T3 agent definitions, and no live canary row (see below). T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
 | T3 Code (Codex provider) | Inherited: same `~/.codex` as the CLI | Inherited: same `~/.codex/agents/*.toml` | No separate T3 entry needed, and no live canary row (see below); T3's Codex provider reads the same app-owned `config.toml`. |
 | Forge 2.13.21 | N/A — Forge-owned built-in agents (Forge, Muse, Sage) | N/A | Shared `AGENTS.md` instructions and skills only. Forge 2.13.21 exposes no supported custom-agent authoring surface (`forge agent` only lists the three built-ins, no create/config subcommand), so it cannot host a native Luna worker. Do not claim parity with the other four harnesses. |
+
+### Claude plans, OpenCode builds
+
+Claude has no orchestrator agent of its own, and the first week of lead-worker
+routing showed the consequence: the T3 Claude root dispatched Claude's generic
+`general-purpose` agent 36 times against 8 `worker` dispatches and, in its two
+largest threads, implemented everything itself. So Claude's lead role is now
+bridged to OpenCode's builder instead of to a Claude subagent:
+
+- `workflow.yml` `bridges` declares the one bridge (`claude` → `opencode` via
+  `oc-ticket`, roles worker/rescue/verifier, resume for the single correction);
+  `scripts/validate-agent-routing.py` and `tasks/routing.yml` fail if it drifts.
+- `host_files/localhost/bin/oc-ticket` wraps `opencode run --agent <role> --format
+  json`, reads the final message back with `opencode export`, parses the eleven-field
+  handoff, and exits 0 only on `COMPLETE`. OpenCode's worker, verifier and rescue are
+  rendered `mode: all` so `--agent` can address them; a headless run never prompts
+  (an `ask` permission is auto-rejected and reported as `BLOCKED_AUTHORITY`).
+- `skills/build` is the lead procedure Claude follows: plan mode, one self-contained
+  ticket file per ticket, dispatch, review the real diff, one correction to the same
+  OpenCode session, rescue on a repeated fingerprint, report.
+- `host_files/localhost/bin/claude-edit-guard` is a `PreToolUse` hook on the work
+  profile only (`ai_claude_profiles[].hooks`): a session may edit up to three source
+  files directly (a quick task); docs, plans, scratch and this repo never count; the
+  fourth is denied with a pointer at `build`. `claude-edit-guard off` lifts it for a
+  repo for twelve hours when Dan asks Claude to do the work itself. The personal
+  `claude` profile carries no guard.
+- Whichever model Dan picks in T3's composer plans and reviews; the OpenCode worker
+  tier is what builds.
+
+`scripts/harness-usage-report.py` prints the numbers this design is judged by
+(sessions per harness, dispatches by agent, models actually used, step-cap hits,
+corrections, compactions); `make test-bridge` covers the bridge and guard offline.
 
 ### Documentation exception and Linear boundary
 

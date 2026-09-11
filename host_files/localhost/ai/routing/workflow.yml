@@ -37,6 +37,7 @@ roles:
     limits: {opencode_steps: 64, claude_max_turns: 40}
 
   # Verifier. Read-only; checks an already-integrated result, never implements.
+  # opencode_steps was 16 until 2026-09-12; the INF-612 verifier hit it mid-report.
   verifier:
     mode: subagent
     tier: worker
@@ -44,7 +45,7 @@ roles:
     read_only: true
     normal_assignment: true
     may_dispatch: []
-    limits: {opencode_steps: 16, claude_max_turns: 24}
+    limits: {opencode_steps: 32, claude_max_turns: 24}
 
   # Rescue. Direct dispatch only, after a repeated similar failure trip-wire.
   rescue:
@@ -77,6 +78,22 @@ roles:
     may_dispatch: []
     handoff_fields: [findings, evidence, coverage, unknowns]
     limits: {opencode_steps: 16, claude_max_turns: 16}
+
+# Cross-harness dispatch. Claude Code's root profile has no orchestrator agent
+# of its own (see roles.orchestrator above); when it is the lead — T3 Code with
+# the Claude provider — implementation goes to OpenCode instead of a Claude
+# subagent, through the `oc-ticket` bridge (host_files/localhost/bin). The
+# bridge may only address the roles listed here, must resume the same session
+# for the one permitted correction, and returns the same handoff contract as
+# every in-harness dispatch. The `build` skill is the procedure; the
+# claude-edit-guard hook on the work profile is the enforcement.
+bridges:
+  - from: claude
+    to: opencode
+    via: oc-ticket
+    roles: [worker, rescue, verifier]
+    resume_for_correction: true
+    skill: build
 
 # The only statuses delivery roles may return in a handoff. Scout uses its own fields.
 statuses: [COMPLETE, CORRECTION_REQUIRED, HANDOFF_REQUIRED, BLOCKED_AUTHORITY, BLOCKED_TRANSIENT]

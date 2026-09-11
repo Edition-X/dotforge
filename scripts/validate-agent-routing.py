@@ -112,6 +112,17 @@ ROLE_MAY_DISPATCH = {
     "orchestrator": {"worker", "verifier", "rescue", "documentation", "scout"}
 }  # default: empty
 
+# Cross-harness dispatch. Exactly one bridge exists today: Claude (T3's lead)
+# hands tickets to OpenCode through oc-ticket. Roles a bridge may address are
+# the whole-ticket delivery roles plus the read-only verifier; the lead,
+# documentation and scout are never bridged. The skill named must exist.
+REQUIRED_BRIDGES = [
+    {"from": "claude", "to": "opencode", "via": "oc-ticket",
+     "roles": ["worker", "rescue", "verifier"], "resume_for_correction": True, "skill": "build"},
+]
+BRIDGE_BINARIES_DIR = REPO_ROOT / "host_files/localhost/bin"
+SKILLS_DIR = REPO_ROOT / "host_files/localhost/ai/skills"
+
 
 def is_positive_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
@@ -339,6 +350,31 @@ def check_roles(models: dict, workflow: dict) -> list[str]:
     return errors
 
 
+def check_bridges(models: dict, workflow: dict) -> list[str]:
+    errors = []
+    bridges = workflow.get("bridges")
+    if bridges != REQUIRED_BRIDGES:
+        errors.append(f"workflow.yml bridges must equal {REQUIRED_BRIDGES!r}, found {bridges!r}")
+        return errors
+    harnesses = models.get("harnesses") or {}
+    roles = workflow.get("roles") or {}
+    for bridge in bridges:
+        for end in ("from", "to"):
+            if bridge[end] not in harnesses:
+                errors.append(f"workflow.yml bridge {end} '{bridge[end]}' is not a harness in models.yml")
+        for role in bridge["roles"]:
+            entry = roles.get(role) or {}
+            if entry.get("mode") == "primary" or role in ("documentation", "scout"):
+                errors.append(f"workflow.yml bridge may not address role '{role}'")
+        if not (BRIDGE_BINARIES_DIR / bridge["via"]).is_file():
+            errors.append(f"workflow.yml bridge via '{bridge['via']}' has no executable under host_files/localhost/bin")
+        if not (SKILLS_DIR / bridge["skill"] / "SKILL.md").is_file():
+            errors.append(
+                f"workflow.yml bridge skill '{bridge['skill']}' has no SKILL.md under host_files/localhost/ai/skills"
+            )
+    return errors
+
+
 def check_prompt_contents(workflow: dict) -> list[str]:
     errors = []
     roles = workflow.get("roles")
@@ -470,6 +506,7 @@ def main() -> int:
         errors.extend(check_limits(workflow))
         errors.extend(check_statuses_and_evidence_fields(workflow))
         errors.extend(check_roles(models, workflow))
+        errors.extend(check_bridges(models, workflow))
         errors.extend(check_prompt_contents(workflow))
 
     errors.extend(check_skill_file())

@@ -22,7 +22,8 @@ routes through the repo, not through a one-off `brew install` or hand-edited dot
 | Env var (non-secret) | `roles/dotfiles/templates/env_vars.j2` |
 | Secret env var | vault (`host_vars/localhost/vault.yml`) + `roles/dotfiles/templates/env_secrets.j2` |
 | zshrc, gitconfig, ghostty config, skhdrc, tmux/nvim conf, ssh config | matching file under `host_files/localhost/` (see `group_vars/macbooks.yml` `config_paths` for the exact dest each one deploys to) |
-| Claude Code hook | `ai_claude_hooks` in `group_vars/macbooks.yml`, applied by `roles/ai_agents/tasks/claude_settings.yml` (merges into each profile's `settings.json`) |
+| Claude Code hook | `ai_claude_hooks` (every profile) or `ai_claude_profiles[].hooks` (one profile) in `group_vars/macbooks.yml`, applied by `roles/ai_agents/tasks/claude_settings.yml` (merges into each profile's `settings.json`) |
+| Executable in `~/.local/bin` for a harness (`claude-work`, `oc-ticket`, `claude-edit-guard`) | `host_files/localhost/bin/<name>` plus the `ai_managed_bin` list in `group_vars/macbooks.yml`, linked by `roles/ai_agents/tasks/t3.yml` |
 | Claude Code permission pre-approval | `ai_claude_permission_allow` in `group_vars/macbooks.yml`, same task |
 | Codex MCP server | `ai_codex_mcp_servers` in `group_vars/macbooks.yml`, applied by `roles/ai_agents/tasks/codex_mcp.yml` |
 | OpenCode MCP server / config | `roles/ai_agents/templates/opencode.jsonc.j2` |

@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Hand one ticket to an OpenCode agent headlessly and return its handoff.
+
+This is the bridge between the planner/reviewer (Claude in T3 Code) and the
+builder (OpenCode running the Codex-side worker tier). It wraps
+``opencode run --agent <role> --format json``, waits for the run, then reads
+the agent's final message back through ``opencode export`` and parses the
+delivery handoff contract (five statuses, eleven evidence fields) defined in
+host_files/localhost/ai/routing/workflow.yml.
+
+    oc-ticket --role worker --ticket ticket-01.md [--dir ~/Projects/repo]
+    oc-ticket --role worker --resume ses_... --message "Correction 1 of 1: ..."
+    oc-ticket --role rescue --ticket ticket-01.md --message "Evidence trail: ..."
+    oc-ticket --role verifier --ticket ticket-01.md
+
+stdout: exactly one JSON object with session_id, status, the parsed handoff,
+the raw final text, permission denials and run metrics. stderr: progress.
+Exit 0 only when the handoff status is COMPLETE; 1 for any other status
+(including a missing handoff); 2 when OpenCode itself could not be run.
+
+Facts this relies on, measured 2026-09-12 with OpenCode 1.18.30:
+- ``--agent`` only accepts agents whose mode is ``primary`` or ``all``; the
+  managed worker/verifier/rescue agents are rendered with ``mode: all``.
+- ``-s <session>`` resumes a session but still needs ``--agent``; without it
+  the resume runs as the default (orchestrator) agent.
+- Headless ``run`` never prompts: an ``ask`` permission is auto-rejected on
+  stderr ("permission requested: ...; auto-rejecting") and the run may end
+  there, so those lines are captured and reported.
+- The JSON event stream carries tool_use/step events but not the final text;
+  the final text comes from ``opencode export``.
+- With a non-TTY stdin left open, ``run`` waits for piped input; stdin is
+  therefore always /dev/null here.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from collections import Counter
+from pathlib import Path
+
+STATUSES = ("COMPLETE", "CORRECTION_REQUIRED", "HANDOFF_REQUIRED", "BLOCKED_AUTHORITY", "BLOCKED_TRANSIENT")
+EVIDENCE_FIELDS = (
+    "status", "ticket", "branch", "commit", "files", "checks", "failure_fingerprint",
+    "deviations", "last_safe_state", "recommended_next", "unresolved_risks",
+)
+ROLES = ("worker", "rescue", "verifier")
+DEFAULT_MESSAGES = {
+    "worker": (
+        "Implement the attached ticket exactly as written: its branch, allowed files, "
+        "verification commands and commit message. Return the structured handoff block "
+        "(status plus all eleven evidence fields) as your final message."
+    ),
+    "rescue": (
+        "You are the rescue dispatch for the attached ticket after a repeated similar "
+        "failure. Read the evidence trail in the ticket, take a different approach where "
+        "the previous one failed, and return the structured handoff block (status plus all "
+        "eleven evidence fields) as your final message."
+    ),
+    "verifier": (
+        "Verify the attached ticket's integrated result read-only: rerun its verification "
+        "commands, review the actual diff against the acceptance criteria, and return the "
+        "structured handoff block (status plus all eleven evidence fields) as your final "
+        "message. Do not edit anything."
+    ),
+}
+PERMISSION_RE = re.compile(r"permission requested: (.+?)(?:; auto-rejecting)?\s*$")
+FIELD_RE = re.compile(r"^\s*[-*]?\s*`?(" + "|".join(EVIDENCE_FIELDS) + r")`?\s*:\s*(.*)$", re.IGNORECASE)
+
+
+def opencode_bin() -> str:
+    return os.environ.get("OC_TICKET_OPENCODE", "opencode")
+
+
+def strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def parse_handoff(text: str) -> dict[str, str]:
+    """Pull `field: value` lines (with continuation lines) out of the final text."""
+    fields: dict[str, str] = {}
+    current: str | None = None
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        match = FIELD_RE.match(line)
+        if match:
+            current = match.group(1).lower()
+            fields[current] = match.group(2).strip().strip("`")
+            continue
+        if current and line.strip() and not line.strip().startswith(("#", "```")):
+            fields[current] = (fields[current] + " " + line.strip()).strip()
+        elif not line.strip():
+            current = None
+    status = fields.get("status", "").upper().strip("*` ")
+    for candidate in STATUSES:
+        if candidate in status:
+            fields["status"] = candidate
+            break
+    else:
+        fields.pop("status", None)
+    return fields
+
+
+def final_assistant_text(export: dict) -> str:
+    messages = export.get("messages") or []
+    for message in reversed(messages):
+        info = message.get("info") or message
+        if info.get("role") != "assistant":
+            continue
+        texts = [p.get("text", "") for p in message.get("parts", []) if p.get("type") == "text" and p.get("text")]
+        if texts:
+            return "\n".join(texts).strip()
+    return ""
+
+
+def export_session(session_id: str, cwd: str) -> dict:
+    out = subprocess.run(
+        [opencode_bin(), "export", session_id], cwd=cwd, capture_output=True, text=True, check=False,
+    )
+    if out.returncode != 0:
+        return {}
+    try:
+        return json.loads(out.stdout)
+    except ValueError:
+        return {}
+
+
+def run_agent(args: argparse.Namespace) -> tuple[int, str | None, list[str], Counter, int, bool]:
+    command = [opencode_bin(), "run", args.message, "--agent", args.role, "--format", "json"]
+    if args.title:
+        command += ["--title", args.title]
+    if args.ticket:
+        command += ["-f", str(Path(args.ticket).resolve())]
+    if args.resume:
+        command += ["-s", args.resume]
+    print(f"oc-ticket: {' '.join(command[:6])} ...", file=sys.stderr)
+
+    session_id: str | None = args.resume
+    tools: Counter = Counter()
+    steps = 0
+    denials: list[str] = []
+    timed_out = False
+    # stdin must be closed: with a non-TTY stdin still open, `opencode run`
+    # waits for piped input and never starts the session.
+    proc = subprocess.Popen(
+        command, cwd=args.dir, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    assert proc.stdout is not None and proc.stderr is not None
+
+    import threading
+
+    def drain_stderr() -> None:
+        for line in proc.stderr:
+            clean = strip_ansi(line).strip()
+            if not clean:
+                continue
+            match = PERMISSION_RE.search(clean)
+            if match:
+                denials.append(match.group(1))
+            print(f"opencode: {clean}", file=sys.stderr)
+
+    reader = threading.Thread(target=drain_stderr, daemon=True)
+    reader.start()
+
+    # A wall-clock timer, not a check per output line: a hung run produces no
+    # output at all, which is exactly when the timeout has to fire.
+    def on_timeout() -> None:
+        nonlocal timed_out
+        timed_out = True
+        proc.kill()
+
+    timer = threading.Timer(args.timeout, on_timeout) if args.timeout else None
+    if timer:
+        timer.start()
+
+    for line in proc.stdout:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        session_id = session_id or event.get("sessionID") or (event.get("part") or {}).get("sessionID")
+        kind = event.get("type")
+        if kind == "step_start":
+            steps += 1
+        elif kind == "tool_use":
+            tool = (event.get("part") or {}).get("tool", "?")
+            tools[tool] += 1
+            print(f"  step {steps}: {tool}", file=sys.stderr)
+    exit_code = proc.wait()
+    if timer:
+        timer.cancel()
+    reader.join(timeout=5)
+    return exit_code, session_id, denials, tools, steps, timed_out
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--role", choices=ROLES, required=True)
+    parser.add_argument("--ticket", help="self-contained ticket file attached to the message")
+    parser.add_argument("--resume", metavar="SESSION", help="continue an existing OpenCode session (corrections)")
+    parser.add_argument("--message", help="message to send; defaults per role, required with --resume")
+    parser.add_argument("--dir", default=os.getcwd(), help="repository to run in (default: cwd)")
+    parser.add_argument("--title", help="OpenCode session title (default: ticket file stem)")
+    parser.add_argument("--timeout", type=int, default=1800, help="seconds before the run is killed")
+    args = parser.parse_args(argv[1:])
+
+    if not args.ticket and not args.resume:
+        parser.error("--ticket is required unless --resume is given")
+    if args.resume and not args.message:
+        parser.error("--message is required with --resume")
+    if args.ticket and not Path(args.ticket).is_file():
+        parser.error(f"ticket file not found: {args.ticket}")
+    args.message = args.message or DEFAULT_MESSAGES[args.role]
+    args.title = args.title or (Path(args.ticket).stem if args.ticket else None)
+    args.dir = str(Path(args.dir).resolve())
+
+    started = time.monotonic()
+    try:
+        exit_code, session_id, denials, tools, steps, timed_out = run_agent(args)
+    except FileNotFoundError:
+        print(json.dumps({"status": "TRANSPORT_FAILED", "error": f"{opencode_bin()} not found"}))
+        return 2
+    duration = round(time.monotonic() - started, 1)
+
+    if not session_id:
+        error = f"killed after {args.timeout}s with no output" if timed_out else "no session id in OpenCode output"
+        print(json.dumps({
+            "status": "TRANSPORT_FAILED", "error": error,
+            "opencode_exit_code": exit_code, "duration_s": duration,
+        }))
+        return 2
+
+    final_text = final_assistant_text(export_session(session_id, args.dir))
+    handoff = parse_handoff(final_text)
+    status = handoff.get("status")
+    if timed_out:
+        status = "BLOCKED_TRANSIENT"
+        handoff.setdefault("deviations", f"oc-ticket killed the run after {args.timeout}s")
+    elif not status and denials:
+        status = "BLOCKED_AUTHORITY"
+        handoff.setdefault("deviations", "OpenCode auto-rejected a permission request: " + "; ".join(denials))
+    elif not status:
+        status = "NO_HANDOFF"
+    handoff["status"] = status
+    missing = [f for f in EVIDENCE_FIELDS if f not in handoff]
+
+    print(json.dumps({
+        "session_id": session_id,
+        "role": args.role,
+        "resumed": bool(args.resume),
+        "status": status,
+        "handoff": handoff,
+        "missing_fields": missing,
+        "permission_denials": denials,
+        "opencode_exit_code": exit_code,
+        "steps": steps,
+        "tools": dict(tools),
+        "duration_s": duration,
+        "final_text": final_text,
+    }, indent=2))
+    return 0 if status == "COMPLETE" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))
