@@ -421,6 +421,27 @@ macOS will not grant that non-interactively. After `make apply`, go to
 `make apply` installs and starts the skhd service either way, so once the
 permission is granted it takes effect on its own — no re-run needed.
 
+### 📌 Toolchain
+
+Direct dependencies are pinned exactly in `requirements.txt`; `requirements.lock`
+holds the full resolved set with hashes and is what the venv installs. The venv
+is built from a declared interpreter rather than whichever `python3` is on PATH
+— on this machine that is a pyenv shim on 3.10, which cannot install the pinned
+`ansible-core` at all.
+
+```bash
+make venv                    # build from the lock (PYTHON=python3.14 to override)
+make lock                    # regenerate requirements.lock after editing requirements.txt
+make collections             # install requirements.yml into collections/
+```
+
+`ansible-core` is installed rather than the `ansible` bundle, because the bundle
+ships its own `community.general` that competed with the pinned one — resolution
+then depended on path order, and lint warned about it on every run.
+`make check-collections` turns that into a failure instead of a warning, and
+`scripts/check-tool-pins.py` fails when a version in `requirements.txt`
+disagrees with the matching pre-commit hook.
+
 ### ✅ What CI runs
 
 `make ci` is the single definition, and `.github/workflows/ci.yml` runs exactly

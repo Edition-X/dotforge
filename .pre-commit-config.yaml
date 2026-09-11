@@ -22,6 +22,13 @@ repos:
         pass_filenames: false
         files: ^host_files/localhost/ai/
 
+      - id: check-tool-pins
+        name: check tool versions agree across requirements and hooks
+        entry: scripts/check-tool-pins.py
+        language: python
+        pass_filenames: false
+        files: ^(requirements\.txt|\.pre-commit-config\.yaml)$
+
       - id: check-skills
         name: check skill files
         entry: scripts/check-skills.sh
@@ -71,7 +78,7 @@ repos:
   # 6,800 lines of Python and 2,200 of shell had no static analysis at all,
   # while the YAML that mostly calls modules was linted twice.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7
+    rev: v0.16.7
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -121,7 +128,7 @@ repos:
         # See ansible documentation for ANSIBLE_VAULT_PASSWORD_FILE and related variables
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.1
+    rev: v1.38.0
     hooks:
       - id: yamllint
         args: ['-d', '{extends: relaxed, rules: {line-length: {max: 120}}}']

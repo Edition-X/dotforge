@@ -1,6 +1,12 @@
 ---
 # Common variables for all macbooks
 
+# Header for every file this repository generates. Replaces
+# `{{ ansible_managed }}`, which ansible-core deprecated in 2.15 and removes in
+# 2.23 — see the note in ansible.cfg. Owning the string means the removal is a
+# dependency bump we choose, not a surprise.
+managed_header: "Managed by macbook-pro - do not edit by hand"
+
 # User and directory variables
 user_name: "{{ lookup('env', 'USER') }}"
 user_dir: "{{ lookup('env', 'HOME') }}"

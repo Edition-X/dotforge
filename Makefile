@@ -1,5 +1,13 @@
+# The interpreter the venv is built from. `python3` is not a contract: on this
+# machine it resolves to a pyenv shim on 3.10, which cannot install the pinned
+# ansible-core at all — the venv was only ever 3.13 by accident of PATH.
+# Override for a different minor: make PYTHON=python3.14 venv
+PYTHON                     ?= python3.13
+PYTHON_MINIMUM             := 3.12
 PYTHON_VIRTUAL_ENVIRONMENT := venv
 PYTHON_REQUIREMENTS_FILE   := requirements.txt
+PYTHON_LOCK_FILE           := requirements.lock
+ANSIBLE_REQUIREMENTS_FILE  := requirements.yml
 ANSIBLE_PLAYBOOK_FILE      := site.yml
 ANSIBLE_INVENTORY_FILE     := inventory
 ANSIBLE_LIMIT              := local
@@ -10,11 +18,29 @@ define activate
 	(. $(PYTHON_VIRTUAL_ENVIRONMENT)/bin/activate && $1;)
 endef
 
-$(PYTHON_VIRTUAL_ENVIRONMENT): $(PYTHON_REQUIREMENTS_FILE)
-	@python3 -m venv $(PYTHON_VIRTUAL_ENVIRONMENT)
+# Installs the hash-pinned lock, not the loose requirements file, so two
+# clones resolve to the same toolchain. Regenerate the lock with `make lock`
+# after changing requirements.txt.
+$(PYTHON_VIRTUAL_ENVIRONMENT): $(PYTHON_LOCK_FILE) $(ANSIBLE_REQUIREMENTS_FILE)
+	@$(PYTHON) -c 'import sys; minimum = tuple(int(p) for p in "$(PYTHON_MINIMUM)".split(".")); \
+	  sys.exit(0) if sys.version_info[:2] >= minimum else sys.exit( \
+	  print(f"$(PYTHON) is {sys.version.split()[0]}, need >= $(PYTHON_MINIMUM)") or 1)'
+	@$(PYTHON) -m venv $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(call activate, pip install --upgrade pip)
-	@$(call activate, pip install wheel)
-	@$(call activate, pip install -r $(PYTHON_REQUIREMENTS_FILE))
+	@$(call activate, pip install --require-hashes -r $(PYTHON_LOCK_FILE))
+	@$(MAKE) collections
+	@touch $(PYTHON_VIRTUAL_ENVIRONMENT)
+
+# Collections install into one place. ansible.cfg points collections_path here,
+# and installing ansible-core rather than the `ansible` bundle means no second
+# copy of community.general competes with the pinned one.
+.PHONY: collections
+collections:
+	@$(call activate, ansible-galaxy collection install -r $(ANSIBLE_REQUIREMENTS_FILE) -p collections --force)
+
+.PHONY: lock
+lock:
+	@uv pip compile --universal --generate-hashes $(PYTHON_REQUIREMENTS_FILE) -o $(PYTHON_LOCK_FILE)
 
 .PHONY: apply
 apply: $(PYTHON_VIRTUAL_ENVIRONMENT)
@@ -150,8 +176,17 @@ pre-commit: $(PYTHON_VIRTUAL_ENVIRONMENT)
 
 # The single definition of "CI". .github/workflows/ci.yml runs exactly this, so
 # the two cannot drift: anything added here is picked up there for free.
+# A second copy of a collection makes resolution depend on path order, which
+# is how the pinned 10.5.0 ended up shadowed by a bundled 10.4.0.
+.PHONY: check-collections
+check-collections: $(PYTHON_VIRTUAL_ENVIRONMENT)
+	@$(call activate, ansible-galaxy collection list community.general 2>/dev/null \
+	  | grep -c 'community.general' \
+	  | xargs -I{} sh -c 'test {} -eq 1 || { echo "community.general resolves to {} copies"; exit 1; }')
+	@echo "collections: one community.general"
+
 .PHONY: ci
-ci: lint test
+ci: lint check-collections test
 	@$(call activate, ansible-playbook site.yml --syntax-check)
 	@echo "CI checks passed!"
 
