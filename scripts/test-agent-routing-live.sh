@@ -148,7 +148,7 @@ log_dir=$(mktemp -d "${TMPDIR:-/tmp}/agent-routing-live.XXXXXX")
 # shellcheck disable=SC2329  # invoked by the EXIT trap below
 cleanup() {
     ls -d "$log_dir"
-    trash "$log_dir"
+    rm -rf "$log_dir"  # self-created mktemp dir, not user data
 }
 trap cleanup EXIT
 
