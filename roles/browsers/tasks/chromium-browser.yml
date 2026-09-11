@@ -25,10 +25,12 @@
       {{ browsers_chromium_name }} recommended or renderer-owned policies require a separately proven adapter
     quiet: true
 
+# Extensions only. The bookmark catalog is a record of what the profile holds,
+# never a policy pushed back into it: rendering it as ManagedBookmarks /
+# ManagedFavorites put a read-only "Managed by macbook-pro" folder on every
+# bookmark bar, duplicating bookmarks the profile already had.
 - name: "Chromium policy - Render browser-owned payloads in memory - {{ browsers_chromium_name }}"
   ansible.builtin.set_fact:
-    browsers_chromium_managed_bookmarks: >-
-      {{ lookup('template', 'chromium-managed-bookmarks.json.j2') }}
     browsers_chromium_extension_payload: >-
       {{ lookup('template', 'chromium-extension-policy.json.j2') }}
   no_log: true
@@ -48,7 +50,6 @@
             )
         )
         | combine({
-            browsers_chromium_bookmark_policy: browsers_chromium_managed_bookmarks,
             'ExtensionSettings': browsers_chromium_extension_payload.settings,
             'ExtensionInstallForcelist': browsers_chromium_extension_payload.forcelist
           })

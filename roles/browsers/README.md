@@ -4,6 +4,16 @@ This role owns declarative, browser-specific catalogs. B1 validates source only;
 not install policy or touch browser profiles. Chrome, Edge, Brave, Firefox and Vivaldi
 remain separate ownership roots. Missing records never mean delete, move or rename.
 
+## Bookmarks are recorded, never pushed
+
+The per-browser `bookmarks.yml` catalogs are a capture of what each profile holds — a
+versioned record, additions-only. They are **not** rendered into policy. An earlier
+revision rendered them as `ManagedBookmarks` (`ManagedFavorites` on Edge), which put a
+read-only "Managed by macbook-pro" folder on every bookmark bar holding a duplicate of
+every bookmark the profile already had. The renderer emits extension policy only, and
+the smoke fails if a bookmark policy key ever reappears in an installed plist. The
+`managed_folder` field in each catalog is retained for schema stability and is unused.
+
 Chrome, Edge, Brave and Firefox all use mandatory managed preferences. Firefox reads the
 `org.mozilla.firefox` domain with `EnterprisePoliciesEnabled`, so its policy lives beside
 the Chromium ones instead of inside the application bundle: a file under `Firefox.app`

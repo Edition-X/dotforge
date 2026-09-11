@@ -100,8 +100,10 @@ make browsers   # Browser catalogs, policies and the capture service
 
 ### 🔖 Browser catalog capture
 
-Bookmark additions are captured from bounded read-only snapshots and published as a
-pull request against this private repository. Nothing runs until it is activated.
+Bookmark additions are captured from bounded read-only snapshots into per-browser
+catalogs and published as a pull request. The catalogs are a record only — nothing is
+pushed back into a browser as managed bookmarks, so your bookmark bars stay exactly as
+you left them. Nothing runs until it is activated.
 
 ```bash
 make validate-browser-catalog                              # schemas only
