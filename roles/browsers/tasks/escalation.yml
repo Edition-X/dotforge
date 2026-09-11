@@ -59,6 +59,36 @@
     path: "{{ browsers_privileged_helper | dirname }}"
   register: browsers_helper_dir
 
+# The sudoers rule names a fixed path under /usr/local/libexec. On an Intel Mac
+# Homebrew makes /usr/local itself user-owned (see
+# https://docs.brew.sh/Installation), so checking only the leaf directory
+# would accept a NOPASSWD rule that resolves through a tree the user can
+# rewrite. Every ancestor between the helper and the filesystem root must be
+# root-owned and not group- or world-writable, not just the immediate parent.
+- name: Escalation - List helper directory ancestors
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -c
+      - |
+        import os, sys
+        path = os.path.dirname(os.path.abspath(sys.argv[1]))
+        while path not in ("/", ""):
+            print(path)
+            path = os.path.dirname(path)
+      - "{{ browsers_privileged_helper }}"
+  register: browsers_helper_ancestors_raw
+  changed_when: false
+  check_mode: false
+
+- name: Escalation - Inspect helper directory ancestors
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ browsers_helper_ancestors_raw.stdout_lines }}"
+  register: browsers_helper_ancestor_stats
+  loop_control:
+    label: "{{ item }}"
+
 - name: Escalation - Read the staged helper
   ansible.builtin.slurp:
     src: "{{ browsers_privileged_helper_stage }}"
@@ -66,7 +96,8 @@
   no_log: true
 
 # A NOPASSWD helper inside a directory anyone can write to would be a privilege
-# escalation, not a hardening. Refuse the sudo path unless the whole thing is
+# escalation, not a hardening. Refuse the sudo path unless the whole thing —
+# the helper, its parent, and every ancestor up to the filesystem root — is
 # root-owned and not group- or world-writable.
 - name: Escalation - Judge whether the helper is trustworthy
   ansible.builtin.set_fact:
@@ -83,6 +114,20 @@
         and browsers_helper_dir.stat.pw_name == 'root'
         and not (browsers_helper_dir.stat.wgrp | default(false))
         and not (browsers_helper_dir.stat.woth | default(false))
+        and (
+          browsers_helper_ancestor_stats.results
+          | map(attribute='stat')
+          | selectattr('exists')
+          | selectattr('isdir')
+          | rejectattr('islnk')
+          | selectattr('pw_name', 'equalto', 'root')
+          | rejectattr('wgrp')
+          | rejectattr('woth')
+          | list
+          | length
+          ==
+          browsers_helper_ancestor_stats.results | length
+        )
         and browsers_helper_installed.stat.checksum == (
           browsers_helper_staged.content | b64decode | hash('sha256')
         )
