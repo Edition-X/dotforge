@@ -85,16 +85,23 @@ outcome so the PR carries the review record:
 gh pr comment <n> --body "AI review: <k> findings, <fixed> fixed in <sha..sha>, <declined> declined (see thread). No open correctness findings."
 ```
 
-**CI.** `gh pr checks <n> --watch --fail-fast`. On a failure, load `gh-fix-ci`, fix on
-this branch, push, watch again. Never merge red, never retry a flaky job more than once
-without reading its log.
+**CI.** Wait with `scripts/pr-checks-green.sh <n>`. It exits 0 only when every check
+in the rollup is complete and green, and prints the failed ones otherwise. Do not use
+`gh pr checks --watch` as the gate: it can return 0 while a sibling run is still pending
+or red, and a merge chained on it once landed a red pull request. On a failure, load
+`gh-fix-ci`, fix on this branch, push, wait again. Never merge red, never retry a flaky
+job more than once without reading its log.
 
 **Merge.** Merge commit — the repo's history is merge-based and the browser automation
-depends on that:
+depends on that. Run the gate and the merge as separate commands, never chained with
+`&&` onto a watcher:
 
 ```bash
-gh pr merge <n> --merge --delete-branch
+scripts/pr-checks-green.sh <n> && gh pr merge <n> --merge --delete-branch
 ```
+
+After the merge, confirm the `main` push run is green too:
+`gh run list --branch main --limit 1 --json conclusion`.
 
 If the repo has a ruleset that blocks the merge until checks pass, use
 `gh pr merge <n> --merge --auto --delete-branch` and wait with
@@ -136,5 +143,5 @@ cd ~/Projects/macbook-pro && timeout 300 claude-work -p "Add a one-line comment 
 ```
 
 Expect: a branch, `make lint`/`make ci`, a push, `gh pr create`, a self-review comment,
-`gh pr checks --watch`, `gh pr merge --merge`, `git pull` on main, `make packages`. No
-question back to Dan.
+`scripts/pr-checks-green.sh`, `gh pr merge --merge`, `git pull` on main, `make packages`.
+No question back to Dan.

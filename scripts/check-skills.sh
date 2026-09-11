@@ -58,6 +58,12 @@ for dir in "${skills_dir}"/*/; do
         fi
         decrypted="${scratch}/${name}.md"
         if ! ansible-vault view --vault-password-file "${vault_password_file}" "${file}" >"${decrypted}" 2>/dev/null; then
+            # A hosted runner holds a placeholder password on purpose, the
+            # same rule validate-browser-catalog.py applies to the catalogs.
+            if [[ -n "${CI:-}" ]]; then
+                echo "SKIP ${name}: vault-encrypted, placeholder vault password under CI"
+                continue
+            fi
             echo "FAIL ${name}: vault-encrypted SKILL.md could not be decrypted"
             fail=1
             continue
