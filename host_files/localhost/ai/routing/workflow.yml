@@ -24,6 +24,9 @@ roles:
     limits: {opencode_steps: 32, claude_max_turns: null}
 
   # Worker. Owns one whole ticket: branch, edit, verify, commit, memory.
+  # opencode_steps was 32 until 2026-09-12: the first INF-612 worker returned
+  # HANDOFF_REQUIRED "maximum steps reached" before it could commit, so a
+  # whole-ticket implementer gets 64 (the lead still reviews every diff).
   worker:
     mode: subagent
     tier: worker
@@ -31,7 +34,7 @@ roles:
     read_only: false
     normal_assignment: true
     may_dispatch: []
-    limits: {opencode_steps: 32, claude_max_turns: 40}
+    limits: {opencode_steps: 64, claude_max_turns: 40}
 
   # Verifier. Read-only; checks an already-integrated result, never implements.
   verifier:
@@ -51,7 +54,7 @@ roles:
     read_only: false
     normal_assignment: false
     may_dispatch: []
-    limits: {opencode_steps: 32, claude_max_turns: 40}
+    limits: {opencode_steps: 64, claude_max_turns: 40}
 
   # Documentation. Auxiliary role: docs/Markdown edits and tracker tools only.
   documentation:
