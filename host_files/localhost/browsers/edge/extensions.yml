@@ -1,0 +1,12 @@
+---
+version: 1
+browser: edge
+enforcement: report_only
+system_components: []
+user_candidates: []
+required:
+  - name: LastPass
+    id: bbcinlkgjjkejfdpemiealijmmooekmp
+    source: https://microsoftedge.microsoft.com/addons/detail/lastpass-free-password-m/bbcinlkgjjkejfdpemiealijmmooekmp
+    update_url: https://edge.microsoft.com/extensionwebstorebase/v1/crx
+    presence: required

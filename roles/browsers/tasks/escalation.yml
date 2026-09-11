@@ -1,0 +1,248 @@
+---
+# Decides how this run installs root-owned policy files.
+#
+# The original mechanism was an AppleScript administrator dialog per browser.
+# That cannot run unattended or in CI, `--check` cannot model it, and an
+# unanswered prompt stalls the play indefinitely — one apply was killed by a
+# command timeout mid-way through, leaving a browser half-configured.
+#
+# So: a narrow root helper plus a NOPASSWD rule for exactly that helper. The
+# dialog stays as an explicit fallback for a machine that has not been
+# authorized yet, but now with a bounded timeout.
+
+- name: Escalation - Stage the privileged helper
+  ansible.builtin.template:
+    src: install-managed-preference.j2
+    dest: "{{ browsers_privileged_helper_stage }}"
+    mode: "0755"
+  changed_when: false
+  check_mode: false
+  diff: false
+
+- name: Escalation - Stage the sudoers rule
+  ansible.builtin.template:
+    src: browsers-sudoers.j2
+    dest: "{{ browsers_sudoers_stage }}"
+    mode: "0600"
+  changed_when: false
+  check_mode: false
+  diff: false
+
+# The helper runs as root, so it gets the same static analysis as any other
+# shell in the repo. The template cannot be linted directly (Jinja is not
+# shell), but the rendered result can.
+- name: Escalation - Find shellcheck
+  ansible.builtin.command:
+    argv: [/usr/bin/which, shellcheck]
+  register: browsers_shellcheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Escalation - Lint the staged privileged helper
+  ansible.builtin.command:
+    argv:
+      - "{{ browsers_shellcheck.stdout | trim }}"
+      - "{{ browsers_privileged_helper_stage }}"
+  changed_when: false
+  check_mode: false
+  when: browsers_shellcheck.rc == 0
+
+- name: Escalation - Inspect the installed helper
+  ansible.builtin.stat:
+    path: "{{ browsers_privileged_helper }}"
+    checksum_algorithm: sha256
+  register: browsers_helper_installed
+
+- name: Escalation - Inspect the helper directory
+  ansible.builtin.stat:
+    path: "{{ browsers_privileged_helper | dirname }}"
+  register: browsers_helper_dir
+
+# The sudoers rule names a fixed path under /usr/local/libexec. On an Intel Mac
+# Homebrew makes /usr/local itself user-owned (see
+# https://docs.brew.sh/Installation), so checking only the leaf directory
+# would accept a NOPASSWD rule that resolves through a tree the user can
+# rewrite. Every ancestor between the helper and the filesystem root must be
+# root-owned and not group- or world-writable, not just the immediate parent.
+- name: Escalation - List helper directory ancestors
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -c
+      - |
+        import os, sys
+        path = os.path.dirname(os.path.abspath(sys.argv[1]))
+        while path not in ("/", ""):
+            print(path)
+            path = os.path.dirname(path)
+      - "{{ browsers_privileged_helper }}"
+  register: browsers_helper_ancestors_raw
+  changed_when: false
+  check_mode: false
+
+- name: Escalation - Inspect helper directory ancestors
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ browsers_helper_ancestors_raw.stdout_lines }}"
+  register: browsers_helper_ancestor_stats
+  loop_control:
+    label: "{{ item }}"
+
+- name: Escalation - Read the staged helper
+  ansible.builtin.slurp:
+    src: "{{ browsers_privileged_helper_stage }}"
+  register: browsers_helper_staged
+  no_log: true
+
+# A NOPASSWD helper inside a directory anyone can write to would be a privilege
+# escalation, not a hardening. Refuse the sudo path unless the whole thing —
+# the helper, its parent, and every ancestor up to the filesystem root — is
+# root-owned and not group- or world-writable.
+- name: Escalation - Judge whether the helper is trustworthy
+  ansible.builtin.set_fact:
+    browsers_helper_trusted: >-
+      {{
+        browsers_helper_installed.stat.exists
+        and browsers_helper_installed.stat.isreg
+        and not browsers_helper_installed.stat.islnk
+        and browsers_helper_installed.stat.pw_name == 'root'
+        and browsers_helper_installed.stat.mode in ['0755', '0555']
+        and browsers_helper_dir.stat.exists
+        and browsers_helper_dir.stat.isdir
+        and not browsers_helper_dir.stat.islnk
+        and browsers_helper_dir.stat.pw_name == 'root'
+        and not (browsers_helper_dir.stat.wgrp | default(false))
+        and not (browsers_helper_dir.stat.woth | default(false))
+        and (
+          browsers_helper_ancestor_stats.results
+          | map(attribute='stat')
+          | selectattr('exists')
+          | selectattr('isdir')
+          | rejectattr('islnk')
+          | selectattr('pw_name', 'equalto', 'root')
+          | rejectattr('wgrp')
+          | rejectattr('woth')
+          | list
+          | length
+          ==
+          browsers_helper_ancestor_stats.results | length
+        )
+        and browsers_helper_installed.stat.checksum == (
+          browsers_helper_staged.content | b64decode | hash('sha256')
+        )
+      }}
+
+- name: Escalation - Probe passwordless authorization
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - -n
+      - "{{ browsers_privileged_helper }}"
+      - --check
+  register: browsers_sudo_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: browsers_helper_trusted
+
+- name: Escalation - Select the escalation mode
+  ansible.builtin.set_fact:
+    browsers_escalation_mode: >-
+      {{
+        'sudo'
+        if (
+          browsers_escalation in ['auto', 'sudo']
+          and browsers_helper_trusted
+          and (browsers_sudo_probe.rc | default(1)) == 0
+        )
+        else 'dialog'
+      }}
+
+- name: Escalation - Explain why the helper is not being used
+  ansible.builtin.set_fact:
+    browsers_escalation_reason: >-
+      {{
+        'authorized'
+        if browsers_helper_trusted and (browsers_sudo_probe.rc | default(1)) == 0
+        else (
+          'helper is out of date; re-run `make browsers-authorize`'
+          if browsers_helper_installed.stat.exists
+          else 'machine is not authorized; run `make browsers-authorize` once'
+        )
+      }}
+
+# Asking for `sudo` explicitly and silently getting a dialog would defeat the
+# point, so an unmet explicit request is an error rather than a downgrade.
+- name: Escalation - Require the requested mode to be available
+  ansible.builtin.assert:
+    that:
+      - browsers_escalation_mode == 'sudo'
+    fail_msg: >-
+      browsers_escalation=sudo was requested but is unavailable:
+      {{ browsers_escalation_reason }}.
+    quiet: true
+  when: browsers_escalation == 'sudo'
+
+- name: Escalation - Report the selected mode
+  ansible.builtin.debug:
+    msg: >-
+      Browser policy escalation: {{ browsers_escalation_mode }}
+      ({{ 'non-interactive' if browsers_escalation_mode == 'sudo' else browsers_escalation_reason }})
+
+# One-time bootstrap. Installing the helper and the sudoers rule needs root
+# before the NOPASSWD rule exists, so this is the single place the dialog is
+# unavoidable. `make browsers-authorize` sets browsers_authorize.
+- name: Escalation - Authorize this machine
+  when:
+    - browsers_authorize | default(false) | bool
+    - not ansible_check_mode
+    - not browsers_helper_trusted
+  block:
+    - name: Escalation - Report what authorization will change
+      ansible.builtin.debug:
+        msg: "Authorizing this machine: {{ browsers_escalation_reason }}"
+
+    - name: Escalation - Validate the staged sudoers rule before installing it
+      ansible.builtin.command:
+        argv:
+          - /usr/sbin/visudo
+          - -c
+          - -f
+          - "{{ browsers_sudoers_stage }}"
+      changed_when: false
+
+    - name: Escalation - Install the helper and sudoers rule
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/osascript
+          - -e
+          - >-
+            do shell script ("/bin/mkdir -p "
+            & quoted form of "{{ browsers_privileged_helper | dirname }}"
+            & " && /usr/sbin/chown root:wheel "
+            & quoted form of "{{ browsers_privileged_helper | dirname }}"
+            & " && /usr/bin/install -o root -g wheel -m 0755 "
+            & quoted form of "{{ browsers_privileged_helper_stage }}"
+            & " " & quoted form of "{{ browsers_privileged_helper }}"
+            & " && /usr/bin/install -o root -g wheel -m 0440 "
+            & quoted form of "{{ browsers_sudoers_stage }}"
+            & " " & quoted form of "{{ browsers_sudoers_path }}"
+            & " && /usr/sbin/visudo -c") with administrator privileges
+      changed_when: true
+      timeout: "{{ browsers_escalation_timeout }}"
+
+    - name: Escalation - Re-probe passwordless authorization
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/sudo
+          - -n
+          - "{{ browsers_privileged_helper }}"
+          - --check
+      register: browsers_sudo_reprobe
+      changed_when: false
+
+    - name: Escalation - Switch to the non-interactive mode
+      ansible.builtin.set_fact:
+        browsers_escalation_mode: sudo
+      when: browsers_sudo_reprobe.rc == 0

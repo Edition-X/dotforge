@@ -27,22 +27,27 @@ A powerful, automated configuration management system for MacBook Pro setup usin
 ## 🧭 First-time Setup
 
 The playbook decrypts secrets with an Ansible Vault password that is
-deliberately **not** in the repo (`credentials.txt` is gitignored). A fresh
-clone cannot run until you put it back:
+deliberately not in the repository. A fresh clone cannot run until you put it
+back:
 
 ```bash
-# 1. Restore the vault password (from your password manager)
-echo 'THE-VAULT-PASSWORD' > credentials.txt
+# 1. Restore the vault password (from your password manager).
+#    `read -rs` keeps it out of your shell history.
+install -m 700 -d ~/.config/macbook-pro
+read -rs -p 'Vault password: ' p && printf '%s' "$p" > ~/.config/macbook-pro/vault-pass
+chmod 600 ~/.config/macbook-pro/vault-pass && unset p
 
 # 2. Build the venv and apply
 make apply
 ```
 
-`ansible.cfg` points `vault_password_file` at `./credentials.txt`. Note that
-`~/.env_vars` also exports `ANSIBLE_VAULT_PASSWORD_FILE`; having both set makes
-`ansible-vault` ambiguous about which vault id to use, which is why the Makefile
-unsets the environment variable before every run. Do the same if you invoke
-`ansible-vault` by hand.
+`ansible.cfg` points `vault_password_file` at that absolute path, and nothing
+else competes with it. There used to be three mechanisms: this file (by a
+relative path, so it depended on the working directory), an
+`ANSIBLE_VAULT_PASSWORD_FILE` export from `~/.env_vars`, and a
+`~/.vault_pass.txt` symlink that pointed at a *vault-encrypted* file and so
+could never have worked. The Makefile had to unset the environment variable on
+every run to keep them from disagreeing.
 
 ## 🚀 Quick Start
 
@@ -90,7 +95,33 @@ make packages   # Install missing packages
 make upgrade    # Install missing packages AND upgrade outdated ones
 make ai         # Shared AI harness and OpenCode configuration only
 make mcp        # Docker MCP Toolkit profile/secrets/features only
+make browsers   # Browser catalogs, policies and the capture service
 ```
+
+### 🔖 Browser catalog capture
+
+Bookmark additions are captured from bounded read-only snapshots and published as a
+pull request against this private repository. Nothing runs until it is activated.
+
+```bash
+make validate-browser-catalog                              # schemas only
+make browser-drift                                         # additions-only comparison
+make browser-test RUN_ARGS='--automation --isolated --fake-github'   # stop conditions
+make browser-automation RUN_ARGS='--check --isolated-root "$HOME/.local/state"'
+```
+
+The publishing side never uses this checkout. It works in a dedicated clone under
+`~/.local/state/macbook-pro/browser-automation`, rechecks that the GitHub repository is
+private on every run, refuses a dirty or diverged clone, stages only the five
+per-browser bookmark catalogs, and keeps exactly one pull request on
+`automation/browser-catalog` with auto-merge by merge commit. It never force pushes and
+never adopts extension or settings drift — that is reported, not applied.
+
+The `com.dkelly.browser-capture` launchd job polls about every 15 minutes by interval,
+not `WatchPaths`, so it never fires mid-write while a browser is open. It is installed
+**disabled**: activation is a separate, explicitly authorized step. Logs and
+notifications carry counts only, never bookmark URLs; rejected records stay in a local
+mode-0600 quarantine outside the repository.
 
 ### 📦 Packages
 
@@ -203,7 +234,7 @@ repo file, only in the runtime config files below (each `0600`).
 
 OpenCode configuration is repo-managed by `ai_agents`. Source templates live
 under `roles/ai_agents/templates/`, model assignments live in
-`host_vars/localhost/opencode.yml`, and generated files deploy under
+`host_files/localhost/ai/routing/`, and generated files deploy under
 `~/.config/opencode/`. Existing config is backed up once under
 `~/.ai-config-backup/opencode/`; auth, OAuth state, sessions, caches, package
 files, and user-owned agents or commands remain outside repository ownership.
@@ -390,9 +421,54 @@ macOS will not grant that non-interactively. After `make apply`, go to
 `make apply` installs and starts the skhd service either way, so once the
 permission is granted it takes effect on its own — no re-run needed.
 
+### 📌 Toolchain
+
+Direct dependencies are pinned exactly in `requirements.txt`; `requirements.lock`
+holds the full resolved set with hashes and is what the venv installs. The venv
+is built from a declared interpreter rather than whichever `python3` is on PATH
+— on this machine that is a pyenv shim on 3.10, which cannot install the pinned
+`ansible-core` at all.
+
+```bash
+make venv                    # build from the lock (PYTHON=python3.14 to override)
+make lock                    # regenerate requirements.lock after editing requirements.txt
+make collections             # install requirements.yml into collections/
+```
+
+`ansible-core` is installed rather than the `ansible` bundle, because the bundle
+ships its own `community.general` that competed with the pinned one — resolution
+then depended on path order, and lint warned about it on every run.
+`make check-collections` turns that into a failure instead of a warning, and
+`scripts/check-tool-pins.py` fails when a version in `requirements.txt`
+disagrees with the matching pre-commit hook.
+
+### ✅ What CI runs
+
+`make ci` is the single definition, and `.github/workflows/ci.yml` runs exactly
+that — so the two cannot drift. It is `make lint` (every hook in
+`.pre-commit-config.yaml`) plus `make test` (offline, machine-independent
+checks) plus a playbook syntax check.
+
+```bash
+make ci        # everything CI runs, locally
+make lint      # static checks only
+make test      # offline tests only
+```
+
+Evidence that needs this Mac stays out of CI by necessity, and is listed here
+so the gap is explicit rather than assumed:
+
+| Not in CI | Why | Run with |
+|---|---|---|
+| Browser policy/extension smokes | real installed browsers, isolated profiles, a GUI session | `make browser-test RUN_ARGS='--all-installed --isolated --policy --extensions --capture-read-only'` |
+| Applying any role | macOS-only modules, and privileged policy installs | `make check` then `make apply` |
+| `scripts/validate-opencode-config.sh` | needs an authenticated OpenCode CLI | run by hand |
+
 ### 🔍 Code Quality
 
-The repository uses pre-commit hooks to maintain high code quality:
+The repository uses pre-commit hooks to maintain high code quality. `make` is
+the only entry point — there is deliberately no wrapper script, because the one
+that used to live here returned success even when hooks failed:
 
 ```bash
 # Set up git hooks (run once after cloning)
@@ -404,6 +480,10 @@ make pre-commit
 # Run linting only
 make lint
 ```
+
+Vault-encrypted files need no special handling: `ansible-lint` skips them via
+`exclude_paths` in `.ansible-lint`. To bypass a single hook deliberately, use
+pre-commit's own mechanism — `SKIP=ansible-lint git commit ...`.
 
 Pre-commit checks include:
 - ✅ YAML syntax validation

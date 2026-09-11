@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>{{ browsers_capture_label }}</string>
+  <!-- Interval polling on purpose. WatchPaths would fire on every live profile
+       write while a browser is open, which is exactly the inconsistent state
+       the capture snapshots are built to avoid. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{ browsers_capture_run_script }}</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>{{ browsers_capture_interval }}</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <!-- Installed disabled. Activation is a separate, explicitly authorized step
+       that happens only after this code has landed on main. -->
+  <key>Disabled</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>LowPriorityIO</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>{{ browsers_capture_log }}</string>
+  <key>StandardErrorPath</key>
+  <string>{{ browsers_capture_log }}</string>
+</dict>
+</plist>

@@ -15,15 +15,11 @@
   ansible.builtin.include_vars:
     file: "{{ ai_source_dir }}/routing/models.yml"
     name: ai_routing_models
-  tags:
-    - ai
 
 - name: Routing - Load canonical workflow policy
   ansible.builtin.include_vars:
     file: "{{ ai_source_dir }}/routing/workflow.yml"
     name: ai_routing_workflow
-  tags:
-    - ai
 
 - name: Routing - Require exact schema versions
   ansible.builtin.assert:
@@ -35,8 +31,6 @@
       models={{ ai_routing_models.schema_version }}
       workflow={{ ai_routing_workflow.schema_version }}.
     success_msg: "routing schema_version 1 on both files"
-  tags:
-    - ai
 
 - name: Routing - Require known harness provider mapping
   ansible.builtin.assert:
@@ -49,8 +43,6 @@
       models.yml harnesses must map opencode/codex to provider openai
       (opencode with model_prefix 'openai/') and claude to provider anthropic.
     success_msg: "routing harness provider mapping valid"
-  tags:
-    - ai
 
 # Every tier must exist and carry both provider entries with a model and an
 # effort key present (effort may legitimately be null, e.g. utility.anthropic).
@@ -74,8 +66,6 @@
     - senior
     - lead
     - rescue
-  tags:
-    - ai
 
 - name: Routing - Require exact workflow role set
   ansible.builtin.assert:
@@ -93,8 +83,6 @@
       - rescue
       - documentation
       - scout
-  tags:
-    - ai
 
 - name: Routing - Require every role references an existing tier
   ansible.builtin.assert:
@@ -108,8 +96,6 @@
   loop: "{{ ai_routing_workflow.roles | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
-  tags:
-    - ai
 
 - name: Routing - Stat every role's resolved prompt file
   ansible.builtin.stat:
@@ -118,8 +104,6 @@
   loop_control:
     label: "{{ item.key }}"
   register: ai_agents_routing_prompt_stats
-  tags:
-    - ai
 
 - name: Routing - Require every role's prompt file exists
   ansible.builtin.assert:
@@ -132,8 +116,6 @@
   loop: "{{ ai_agents_routing_prompt_stats.results }}"
   loop_control:
     label: "{{ item.item.key }}"
-  tags:
-    - ai
 
 - name: Routing - Require exact escalation limits
   ansible.builtin.assert:
@@ -150,5 +132,3 @@
       identical_failure_limit={{ ai_routing_workflow.identical_failure_limit }}
       max_parallel_workers={{ ai_routing_workflow.max_parallel_workers }}.
     success_msg: "routing escalation limits valid"
-  tags:
-    - ai

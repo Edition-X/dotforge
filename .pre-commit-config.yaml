@@ -7,9 +7,10 @@ repos:
   - repo: local
     hooks:
       - id: check-unencrypted-secrets
-        name: check for unencrypted secrets
-        entry: scripts/check-unencrypted-secrets.sh
-        language: script
+        name: check for plaintext secrets and unencrypted vault paths
+        entry: scripts/check-unencrypted-secrets.py
+        language: python
+        additional_dependencies: ['pyyaml>=6']
         pass_filenames: false
         always_run: true
 
@@ -20,6 +21,13 @@ repos:
         language: script
         pass_filenames: false
         files: ^host_files/localhost/ai/
+
+      - id: check-tool-pins
+        name: check tool versions agree across requirements and hooks
+        entry: scripts/check-tool-pins.py
+        language: python
+        pass_filenames: false
+        files: ^(requirements\.txt|\.pre-commit-config\.yaml)$
 
       - id: check-skills
         name: check skill files
@@ -42,7 +50,7 @@ repos:
         # to run against, regardless of how many paths were listed here. Keep
         # this on one line so every alternative folds correctly.
         files: >-
-          ^(AGENTS\.md|group_vars/macbooks\.yml|host_vars/localhost/opencode\.yml|host_files/localhost/ai/(AGENTS\.md|README\.md|opencode/.*)|host_files/localhost/ai/routing/.*|roles/ai_agents/(defaults/main\.yml|tasks/main\.yml|templates/.*)|scripts/validate-opencode-config\.sh)$
+          ^(AGENTS\.md|group_vars/macbooks\.yml|host_files/localhost/ai/(AGENTS\.md|README\.md|opencode/.*)|host_files/localhost/ai/routing/.*|roles/ai_agents/(defaults/main\.yml|tasks/main\.yml|templates/.*)|scripts/validate-opencode-config\.sh)$
 
       - id: validate-agent-routing
         name: validate canonical agent routing policy
@@ -67,6 +75,26 @@ repos:
         files: >-
           ^(scripts/codex-agent-settings-sync\.py|scripts/test-codex-agent-settings-sync\.sh)$
 
+  # 6,800 lines of Python and 2,200 of shell had no static analysis at all,
+  # while the YAML that mostly calls modules was linted twice.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+
+  # Credential-shape detection. Deliberately the same engine CI runs, so a
+  # local pass and a CI pass mean the same thing.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -79,6 +107,11 @@ repos:
           )$
       - id: check-added-large-files
       - id: check-merge-conflict
+      # ci.yml already sets `SKIP: no-commit-to-branch`, but the hook it names
+      # was never configured — so the skip guarded nothing and no guard
+      # existed. Work lands on main through a merge, never a direct commit.
+      - id: no-commit-to-branch
+        args: [--branch, main]
       - id: mixed-line-ending
         args: ['--fix=lf']
 
@@ -86,19 +119,32 @@ repos:
     rev: v26.6.0
     hooks:
       - id: ansible-lint
+        # The hook declares python3.14. That exists on the machine this repo
+        # manages and not on a CI runner, so `make ci` passed locally and
+        # failed in GitHub. Pinned to the interpreter the repo declares.
+        language_version: python3.13
         files: \.(yaml|yml)$
         # The ansible-lint hook will use our custom .ansible-lint configuration
         args: ['--force-color']
+        # Pinned to the exact version requirements.txt pins, not a floor.
+        # `>=2.15.0` let pre-commit's own hook environment resolve a newer
+        # ansible-core than the venv installs — ansible-lint was parsing
+        # against 2.20/2.21 while `make check` ran on the pinned 2.18.3.
+        # check-tool-pins.py fails if the two ever disagree again.
         additional_dependencies:
-          - ansible-core>=2.15.0
+          - ansible-core==2.18.3
         # Note: Vault handling is configured via environment variables at runtime
         # See ansible documentation for ANSIBLE_VAULT_PASSWORD_FILE and related variables
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.1
+    rev: v1.38.0
     hooks:
       - id: yamllint
-        args: ['-d', '{extends: relaxed, rules: {line-length: {max: 120}}}']
+        # No -d override: that replaces .yamllint wholesale rather than
+        # extending it, so the octal-values/truthy/comments rules in that file
+        # never ran under this hook even though ansible-lint (which does read
+        # .yamllint) enforced them. One yamllint config now, read from the
+        # repo root by both.
         # Exclude third-party files that we don't need to lint
         exclude: >
           (?x)^(

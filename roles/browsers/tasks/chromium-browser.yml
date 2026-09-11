@@ -1,0 +1,183 @@
+---
+- name: "Chromium policy - Load browser-owned catalogs - {{ browsers_chromium_name }}"
+  ansible.builtin.include_vars:
+    file: "{{ browsers_catalog_root }}/{{ browsers_chromium_catalog }}/{{ item }}.yml"
+    name: "browsers_chromium_{{ item }}_catalog"
+  loop:
+    - bookmarks
+    - extensions
+    - policies
+  no_log: true
+
+- name: "Chromium policy - Require mandatory-only supported scope - {{ browsers_chromium_name }}"
+  ansible.builtin.assert:
+    that:
+      - browsers_chromium_policies_catalog.policies | selectattr('scope', 'equalto', 'recommended') | list | length == 0
+      - >-
+        browsers_chromium_policies_catalog.policies
+        | selectattr(
+            'name',
+            'in',
+            [browsers_chromium_bookmark_policy, 'ExtensionSettings', 'ExtensionInstallForcelist']
+          )
+        | list | length == 0
+    fail_msg: >-
+      {{ browsers_chromium_name }} recommended or renderer-owned policies require a separately proven adapter
+    quiet: true
+
+- name: "Chromium policy - Render browser-owned payloads in memory - {{ browsers_chromium_name }}"
+  ansible.builtin.set_fact:
+    browsers_chromium_managed_bookmarks: >-
+      {{ lookup('template', 'chromium-managed-bookmarks.json.j2') }}
+    browsers_chromium_extension_payload: >-
+      {{ lookup('template', 'chromium-extension-policy.json.j2') }}
+  no_log: true
+
+- name: "Chromium policy - Build mandatory policy map - {{ browsers_chromium_name }}"
+  ansible.builtin.set_fact:
+    browsers_chromium_mandatory_policies: >-
+      {{
+        dict(
+          browsers_chromium_policies_catalog.policies
+          | selectattr('scope', 'equalto', 'mandatory')
+          | map(attribute='name')
+          | zip(
+              browsers_chromium_policies_catalog.policies
+              | selectattr('scope', 'equalto', 'mandatory')
+              | map(attribute='value')
+            )
+        )
+        | combine({
+            browsers_chromium_bookmark_policy: browsers_chromium_managed_bookmarks,
+            'ExtensionSettings': browsers_chromium_extension_payload.settings,
+            'ExtensionInstallForcelist': browsers_chromium_extension_payload.forcelist
+          })
+      }}
+  no_log: true
+
+- name: "Chromium policy - Create local rendered-policy directory - {{ browsers_chromium_name }}"
+  ansible.builtin.file:
+    path: "{{ browsers_state_dir }}"
+    state: directory
+    mode: "0700"
+  changed_when: false
+  check_mode: false
+
+- name: "Chromium policy - Render mandatory managed preference - {{ browsers_chromium_name }}"
+  ansible.builtin.template:
+    src: chromium-policy.plist.j2
+    dest: "{{ browsers_chromium_policy_stage }}"
+    mode: "0600"
+  vars:
+    browsers_chromium_policy_values: "{{ browsers_chromium_mandatory_policies }}"
+  diff: false
+  no_log: true
+  changed_when: false
+  check_mode: false
+
+- name: "Chromium policy - Read rendered policy - {{ browsers_chromium_name }}"
+  ansible.builtin.slurp:
+    src: "{{ browsers_chromium_policy_stage }}"
+  register: browsers_chromium_rendered
+  no_log: true
+
+- name: "Chromium policy - Inspect managed-preference directories - {{ browsers_chromium_name }}"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /Library/Managed Preferences
+    - "{{ browsers_chromium_policy_dir }}"
+  register: browsers_chromium_policy_directories
+
+- name: "Chromium policy - Reject unsafe managed-preference directories - {{ browsers_chromium_name }}"
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists or (item.stat.isdir and not item.stat.islnk and item.stat.pw_name == 'root')
+    fail_msg: "{{ browsers_chromium_name }} managed-preference directory is unsafe"
+    quiet: true
+  loop: "{{ browsers_chromium_policy_directories.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: "Chromium policy - Inspect installed policy - {{ browsers_chromium_name }}"
+  ansible.builtin.stat:
+    path: "{{ browsers_chromium_policy_path }}"
+    checksum_algorithm: sha256
+  register: browsers_chromium_installed
+
+- name: "Chromium policy - Reject unsafe installed policy path - {{ browsers_chromium_name }}"
+  ansible.builtin.assert:
+    that:
+      - >-
+        not browsers_chromium_installed.stat.exists
+        or (
+          browsers_chromium_installed.stat.isreg
+          and not browsers_chromium_installed.stat.islnk
+          and browsers_chromium_installed.stat.pw_name == 'root'
+          and browsers_chromium_installed.stat.gr_name == 'wheel'
+          and browsers_chromium_installed.stat.mode == '0644'
+        )
+    fail_msg: "{{ browsers_chromium_name }} managed policy path is unsafe"
+    quiet: true
+
+- name: "Chromium policy - Compare rendered and installed policy - {{ browsers_chromium_name }}"
+  ansible.builtin.set_fact:
+    browsers_chromium_policy_changed: >-
+      {{
+        not browsers_chromium_installed.stat.exists
+        or browsers_chromium_installed.stat.checksum != (
+          browsers_chromium_rendered.content | b64decode | hash('sha256')
+        )
+      }}
+  no_log: true
+
+- name: "Chromium policy - Report pending managed-preference change - {{ browsers_chromium_name }}"
+  ansible.builtin.debug:
+    msg: "{{ browsers_chromium_name }} managed policy requires administrator installation"
+  changed_when: browsers_chromium_policy_changed
+  when: ansible_check_mode
+
+- name: "Chromium policy - Install through the privileged helper - {{ browsers_chromium_name }}"
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - -n
+      - "{{ browsers_privileged_helper }}"
+      - --install
+      - "{{ browsers_chromium_domain }}"
+  when:
+    - not ansible_check_mode
+    - browsers_chromium_policy_changed
+    - browsers_escalation_mode == 'sudo'
+  changed_when: true
+  notify: Flush the managed preference cache
+
+# Fallback for a machine that has not run `make browsers-authorize`. The
+# timeout matters: without one an unanswered dialog stalls the play until
+# something else kills it.
+- name: "Chromium policy - Install through macOS administrator authorization - {{ browsers_chromium_name }}"
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/osascript
+      - -e
+      - >-
+        do shell script ("/bin/mkdir -p " & quoted form of "{{ browsers_chromium_policy_dir }}"
+        & " && /usr/bin/install -o root -g wheel -m 0644 "
+        & quoted form of "{{ browsers_chromium_policy_stage }}"
+        & " " & quoted form of "{{ browsers_chromium_policy_path }}") with administrator privileges
+  when:
+    - not ansible_check_mode
+    - browsers_chromium_policy_changed
+    - browsers_escalation_mode == 'dialog'
+  changed_when: true
+  timeout: "{{ browsers_escalation_timeout }}"
+  notify: Flush the managed preference cache
+
+- name: "Chromium policy - Validate installed plist - {{ browsers_chromium_name }}"
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/plutil
+      - -lint
+      - "{{ browsers_chromium_policy_path }}"
+  changed_when: false
+  when: not ansible_check_mode

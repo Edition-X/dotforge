@@ -1,0 +1,21 @@
+{
+  "records": [
+    {
+      "browser": "chrome",
+      "title": "Fake managed bookmark",
+      "url": "https://example.invalid/managed",
+      "folder": ["Managed"]
+    },
+    {
+      "browser": "chrome",
+      "title": "Fake managed bookmark",
+      "url": "https://example.invalid/managed",
+      "folder": ["Bookmarks bar"]
+    }
+  ],
+  "expected": {
+    "mode": "additions_only",
+    "real_records": 0,
+    "duplicate_decision": "keep-managed-and-ordinary-copies"
+  }
+}

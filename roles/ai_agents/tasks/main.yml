@@ -8,8 +8,6 @@
 # (host_files/localhost/ai/routing/) is malformed.
 - name: Routing - Load and validate canonical policy
   ansible.builtin.include_tasks: routing.yml
-  tags:
-    - ai
 
 # Discovered rather than listed, so adding a skill is just adding a directory
 # under host_files/localhost/ai/skills/ — no role edit needed.
@@ -19,15 +17,11 @@
     file_type: directory
     recurse: false
   register: ai_agents_skills_found
-  tags:
-    - ai
 
 - name: Register repo-owned skill names
   ansible.builtin.set_fact:
     ai_agents_skills: >-
       {{ ai_agents_skills_found.files | map(attribute='path') | map('basename') | sort }}
-  tags:
-    - ai
 
 # Created even under --check, so that the backup task below has somewhere to
 # aim and a dry run reports what it would actually back up rather than erroring.
@@ -36,12 +30,10 @@
   ansible.builtin.file:
     path: "{{ ai_backup_dir }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   check_mode: false
-  tags:
-    - ai
 
 - name: Migration - Stat pre-existing instruction files
   ansible.builtin.stat:
@@ -50,21 +42,21 @@
   loop_control:
     label: "{{ item.name }}"
   register: ai_agents_existing_instructions
-  tags:
-    - ai
 
-# Runs before the first link replaces anything. These files were hand-maintained
-# per harness and had drifted apart; the merged result is the canonical
-# AGENTS.md, but keep the originals recoverable. force:false means a second
-# apply never overwrites the first backup.
+# Runs before the first link replaces anything, on any machine. Kept rather
+# than treated as a completed migration: a harness on a new machine may still
+# carry a hand-written instruction file, and this is what stops the first apply
+# from silently replacing it. force:false means a second apply never overwrites
+# the first backup, and the `when` below skips anything already linked, so on a
+# converged machine it does nothing.
 - name: Migration - Back up hand-maintained instruction files
   ansible.builtin.copy:
     src: "{{ item.stat.path }}"
     dest: "{{ ai_backup_dir }}/{{ item.item.name | lower | replace(' ', '-') }}-{{ item.stat.path | basename }}"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_existing_instructions.results }}"
   loop_control:
@@ -72,21 +64,17 @@
   when:
     - item.stat.exists
     - not item.stat.islnk
-  tags:
-    - ai
 
 - name: Harness - Config directory
   ansible.builtin.file:
     path: "{{ item.dir }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   loop: "{{ ai_harnesses }}"
   loop_control:
     label: "{{ item.name }}"
-  tags:
-    - ai
 
 - name: Harness - Canonical instruction file
   ansible.builtin.file:
@@ -94,26 +82,22 @@
     dest: "{{ item.instructions }}"
     state: link
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   loop: "{{ ai_harnesses }}"
   loop_control:
     label: "{{ item.name }}"
-  tags:
-    - ai
 
 - name: Harness - Skills directory
   ansible.builtin.file:
     path: "{{ item.skills }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   loop: "{{ ai_harnesses }}"
   loop_control:
     label: "{{ item.name }}"
-  tags:
-    - ai
 
 # The skills directory itself stays a real directory rather than a link, because
 # each harness mixes repo-owned skills with skills linked out to the repo that
@@ -125,8 +109,6 @@
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"
   register: ai_agents_existing_skills
-  tags:
-    - ai
 
 # A non-empty directory cannot be replaced by a link in place, so the copies
 # these skills were vendored as have to go first. Their content is already in
@@ -146,8 +128,6 @@
   when:
     - item.stat.exists
     - not item.stat.islnk
-  tags:
-    - ai
 
 - name: Harness - Shared skills
   ansible.builtin.file:
@@ -155,13 +135,11 @@
     dest: "{{ item.0.skills }}/{{ item.1 }}"
     state: link
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   loop: "{{ ai_harnesses | product(ai_agents_skills) | list }}"
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"
-  tags:
-    - ai
 
 - name: AI agents - Find deployed skill links
   ansible.builtin.find:
@@ -209,31 +187,25 @@
     dest: "{{ item.0.skills }}/{{ item.1 }}"
     state: link
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   loop: "{{ ai_harnesses | product(ai_external_skills) | list }}"
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"
-  tags:
-    - ai
 
 - name: OpenCode - Backup directory
   ansible.builtin.file:
     path: "{{ ai_backup_dir }}/opencode"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   check_mode: false
-  tags:
-    - ai
 
 - name: OpenCode - Stat migration marker
   ansible.builtin.stat:
     path: "{{ ai_backup_dir }}/opencode/.managed"
   register: ai_agents_opencode_backup_marker
-  tags:
-    - ai
 
 - name: OpenCode - Stat existing config files
   ansible.builtin.stat:
@@ -242,8 +214,6 @@
     - "{{ config_paths.opencode_config }}"
     - "{{ config_paths.opencode_routing }}"
   register: ai_agents_opencode_existing_config_files
-  tags:
-    - ai
 
 - name: OpenCode - Back up existing config files
   ansible.builtin.copy:
@@ -251,8 +221,8 @@
     dest: "{{ ai_backup_dir }}/opencode/{{ item.stat.path | basename }}"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_opencode_existing_config_files.results }}"
   loop_control:
@@ -261,8 +231,6 @@
     - item.stat.exists
     - item.stat.isreg
     - not ai_agents_opencode_backup_marker.stat.exists
-  tags:
-    - ai
 
 - name: OpenCode - Stat existing managed agents
   ansible.builtin.stat:
@@ -271,8 +239,6 @@
   loop_control:
     label: "{{ item.name }}"
   register: ai_agents_opencode_existing_agents
-  tags:
-    - ai
 
 - name: OpenCode - Back up existing managed agents
   ansible.builtin.copy:
@@ -280,8 +246,8 @@
     dest: "{{ ai_backup_dir }}/opencode/{{ item.item.file }}"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_opencode_existing_agents.results }}"
   loop_control:
@@ -290,16 +256,12 @@
     - item.stat.exists
     - item.stat.isreg
     - not ai_agents_opencode_backup_marker.stat.exists
-  tags:
-    - ai
 
 - name: OpenCode - Stat existing managed commands
   ansible.builtin.stat:
     path: "{{ config_paths.opencode_commands }}/{{ item }}"
   loop: "{{ opencode_commands }}"
   register: ai_agents_opencode_existing_commands
-  tags:
-    - ai
 
 - name: OpenCode - Back up existing managed commands
   ansible.builtin.copy:
@@ -307,8 +269,8 @@
     dest: "{{ ai_backup_dir }}/opencode/{{ item.item }}"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_opencode_existing_commands.results }}"
   loop_control:
@@ -317,27 +279,21 @@
     - item.stat.exists
     - item.stat.isreg
     - not ai_agents_opencode_backup_marker.stat.exists
-  tags:
-    - ai
 
 - name: OpenCode - Retired agents backup directory
   ansible.builtin.file:
     path: "{{ ai_backup_dir }}/opencode/retired"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   check_mode: false
-  tags:
-    - ai
 
 - name: OpenCode - Stat existing retired agents
   ansible.builtin.stat:
     path: "{{ config_paths.opencode_agents }}/{{ item }}"
   loop: "{{ opencode_retired_agents }}"
   register: ai_agents_opencode_existing_retired_agents
-  tags:
-    - ai
 
 # Backed up once each: force:false skips a retired file whose backup already
 # exists under .../opencode/retired/, so a second apply neither re-copies nor
@@ -348,8 +304,8 @@
     dest: "{{ ai_backup_dir }}/opencode/retired/{{ item.item }}"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_opencode_existing_retired_agents.results }}"
   loop_control:
@@ -357,8 +313,6 @@
   when:
     - item.stat.exists
     - item.stat.isreg
-  tags:
-    - ai
 
 # Only these exact retired filenames are ever removed; the agents directory
 # itself is never swept, so any user-owned agent file is untouched.
@@ -369,12 +323,8 @@
   loop: "{{ opencode_retired_agents }}"
   loop_control:
     label: "{{ item }}"
-  tags:
-    - ai
 
 - name: OpenCode - Stage and validate managed configuration
-  tags:
-    - ai
   block:
     - name: OpenCode - Create staging directory
       ansible.builtin.tempfile:
@@ -433,6 +383,18 @@
       check_mode: false
       changed_when: false
 
+    # The validator drives the real OpenCode CLI, which is absent wherever the
+    # CLI is not installed — a CI runner, for instance. Skipping is reported
+    # rather than silent: a validation that quietly does not run is worse than
+    # one that is openly unavailable.
+    - name: OpenCode - Find the CLI the validator needs
+      ansible.builtin.command:
+        argv: [/usr/bin/which, opencode]
+      register: ai_agents_opencode_cli
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
     - name: OpenCode - Validate staged configuration
       ansible.builtin.command:
         cmd: >-
@@ -441,13 +403,21 @@
       register: ai_agents_opencode_validation
       changed_when: false
       check_mode: false
+      when: ai_agents_opencode_cli.rc == 0
+
+    - name: OpenCode - Report that validation was skipped
+      ansible.builtin.debug:
+        msg: >-
+          OpenCode config validation skipped: the `opencode` CLI is not
+          installed, so the staged configuration was not checked against it.
+      when: ai_agents_opencode_cli.rc != 0
 
     - name: OpenCode - Config directory
       ansible.builtin.file:
         path: "{{ config_paths.opencode_dir }}"
         state: directory
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0700'
       check_mode: false
 
@@ -455,8 +425,8 @@
       ansible.builtin.file:
         path: "{{ config_paths.opencode_agents }}"
         state: directory
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0700'
       check_mode: false
 
@@ -464,8 +434,8 @@
       ansible.builtin.file:
         path: "{{ config_paths.opencode_commands }}"
         state: directory
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0700'
       check_mode: false
 
@@ -474,8 +444,8 @@
         src: "{{ ai_agents_opencode_stage.path }}/opencode.jsonc"
         dest: "{{ config_paths.opencode_config }}"
         remote_src: true
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0600'
       no_log: true
 
@@ -484,8 +454,8 @@
         src: "{{ ai_agents_opencode_stage.path }}/ROUTING.md"
         dest: "{{ config_paths.opencode_routing }}"
         remote_src: true
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0644'
 
     - name: OpenCode - Install validated agents
@@ -493,8 +463,8 @@
         src: "{{ ai_agents_opencode_stage.path }}/agents/{{ item.file }}"
         dest: "{{ config_paths.opencode_agents }}/{{ item.file }}"
         remote_src: true
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0644'
       loop: "{{ opencode_agents }}"
       loop_control:
@@ -505,8 +475,8 @@
         src: "{{ ai_agents_opencode_stage.path }}/commands/{{ item }}"
         dest: "{{ config_paths.opencode_commands }}/{{ item }}"
         remote_src: true
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0644'
       loop: "{{ opencode_commands }}"
 
@@ -514,8 +484,8 @@
       ansible.builtin.file:
         path: "{{ ai_backup_dir }}/opencode/.managed"
         state: touch
-        owner: "{{ ansible_user_uid | quote }}"
-        group: "{{ ansible_user_gid | quote }}"
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_gid }}"
         mode: '0600'
       when: not ai_agents_opencode_backup_marker.stat.exists
   always:
@@ -532,8 +502,6 @@
     state: absent
   loop: "{{ ai_agents_unused_instructions }}"
   when: ai_agents_prune_unused | bool
-  tags:
-    - ai
 
 - name: T3 Code - Configure isolated Claude profile
   ansible.builtin.include_tasks: t3.yml

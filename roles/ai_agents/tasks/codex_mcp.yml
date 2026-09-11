@@ -30,8 +30,8 @@
     dest: "{{ ai_backup_dir }}/codex-config.toml.pre-mcp-sync"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   when: ai_agents_codex_config.stat.exists
   tags: [ai, codex]

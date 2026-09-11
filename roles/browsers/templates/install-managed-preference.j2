@@ -1,0 +1,102 @@
+#!/bin/sh
+# {{ managed_header }}
+#
+# Install one managed-preference plist for a known browser domain.
+#
+# This is the only thing the browser role is allowed to run as root, and it is
+# reachable through a NOPASSWD sudoers rule, so it validates everything itself
+# rather than trusting its caller. Sudoers grants no wildcards: the argument
+# space is one flag plus a domain from the list below, and every path is fixed
+# at render time.
+#
+# Deliberately /bin/sh with plutil for validation: a root helper should not
+# depend on an interpreter or library that lives inside a user-writable repo.
+set -eu
+
+STAGE_DIR={{ browsers_state_dir | quote }}
+TARGET_DIR={{ browsers_chromium_policy_dir | quote }}
+EXPECTED_UID={{ ansible_user_uid | string | quote }}
+ALLOWED_DOMAINS="{{ (browsers_chromium_adapters | map(attribute='policy.domain') | list + [browsers_firefox_policy_domain]) | join(' ') }}"
+
+refuse() {
+    echo "managed-preference helper: refused ($1)" >&2
+    exit 77
+}
+
+usage() {
+    echo "usage: $(basename "$0") --check | --install <domain> | --remove <domain>" >&2
+    exit 64
+}
+
+# The target directory is root-owned by macOS. If it is not, or it has been
+# replaced by a symlink, something is wrong with the machine and this helper is
+# not the place to paper over it.
+assert_safe_target_dir() {
+    [ ! -L "${TARGET_DIR}" ] || refuse "target directory is a symlink"
+    if [ -d "${TARGET_DIR}" ]; then
+        [ "$(stat -f '%u' "${TARGET_DIR}")" = "0" ] || refuse "target directory is not root-owned"
+    fi
+}
+
+case "${1:-}" in
+    --check)
+        assert_safe_target_dir
+        echo "managed-preference helper: ready domains=$(echo "${ALLOWED_DOMAINS}" | wc -w | tr -d ' ')"
+        echo "stage=${STAGE_DIR}"
+        echo "target=${TARGET_DIR}"
+        exit 0
+        ;;
+    --install|--remove) ;;
+    *) usage ;;
+esac
+
+domain="${2:-}"
+[ -n "${domain}" ] || usage
+
+matched=0
+for allowed in ${ALLOWED_DOMAINS}; do
+    [ "${domain}" = "${allowed}" ] && matched=1
+done
+[ "${matched}" = 1 ] || refuse "domain ${domain} is not managed"
+
+source="${STAGE_DIR}/${domain}.plist"
+target="${TARGET_DIR}/${domain}.plist"
+
+# Restoring "there was no policy here" is part of leaving a machine as it was
+# found. The path is fully computed from an allowlisted domain, so there is no
+# caller-supplied path to sanitise.
+if [ "${1}" = "--remove" ]; then
+    assert_safe_target_dir
+    [ ! -L "${target}" ] || refuse "target is a symlink"
+    /bin/rm -f "${target}"
+    /usr/bin/killall cfprefsd >/dev/null 2>&1 || true
+    echo "managed-preference helper: removed ${domain}"
+    exit 0
+fi
+
+[ ! -L "${source}" ] || refuse "staged policy is a symlink"
+[ -f "${source}" ] || refuse "staged policy is missing"
+
+# The staging directory belongs to the user who owns this configuration. A file
+# planted there by any other account is not installed.
+[ "$(stat -f '%u' "${source}")" = "${EXPECTED_UID}" ] || refuse "staged policy has an unexpected owner"
+
+/usr/bin/plutil -lint "${source}" >/dev/null 2>&1 || refuse "staged policy is not a valid plist"
+
+assert_safe_target_dir
+
+# `mkdir -p -m` applies the mode only to the deepest directory, so a created
+# parent would get whatever root's umask gives it. Create and set the mode
+# explicitly, and leave an existing directory's mode alone — macOS owns it.
+if [ ! -d "${TARGET_DIR}" ]; then
+    /bin/mkdir -p "${TARGET_DIR}"
+    /bin/chmod 0755 "${TARGET_DIR}"
+fi
+
+/usr/bin/install -o root -g wheel -m 0644 "${source}" "${target}"
+
+# macOS caches managed preferences, so a browser would keep reading the previous
+# policy without this.
+/usr/bin/killall cfprefsd >/dev/null 2>&1 || true
+
+echo "managed-preference helper: installed ${domain}"

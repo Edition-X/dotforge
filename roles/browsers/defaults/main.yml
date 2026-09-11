@@ -1,0 +1,101 @@
+---
+browsers_catalog_root: "{{ playbook_dir }}/host_files/localhost/browsers"
+# The fleet is described once, in the manifest the Python side also reads.
+# These derivations replace hand-maintained copies of the same facts, which
+# previously lived in about eight places across YAML and Python.
+browsers_manifest: "{{ lookup('file', browsers_catalog_root ~ '/manifest.yml') | from_yaml }}"
+browsers_catalog_names: "{{ browsers_manifest.browsers | map(attribute='catalog') | list }}"
+
+# Every non-interactive entry point runs this exact interpreter. `python3` from
+# PATH is not a contract: this machine has four (venv 3.13, pyenv 3.10,
+# Homebrew 3.14, /usr/bin 3.9), only one of which has the dependencies these
+# scripts import, and the LaunchAgent was resolving to a different one than
+# every test.
+browsers_python: "{{ browsers_repo_dir }}/venv/bin/python"
+browsers_python_minimum: "3.12"
+
+# How root-owned policy files get installed.
+#   auto   - use the privileged helper when this machine is authorized,
+#            otherwise fall back to the interactive dialog
+#   sudo   - require the helper; fail rather than prompt
+#   dialog - always prompt (what the role did before it had a helper)
+browsers_escalation: auto
+browsers_escalation_timeout: 120
+browsers_privileged_helper: /usr/local/libexec/macbook-pro/install-managed-preference
+browsers_privileged_helper_stage: "{{ browsers_state_dir }}/install-managed-preference"
+browsers_sudoers_path: /etc/sudoers.d/macbook-pro-browsers
+browsers_sudoers_stage: "{{ browsers_state_dir }}/browsers-sudoers"
+browsers_sudoers_user: "{{ osx_username }}"
+
+# Bookmark-addition capture service. Static paths, so they belong here rather
+# than in a set_fact: a fact is invisible until the role runs, which is what
+# pushed the cleanup role into hardcoding its own copy of these paths.
+browsers_capture_label: com.dkelly.browser-capture
+browsers_capture_interval: 900
+browsers_automation_root: "{{ user_dir }}/.local/state/macbook-pro/browser-automation"
+browsers_capture_run_script: "{{ browsers_automation_root }}/capture-run.sh"
+browsers_capture_log: "{{ user_dir }}/Library/Logs/browser-capture.log"
+browsers_capture_plist: "{{ user_dir }}/Library/LaunchAgents/{{ browsers_capture_label }}.plist"
+browsers_repo_dir: "{{ playbook_dir }}"
+
+browsers_state_dir: "{{ user_dir }}/.local/state/macbook-pro/browser-policy"
+browsers_chromium_policy_dir: "/Library/Managed Preferences/{{ osx_username }}"
+browsers_chromium_adapters: >-
+  {{
+    browsers_manifest.browsers
+    | selectattr('engine', 'equalto', 'chromium')
+    | selectattr('policy.support', 'equalto', 'managed_preference')
+    | list
+  }}
+browsers_firefox_app: /Applications/Firefox.app
+browsers_firefox_resources: "{{ browsers_firefox_app }}/Contents/Resources"
+# Policy is delivered as a managed preference, not written into the application
+# bundle: a file inside Firefox.app breaks its code signature, and macOS refuses
+# to launch a freshly installed bundle whose seal no longer matches.
+browsers_firefox_bundle_policy_dir: "{{ browsers_firefox_resources }}/distribution"
+browsers_firefox_policy_domain: >-
+  {{
+    (browsers_manifest.browsers | selectattr('catalog', 'equalto', 'firefox') | first).policy.domain
+  }}
+browsers_firefox_policy_path: "{{ browsers_chromium_policy_dir }}/{{ browsers_firefox_policy_domain }}.plist"
+browsers_firefox_policy_stage: "{{ browsers_state_dir }}/{{ browsers_firefox_policy_domain }}.plist"
+browsers_vivaldi_app: /Applications/Vivaldi.app
+browsers_vivaldi_profile: "{{ user_dir }}/Library/Application Support/Vivaldi/Default"
+browsers_vivaldi_audit_path: "{{ browsers_state_dir }}/vivaldi-audit.sh"
+browsers_quarantine_path: "{{ browsers_state_dir }}/quarantine.json"
+# Derived, so a browser added to the manifest is cleaned up as well as
+# installed. These were nine hand-written paths that had to be kept in step
+# with the adapter list by hand.
+#
+# User-owned only. The installed managed-preference plists under
+# browsers_chromium_policy_dir are root-owned and cannot be unlinked by this
+# `file: state=absent` loop — see browsers_managed_preference_domains, which
+# cleanup removes through the same privileged helper that installs them.
+browsers_generated_paths: >-
+  {{
+    (
+      browsers_manifest.browsers
+      | selectattr('policy.support', 'equalto', 'managed_preference')
+      | map(attribute='policy.domain')
+      | map('regex_replace', '^(.*)$', browsers_state_dir ~ '/\1.plist')
+      | list
+    )
+    + [
+      browsers_vivaldi_audit_path,
+      browsers_capture_plist,
+      browsers_capture_run_script,
+      browsers_privileged_helper_stage,
+      browsers_sudoers_stage,
+    ]
+  }}
+
+# Every domain the role can install a root-owned managed preference for.
+# Cleanup removes these through the privileged helper, which is the only thing
+# permitted to touch /Library/Managed Preferences.
+browsers_managed_preference_domains: >-
+  {{
+    browsers_manifest.browsers
+    | selectattr('policy.support', 'equalto', 'managed_preference')
+    | map(attribute='policy.domain')
+    | list
+  }}

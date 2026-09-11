@@ -6,11 +6,11 @@ folder; stdout contains only correlated session/model evidence. This is a routin
 smoke, not a paired benchmark or proof of write-denial enforcement.
 """
 import argparse
-import importlib.util
 import hashlib
+import importlib.util
 import json
-import subprocess
 import sqlite3
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -42,13 +42,17 @@ def snapshot():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--harness', choices=('opencode', 'codex', 'claude-work'), required=True)
-    parser.add_argument('--natural', action='store_true', help='Probe discretionary routing; direct reads are not scout proof')
+    parser.add_argument('--natural', action='store_true',
+                        help='Probe discretionary routing; direct reads are not scout proof')
     args = parser.parse_args()
     policy = yaml.safe_load((REPO / 'host_files/localhost/ai/routing/models.yml').read_text())
     provider = 'anthropic' if args.harness == 'claude-work' else 'openai'
     lead = policy['tiers']['lead'][provider]
     scout = policy['tiers']['worker'][provider]
-    prompt = PROMPT if args.natural else ('Delegate the following bounded task to your configured scout subagent, then return its answer. ' + PROMPT)
+    prompt = PROMPT if args.natural else (
+        'Delegate the following bounded task to your configured scout subagent, '
+        'then return its answer. ' + PROMPT
+    )
     out = Path(tempfile.mkdtemp(prefix='scout-live-'))
     print(f'Local evidence: {out}', flush=True)
     if args.harness == 'opencode':
@@ -77,7 +81,9 @@ def main():
             if len(ids) != 1:
                 raise ValueError('Missing or ambiguous root session ID')
             parent = ids.pop()
-            children = evidence.opencode(parent, Path.home() / '.local/share/opencode/opencode.db', f"openai/{scout['model']}")
+            children = evidence.opencode(
+                parent, Path.home() / '.local/share/opencode/opencode.db', f"openai/{scout['model']}"
+            )
             if any(c['effort'] != scout['effort'] for c in children):
                 raise ValueError('Scout effort mismatch')
         elif args.harness == 'codex':

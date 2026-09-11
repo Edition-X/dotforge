@@ -1,0 +1,190 @@
+---
+- name: Firefox policy - Load browser-owned catalogs
+  ansible.builtin.include_vars:
+    file: "{{ browsers_catalog_root }}/firefox/{{ item }}.yml"
+    name: "browsers_firefox_{{ item }}_catalog"
+  loop:
+    - bookmarks
+    - extensions
+    - policies
+  no_log: true
+
+- name: Firefox policy - Require supported mandatory scope
+  ansible.builtin.assert:
+    that:
+      - browsers_firefox_policies_catalog.policies | selectattr('scope', 'equalto', 'recommended') | list | length == 0
+      - >-
+        browsers_firefox_policies_catalog.policies
+        | selectattr('name', 'in', ['ManagedBookmarks', 'ExtensionSettings', 'EnterprisePoliciesEnabled'])
+        | list | length == 0
+    fail_msg: "Firefox recommended or renderer-owned policies require a separately proven adapter"
+    quiet: true
+
+- name: Firefox extensions - Require reviewed presence-only enforcement
+  ansible.builtin.assert:
+    that:
+      - browsers_firefox_extensions_catalog.enforcement == 'report_only'
+      - >-
+        browsers_firefox_extensions_catalog.required
+        | rejectattr('update_url', 'in', browsers_verified_update_urls)
+        | list | length == 0
+      - >-
+        browsers_firefox_extensions_catalog.required
+        | rejectattr('presence', 'equalto', 'required')
+        | list | length == 0
+    fail_msg: >-
+      Firefox extension catalog needs vendor-verified presence entries and a reviewed
+      migration before blocking enforcement
+    quiet: true
+  vars:
+    # Store update endpoints proven against vendor evidence: Chrome Web Store
+    # (also used by Brave), Microsoft Edge Add-ons and addons.mozilla.org.
+    browsers_verified_update_urls:
+      - https://clients2.google.com/service/update2/crx
+      - https://edge.microsoft.com/extensionwebstorebase/v1/crx
+      - https://addons.mozilla.org/firefox/downloads/latest/lastpass-password-manager/latest.xpi
+
+- name: Firefox policy - Inspect application paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ browsers_firefox_app }}"
+    - "{{ browsers_firefox_resources }}"
+    - "{{ browsers_firefox_bundle_policy_dir }}"
+  register: browsers_firefox_paths
+
+- name: Firefox policy - Require safe application bundle
+  ansible.builtin.assert:
+    that:
+      - browsers_firefox_paths.results[0].stat.isdir
+      - not browsers_firefox_paths.results[0].stat.islnk
+      - browsers_firefox_paths.results[1].stat.isdir
+      - not browsers_firefox_paths.results[1].stat.islnk
+    fail_msg: "Firefox application bundle is missing or unsafe"
+    quiet: true
+
+# Guard against the earlier in-bundle mechanism coming back: any file under
+# Firefox.app breaks the signature that macOS checks on a fresh install.
+- name: Firefox policy - Require an unmodified application bundle
+  ansible.builtin.assert:
+    that:
+      - not browsers_firefox_paths.results[2].stat.exists
+    fail_msg: >-
+      Firefox.app carries a distribution directory; policy belongs in a managed
+      preference so the bundle signature stays intact
+    quiet: true
+
+- name: Firefox policy - Build managed policy values
+  ansible.builtin.set_fact:
+    browsers_firefox_policy_values: >-
+      {{
+        {'EnterprisePoliciesEnabled': true}
+        | combine((lookup('template', 'firefox-policies.json.j2')).policies)
+      }}
+  no_log: true
+
+- name: Firefox policy - Create local rendered-policy directory
+  ansible.builtin.file:
+    path: "{{ browsers_state_dir }}"
+    state: directory
+    mode: "0700"
+  changed_when: false
+  check_mode: false
+
+- name: Firefox policy - Render managed preference
+  ansible.builtin.template:
+    src: chromium-policy.plist.j2
+    dest: "{{ browsers_firefox_policy_stage }}"
+    mode: "0600"
+  vars:
+    browsers_chromium_policy_values: "{{ browsers_firefox_policy_values }}"
+  diff: false
+  no_log: true
+  changed_when: false
+  check_mode: false
+
+- name: Firefox policy - Read rendered managed preference
+  ansible.builtin.slurp:
+    src: "{{ browsers_firefox_policy_stage }}"
+  register: browsers_firefox_rendered
+  no_log: true
+
+- name: Firefox policy - Inspect installed managed preference
+  ansible.builtin.stat:
+    path: "{{ browsers_firefox_policy_path }}"
+    checksum_algorithm: sha256
+  register: browsers_firefox_installed
+
+- name: Firefox policy - Reject unsafe installed policy path
+  ansible.builtin.assert:
+    that:
+      - >-
+        not browsers_firefox_installed.stat.exists
+        or (
+          browsers_firefox_installed.stat.isreg
+          and not browsers_firefox_installed.stat.islnk
+          and browsers_firefox_installed.stat.pw_name == 'root'
+          and browsers_firefox_installed.stat.gr_name == 'wheel'
+          and browsers_firefox_installed.stat.mode == '0644'
+        )
+    fail_msg: "Firefox managed policy path is unsafe"
+    quiet: true
+
+- name: Firefox policy - Compare rendered and installed policy
+  ansible.builtin.set_fact:
+    browsers_firefox_policy_changed: >-
+      {{
+        not browsers_firefox_installed.stat.exists
+        or browsers_firefox_installed.stat.checksum != (
+          browsers_firefox_rendered.content | b64decode | hash('sha256')
+        )
+      }}
+  no_log: true
+
+- name: Firefox policy - Report pending managed-preference change
+  ansible.builtin.debug:
+    msg: "Firefox managed policy requires administrator installation"
+  changed_when: browsers_firefox_policy_changed
+  when: ansible_check_mode
+
+- name: Firefox policy - Install through the privileged helper
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - -n
+      - "{{ browsers_privileged_helper }}"
+      - --install
+      - "{{ browsers_firefox_policy_domain }}"
+  when:
+    - not ansible_check_mode
+    - browsers_firefox_policy_changed
+    - browsers_escalation_mode == 'sudo'
+  changed_when: true
+  notify: Flush the managed preference cache
+
+- name: Firefox policy - Install through macOS administrator authorization
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/osascript
+      - -e
+      - >-
+        do shell script ("/bin/mkdir -p " & quoted form of "{{ browsers_chromium_policy_dir }}"
+        & " && /usr/bin/install -o root -g wheel -m 0644 "
+        & quoted form of "{{ browsers_firefox_policy_stage }}"
+        & " " & quoted form of "{{ browsers_firefox_policy_path }}") with administrator privileges
+  when:
+    - not ansible_check_mode
+    - browsers_firefox_policy_changed
+    - browsers_escalation_mode == 'dialog'
+  changed_when: true
+  timeout: "{{ browsers_escalation_timeout }}"
+  notify: Flush the managed preference cache
+
+- name: Firefox policy - Validate installed plist
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/plutil
+      - -lint
+      - "{{ browsers_firefox_policy_path }}"
+  changed_when: false
+  when: not ansible_check_mode

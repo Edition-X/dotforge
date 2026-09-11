@@ -29,8 +29,8 @@
   ansible.builtin.file:
     path: "{{ ai_backup_dir }}/codex"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   when: ai_agents_codex_agents_config.stat.exists
   check_mode: false
@@ -47,8 +47,8 @@
   ansible.builtin.file:
     path: "{{ user_dir }}/.codex/agents"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   when: ai_agents_codex_agents_config.stat.exists
   tags: [ai, codex]
@@ -74,8 +74,8 @@
     dest: "{{ ai_backup_dir }}/codex/{{ item.item.file }}"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_codex_agents_existing.results }}"
   loop_control:
@@ -127,8 +127,8 @@
   ansible.builtin.file:
     path: "{{ ai_backup_dir }}/codex/.managed"
     state: touch
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   when:
     - ai_agents_codex_agents_config.stat.exists
@@ -141,8 +141,8 @@
     dest: "{{ ai_backup_dir }}/codex-config.toml.pre-agent-defaults-sync"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   when: ai_agents_codex_agents_config.stat.exists
   tags: [ai, codex]

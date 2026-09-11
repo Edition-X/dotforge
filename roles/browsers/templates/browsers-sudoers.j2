@@ -1,0 +1,11 @@
+# {{ managed_header | default('Managed by macbook-pro - do not edit by hand') }}
+#
+# Lets the browser role install managed preferences without an interactive
+# dialog, so a routine apply is non-interactive and the launchd service can run
+# unattended.
+#
+# Scope is one root-owned helper script, which validates its own arguments and
+# hard-codes every path. No wildcards appear here on purpose: wildcard command
+# arguments in sudoers are a well-known escalation route, and the helper is the
+# safer place to enforce the argument space.
+{{ browsers_sudoers_user }} ALL=(root) NOPASSWD: {{ browsers_privileged_helper }}

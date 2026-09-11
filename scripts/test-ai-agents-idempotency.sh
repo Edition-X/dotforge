@@ -18,7 +18,7 @@ backup_dir="${test_home}/.ai-config-backup"
 
 cleanup() {
     ls -d "$tmp_root"
-    trash "$tmp_root"
+    rm -rf "$tmp_root"  # self-created mktemp dir, not user data
 }
 trap cleanup EXIT
 
@@ -30,6 +30,7 @@ ansible_python_interpreter="${ANSIBLE_PYTHON_INTERPRETER:-${VIRTUAL_ENV:-${repo_
     exit 1
 }
 
+# shellcheck disable=SC2016  # $schema is a literal JSON key, not a variable
 printf '%s\n' '{"$schema":"https://opencode.ai/config.json","mcp":{}}' > "${test_home}/.config/opencode/opencode.jsonc"
 printf '%s\n' 'pre-existing orchestrator configuration' > "${test_home}/.config/opencode/agents/orchestrator.md"
 printf '%s\n' 'pre-existing command configuration' > "${test_home}/.config/opencode/commands/review.md"
@@ -52,12 +53,15 @@ args = ["mcp"]
 EOF
 printf '%s\n' 'pre-existing worker configuration' > "${test_home}/.codex/agents/worker.toml"
 
+# The OpenCode config template embeds the gateway token, which normally comes
+# from the vault. This test checks structure and idempotency, not the token, so
+# it supplies its own placeholder rather than requiring the real vault password
+# — which is why this test could never run in CI.
 run_playbook() {
     ansible-playbook \
-        -i "${repo_root}/inventory" \
-        -l local \
+        -i "${repo_root}/inventory-tests" \
         "${repo_root}/tests/ai_agents.yml" \
-        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_external_skills\":[],\"ai_agents_prune_unused\":false}"
+        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_external_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
 }
 
 first_output="${tmp_root}/first-run.log"
@@ -73,6 +77,7 @@ cat "$first_output"
 [[ ! -e "${test_home}/.config/opencode/agents/architect.md" ]] || { printf 'retired agent file still present after first apply\n' >&2; exit 1; }
 [[ -x "${test_home}/.local/bin/claude-work" ]] || { printf 'claude-work wrapper missing or not executable\n' >&2; exit 1; }
 [[ -d "${test_home}/.claude-work" ]] || { printf 'claude-work config directory missing\n' >&2; exit 1; }
+# shellcheck disable=SC2016  # matching the literal $HOME the wrapper contains
 grep -Fq 'export CLAUDE_CONFIG_DIR="$HOME/.claude-work"' "${test_home}/.local/bin/claude-work" || {
     printf 'claude-work wrapper does not set isolated config directory\n' >&2
     exit 1
@@ -183,7 +188,7 @@ second_codex_config=$(shasum -a 256 "${test_home}/.codex/config.toml")
 [[ "$before_codex_backup" == "$after_codex_backup" ]] || { printf 'Codex agent backup changed on second run\n' >&2; exit 1; }
 [[ "$first_codex_config" == "$second_codex_config" ]] || { printf 'Codex config.toml changed on second run\n' >&2; exit 1; }
 [[ ! -e "${test_home}/.config/opencode/agents/architect.md" ]] || { printf 'retired agent file reappeared after second apply\n' >&2; exit 1; }
-! rg -q 'changed=[1-9]' "$second_output" || { printf 'second run still changed a task\n' >&2; exit 1; }
+! grep -Eq 'changed=[1-9]' "$second_output" || { printf 'second run still changed a task\n' >&2; exit 1; }
 
 for agent in worker verifier rescue documentation scout; do
     [[ -f "${test_home}/.claude-work/agents/${agent}.md" ]] || { printf 'Claude work agent missing after second run: %s\n' "$agent" >&2; exit 1; }

@@ -166,7 +166,7 @@ fi
 # may be absent or missing PyYAML, and the inline parse can fail if the
 # policy YAML is malformed.
 routing_dir="${ai_dir}/routing"
-if (( ${BASH_VERSINFO[0]} < 4 )); then
+if (( BASH_VERSINFO[0] < 4 )); then
     drift+=("policy-marker check skipped: running under bash ${BASH_VERSION%%[^0-9.]*} (need bash 4+ for associative arrays); rerun with a newer bash on PATH")
 elif ! command -v python3 >/dev/null 2>&1; then
     drift+=("policy-marker check skipped: python3 not found on PATH")
@@ -299,7 +299,7 @@ if command -v docker >/dev/null 2>&1; then
             ! diff -q <(sort "${mcp_toolkit_drift_dir}/profile.export.yaml") <(sort "${mcp_gateway_profile_export}") >/dev/null 2>&1; then
             drift+=("mcp-sunrise profile: docker mcp profile export sunrise no longer matches ${mcp_gateway_profile_export/#$HOME/\~}")
         fi
-        trash "${mcp_toolkit_drift_dir}"
+        rm -rf "${mcp_toolkit_drift_dir}"  # self-created mktemp dir, not user data
     else
         drift+=("mcp-sunrise profile: ${mcp_gateway_profile_export/#$HOME/\~} is missing")
     fi

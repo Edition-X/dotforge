@@ -1,59 +1,74 @@
+---
 name: CI
 
+# Every branch, not just main. The browser work sat 31 commits ahead on a
+# long-lived integration branch that CI had never seen, so "green" meant one
+# laptop's `make` output — on the same ambient state that turned out not to be
+# reproducible.
 "on":
   push:
-    branches: [ main ]
+    branches: ['**']
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+# Least privilege by default; grant per job where something needs more.
+permissions:
+  contents: read
 
 jobs:
-  lint:
-    name: Lint & Validate
+  ci:
+    name: Lint, test & validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      # Pinned to commit SHAs, not tags. A tag is mutable, and this
+      # repository's history carries vault-encrypted SSH keys — a retagged
+      # third-party action would be a direct path to that ciphertext.
+      # Dependabot tracks the github-actions ecosystem and moves these.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Install dependencies
+      # `make` builds the venv from requirements.txt itself, so nothing is
+      # installed twice. The vault password is a placeholder: no step here
+      # decrypts anything, it only lets ansible-lint parse vaulted files.
+      - name: Provide a placeholder vault password
         run: |
-          pip install -r requirements.txt
-          pip install pre-commit
-          echo "dummy_password" > credentials.txt
+          install -m 700 -d ~/.config/macbook-pro
+          printf '%s' 'ci-placeholder-not-a-real-password' > ~/.config/macbook-pro/vault-pass
+          chmod 600 ~/.config/macbook-pro/vault-pass
 
-      - name: Run pre-commit
-        run: pre-commit run --all-files
-        env:
-          SKIP: no-commit-to-branch
+      # No opencode CLI is installed: nothing reachable from `make ci` invokes
+      # it. The old workflow installed it to run `opencode --version`, which
+      # validated nothing about this repository.
+      # The single definition of CI lives in the Makefile. Adding a check there
+      # is picked up here for free, which is the point: this workflow and
+      # `make ci` used to run different sets and both called themselves CI.
+      - name: make ci
+        run: make ci
 
-      - name: Install Ansible
-        run: pip install ansible-core
-
-      - name: Install OpenCode validation CLI
-        run: npm install --global opencode-ai@1.18.10
-
-      - name: Validate managed OpenCode setup
-        run: |
-          opencode --version
-          make validate-opencode
-          make test-ai-agents
-
-      - name: Syntax Check
-        run: ansible-playbook site.yml --syntax-check
-
-  security:
-    name: Security Scan
+  secrets:
+    name: Secret scan
     runs-on: ubuntu-latest
+    # gitleaks lists the pull request's commits, which the workflow-level
+    # contents: read does not cover. Read only: it still cannot comment.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
         with:
           fetch-depth: 0
 
+      # Full-history scan, which the pre-commit hook inside `make ci` cannot do
+      # — it only sees the staged change.
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Writing a pull request comment would need pull-requests: write.
+          # The job status is the signal; least privilege is worth more.
+          GITLEAKS_ENABLE_COMMENTS: false

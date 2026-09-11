@@ -1,0 +1,82 @@
+---
+name: Browser catalog
+
+# Only the check that needs a pull request: comparing its base and head to
+# confirm a catalog change did not arrive mixed with unrelated files. Every
+# repository-invariant browser check now lives in `make ci`, which runs on every
+# branch — these used to be duplicated here and therefore skipped entirely
+# whenever a change did not match the path filters below.
+#
+# Never captures bookmarks, never reads a browser profile, never touches local
+# state: everything it needs is in the repo.
+"on":
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'host_files/localhost/browsers/**'
+      - 'scripts/browser-*.py'
+      - 'scripts/validate-browser-catalog.py'
+      - 'roles/browsers/**'
+      - '.github/workflows/browser-catalog.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  catalogs:
+    name: Check catalog change shape
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: this job diffs the pull request base against its head,
+      # and a shallow checkout does not contain both.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: github.head_ref == 'automation/browser-catalog'
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: github.head_ref == 'automation/browser-catalog'
+        run: pip install -r requirements.txt
+
+      - name: Check changed paths against the catalog allowlist
+        # Only the capture service's own branch. Its commits must contain
+        # nothing but bookmark catalogs; a human pull request legitimately
+        # changes catalogs alongside the code that manages them.
+        if: github.head_ref == 'automation/browser-catalog'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed-paths.txt
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+
+          allowed_prefixes = (
+              "host_files/localhost/browsers/",
+              "scripts/browser-",
+              "scripts/validate-browser-catalog.py",
+              "roles/browsers/",
+              ".github/workflows/browser-catalog.yml",
+              "docs/",
+              "README.md",
+              "Makefile",
+          )
+          changed = [line for line in Path("changed-paths.txt").read_text().splitlines() if line]
+          catalogs = [path for path in changed if path.startswith("host_files/localhost/browsers/")]
+          bad = [path for path in catalogs if not path.endswith((".yml", ".yaml"))]
+          if bad:
+              print(f"browser catalog paths: failed non-catalog-files={len(bad)}")
+              sys.exit(1)
+          outside = [path for path in changed if not path.startswith(allowed_prefixes)]
+          if catalogs and outside:
+              print(f"browser catalog paths: failed catalog-change-mixed-with-other-files={len(outside)}")
+              sys.exit(1)
+          print(f"browser catalog paths: pass changed={len(changed)} catalogs={len(catalogs)}")
+          PY

@@ -3,8 +3,8 @@
   ansible.builtin.file:
     state: directory
     path: "{{ item }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
     modification_time: preserve
     access_time: preserve

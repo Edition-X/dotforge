@@ -14,8 +14,8 @@
   ansible.builtin.file:
     path: "{{ ai_backup_dir }}/claude/{{ item.name }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   loop: "{{ ai_claude_profiles }}"
   loop_control:
@@ -36,8 +36,8 @@
   ansible.builtin.file:
     path: "{{ item.agents_dir }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   loop: "{{ ai_claude_profiles }}"
   loop_control:
@@ -63,8 +63,8 @@
     dest: "{{ ai_backup_dir }}/claude/{{ item.item.0.name }}/{{ item.item.1.file }}"
     remote_src: true
     force: false
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_claude_agents_existing.results }}"
   loop_control:
@@ -97,8 +97,8 @@
   ansible.builtin.file:
     path: "{{ ai_backup_dir }}/claude/{{ item.item.name }}/.managed"
     state: touch
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   loop: "{{ ai_agents_claude_agents_backup_marker.results }}"
   loop_control:

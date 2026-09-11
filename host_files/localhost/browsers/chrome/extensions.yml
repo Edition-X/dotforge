@@ -1,0 +1,12 @@
+---
+version: 1
+browser: chrome
+enforcement: report_only
+system_components: []
+user_candidates: []
+required:
+  - name: LastPass
+    id: hdokiejnpimakedhajhdlcegeplioahd
+    source: https://chromewebstore.google.com/detail/lastpass-free-password-ma/hdokiejnpimakedhajhdlcegeplioahd
+    update_url: https://clients2.google.com/service/update2/crx
+    presence: required

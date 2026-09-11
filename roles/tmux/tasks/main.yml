@@ -4,8 +4,8 @@
   ansible.builtin.copy:
     src: "{{ host_files_dir }}/tmux.conf"
     dest: "{{ config_paths.tmux_conf }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0644'
   tags:
     - dot
@@ -17,9 +17,10 @@
     src: "{{ host_files_dir }}/tmux.conf.local"
     dest: "{{ config_paths.tmux_conf_local }}"
     state: link
+    follow: false
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   tags:
     - dot
 

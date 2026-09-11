@@ -1,0 +1,131 @@
+---
+- name: Browser catalogs - Check required files
+  ansible.builtin.stat:
+    path: "{{ browsers_catalog_root }}/{{ item.0 }}/{{ item.1 }}.yml"
+  loop: "{{ browsers_catalog_names | product(['bookmarks', 'extensions', 'policies']) | list }}"
+  register: browsers_catalog_files
+  loop_control:
+    label: "{{ item.0 }}/{{ item.1 }}.yml"
+
+- name: Browser catalogs - Require every browser-owned catalog
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+    fail_msg: "Missing browser catalog: {{ item.item.0 }}/{{ item.item.1 }}.yml"
+    quiet: true
+  loop: "{{ browsers_catalog_files.results }}"
+  loop_control:
+    label: "{{ item.item.0 }}/{{ item.item.1 }}.yml"
+
+- name: Browser catalogs - Validate schema
+  ansible.builtin.command:
+    cmd: >-
+      {{ ansible_playbook_python }}
+      {{ playbook_dir }}/scripts/validate-browser-catalog.py --all
+  changed_when: false
+  check_mode: false
+
+- name: Browser policies - Decide how to escalate
+  ansible.builtin.import_tasks: escalation.yml
+
+- name: Browser policies - Configure Chrome
+  ansible.builtin.import_tasks: chromium.yml
+
+- name: Browser policies - Configure Firefox
+  ansible.builtin.import_tasks: firefox.yml
+
+- name: Browser policies - Configure Vivaldi
+  ansible.builtin.import_tasks: vivaldi.yml
+
+# The service runs unattended, so an unusable interpreter must fail here,
+# during an apply someone is watching, rather than every 15 minutes later.
+- name: Browser automation - Verify the pinned interpreter
+  ansible.builtin.command:
+    argv:
+      - "{{ browsers_python }}"
+      - -c
+      - >-
+        import sys, yaml;
+        assert sys.version_info >= tuple(int(p) for p in "{{ browsers_python_minimum }}".split(".")),
+        sys.version.split()[0];
+        print(sys.version.split()[0])
+  register: browsers_interpreter
+  changed_when: false
+  check_mode: false
+
+- name: Browser automation - Require a usable pinned interpreter
+  ansible.builtin.assert:
+    that:
+      - browsers_interpreter.rc == 0
+      - browsers_interpreter.stdout | trim is version(browsers_python_minimum, '>=')
+    fail_msg: >-
+      {{ browsers_python }} cannot run the capture scripts; rebuild the venv with `make venv`
+    quiet: true
+
+- name: Browser automation - Create the isolated automation root
+  ansible.builtin.file:
+    path: "{{ browsers_automation_root }}"
+    state: directory
+    mode: "0700"
+
+- name: Browser automation - Install the capture runner
+  ansible.builtin.template:
+    src: browser-capture-run.sh.j2
+    dest: "{{ browsers_capture_run_script }}"
+    mode: "0700"
+
+# Installed only. The service stays disabled and unloaded here: activation is a
+# separate authorized step once this code is on main, so a stray `launchctl
+# load` cannot start publishing before then.
+- name: Browser automation - Install the launchd job disabled
+  ansible.builtin.template:
+    src: com.dkelly.browser-capture.plist.j2
+    dest: "{{ browsers_capture_plist }}"
+    mode: "0644"
+
+- name: Browser automation - Read the installed launchd job
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/plutil
+      - -convert
+      - json
+      - -o
+      - "-"
+      - "{{ browsers_capture_plist }}"
+  register: browsers_capture_job
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Browser automation - Require a disabled interval-polled job
+  ansible.builtin.assert:
+    that:
+      - browsers_capture_job_plist.Disabled is true
+      - browsers_capture_job_plist.RunAtLoad is false
+      - browsers_capture_job_plist.StartInterval == browsers_capture_interval
+      - "'WatchPaths' not in browsers_capture_job_plist"
+      - browsers_capture_job_plist.Label == browsers_capture_label
+    fail_msg: "Browser capture job must stay disabled and poll by interval"
+    quiet: true
+  vars:
+    browsers_capture_job_plist: "{{ browsers_capture_job.stdout | from_json }}"
+  when: not ansible_check_mode
+
+- name: Browser automation - Check the isolated publishing contract
+  ansible.builtin.command:
+    argv:
+      - "{{ browsers_python }}"
+      - "{{ playbook_dir }}/scripts/browser-git-automation.py"
+      - --check
+      - --isolated-root
+      - "{{ user_dir }}/.local/state"
+  register: browsers_automation_check
+  changed_when: false
+  check_mode: false
+
+- name: Browser automation - Require a sanitized contract check
+  ansible.builtin.assert:
+    that:
+      - "'check pass' in browsers_automation_check.stdout"
+      - "'://' not in browsers_automation_check.stdout"
+    fail_msg: "Browser automation contract check failed or exposed URL data"
+    quiet: true
