@@ -32,11 +32,13 @@ records to each browser's own bookmark catalog. Missing bookmarks never remove, 
 rename catalog entries. Rejected records go to a local mode-0600 quarantine outside repo;
 their values never appear in command output.
 
-Cleanup removes only exact generated paths — the launchd job, the capture runner and the
-staged policy files under `~/.local/state/macbook-pro`. It never removes profiles,
-catalogs, login state, quarantine, the isolated automation clone or browser data. The
-root-owned copies in `/Library/Managed Preferences` and inside `Firefox.app` are left for
-a deliberate, privileged removal.
+Cleanup removes only exact generated paths — the launchd job, the capture runner, the
+staged policy files under `~/.local/state/macbook-pro`, and the root-owned managed
+preferences under `/Library/Managed Preferences`, which it removes through the same
+privileged helper the role uses to install them (skipped with a report if the machine
+is not authorized). It never removes profiles, catalogs, login state, quarantine, the
+isolated automation clone or browser data. The helper itself and its sudoers rule are
+left for a deliberate, privileged removal.
 
 ## Extensions and LastPass
 

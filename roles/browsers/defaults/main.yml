@@ -66,6 +66,11 @@ browsers_quarantine_path: "{{ browsers_state_dir }}/quarantine.json"
 # Derived, so a browser added to the manifest is cleaned up as well as
 # installed. These were nine hand-written paths that had to be kept in step
 # with the adapter list by hand.
+#
+# User-owned only. The installed managed-preference plists under
+# browsers_chromium_policy_dir are root-owned and cannot be unlinked by this
+# `file: state=absent` loop — see browsers_managed_preference_domains, which
+# cleanup removes through the same privileged helper that installs them.
 browsers_generated_paths: >-
   {{
     (
@@ -75,13 +80,6 @@ browsers_generated_paths: >-
       | map('regex_replace', '^(.*)$', browsers_state_dir ~ '/\1.plist')
       | list
     )
-    + (
-      browsers_manifest.browsers
-      | selectattr('policy.support', 'equalto', 'managed_preference')
-      | map(attribute='policy.domain')
-      | map('regex_replace', '^(.*)$', browsers_chromium_policy_dir ~ '/\1.plist')
-      | list
-    )
     + [
       browsers_vivaldi_audit_path,
       browsers_capture_plist,
@@ -89,4 +87,15 @@ browsers_generated_paths: >-
       browsers_privileged_helper_stage,
       browsers_sudoers_stage,
     ]
+  }}
+
+# Every domain the role can install a root-owned managed preference for.
+# Cleanup removes these through the privileged helper, which is the only thing
+# permitted to touch /Library/Managed Preferences.
+browsers_managed_preference_domains: >-
+  {{
+    browsers_manifest.browsers
+    | selectattr('policy.support', 'equalto', 'managed_preference')
+    | map(attribute='policy.domain')
+    | list
   }}

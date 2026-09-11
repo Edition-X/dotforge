@@ -101,8 +101,10 @@
 # was hand-maintained and had already drifted from what the role installs.
 # Profiles, bookmark catalogs, saved logins, quarantine and the isolated
 # automation clone are never removed, so uninstalling policy never discards
-# captured work. The root-owned helper and sudoers rule are left for a
-# deliberate privileged removal.
+# captured work. The sudoers rule and the helper itself are left for a
+# deliberate privileged removal — but the managed-preference plists the helper
+# installed are root-owned and this role's normal user cannot unlink them, so
+# they are removed through that same helper below, not left in place.
 - name: Cleanup - Load the browser role's declared paths
   ansible.builtin.include_vars:
     file: "{{ playbook_dir }}/roles/browsers/defaults/main.yml"
@@ -126,6 +128,49 @@
     state: absent
     path: "{{ item }}"
   loop: "{{ browsers_generated_paths }}"
+  tags:
+    - cleanup
+
+# This tag can run without the browsers role's own escalation.yml ever having
+# run in this play, so probe passwordless authorization directly rather than
+# assuming a mode was already selected.
+- name: Cleanup - Probe passwordless helper authorization
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - -n
+      - "{{ browsers_privileged_helper }}"
+      - --check
+  register: cleanup_helper_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags:
+    - cleanup
+
+# Root-owned, so a plain `file: state=absent` as this role's user gets EACCES.
+# Only the helper is allowed to touch /Library/Managed Preferences.
+- name: Cleanup - Remove root-owned managed preferences through the helper
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - -n
+      - "{{ browsers_privileged_helper }}"
+      - --remove
+      - "{{ item }}"
+  loop: "{{ browsers_managed_preference_domains }}"
+  when: cleanup_helper_probe.rc == 0
+  changed_when: true
+  tags:
+    - cleanup
+
+- name: Cleanup - Report skipped managed-preference removal
+  ansible.builtin.debug:
+    msg: >-
+      Skipping removal of root-owned managed preferences: the privileged
+      helper is not authorized on this machine. Remove
+      {{ browsers_chromium_policy_dir }}/*.plist manually if needed.
+  when: cleanup_helper_probe.rc != 0
   tags:
     - cleanup
 
