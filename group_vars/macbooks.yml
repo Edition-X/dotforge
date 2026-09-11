@@ -14,6 +14,11 @@ managed_header: "Managed by macbook-pro - do not edit by hand"
 user_dir: "{{ ansible_user_dir }}"
 osx_username: "{{ ansible_user_id }}"
 
+# OpenCode install settings. Model IDs, variants, roles and parallelism limits
+# are canonical and provider-neutral under host_files/localhost/ai/routing/;
+# this is only what is specific to the OpenCode install itself.
+opencode_schema_version: "1.18.10"
+
 # Project paths
 project_dir: "{{ user_dir }}/Projects/macbook-pro"
 host_files_dir: "{{ project_dir }}/host_files/{{ inventory_hostname }}"
