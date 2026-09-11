@@ -8,6 +8,14 @@ file. requirements.txt asked for agreement in a comment — "Keep in step with
 the ansible-lint rev pinned in .pre-commit-config.yaml" — which is a wish, not
 a check.
 
+The ansible-lint hook also carries its own copy of ansible-core, in
+`additional_dependencies`, resolved inside pre-commit's isolated hook
+environment rather than the project venv. A floor there (`>=2.15.0`) let that
+environment drift to a newer ansible-core than requirements.txt pins, so
+ansible-lint parsed against one Ansible version while `make check` ran
+another. Checked the same way as the other shared tools, against an exact `==`
+pin rather than a `rev:`.
+
 Reports every mismatch rather than stopping at the first, so one run tells you
 everything to fix.
 """
@@ -53,6 +61,29 @@ def hook_revisions() -> dict[str, str]:
     return revisions
 
 
+def additional_dependency_pin(distribution: str) -> str | None:
+    """Read an exact `name==version` entry out of any hook's `additional_dependencies`.
+
+    Unlike `rev:`, this resolves inside pre-commit's own hook environment, not
+    the project venv — so a dependency named here needs its own agreement
+    check against requirements.txt rather than being covered by hook_revisions.
+    """
+    pattern = re.compile(rf"^\s*-\s*{re.escape(distribution)}==([^\s#]+)")
+    for line in (REPO / ".pre-commit-config.yaml").read_text(encoding="utf-8").splitlines():
+        match = pattern.match(line)
+        if match:
+            return match.group(1)
+    return None
+
+
+# additional_dependencies distribution name -> the distribution name in
+# requirements.txt. Currently the same, but kept separate from SHARED_TOOLS
+# because it is matched by an `==` entry inside a hook, not a `rev:`.
+ADDITIONAL_DEPENDENCY_TOOLS = {
+    "ansible-core": "ansible-core",
+}
+
+
 def main() -> int:
     pins = requirement_pins()
     revisions = hook_revisions()
@@ -75,6 +106,22 @@ def main() -> int:
             failures.append(
                 f"{distribution}: requirements.txt pins {pinned}, "
                 f"pre-commit hook pins {hook_version}"
+            )
+
+    for dependency_name, distribution in ADDITIONAL_DEPENDENCY_TOOLS.items():
+        dependency_version = additional_dependency_pin(dependency_name)
+        pinned = pins.get(distribution)
+        if dependency_version is None:
+            failures.append(f"{dependency_name} has no exact `==` additional_dependencies pin")
+            continue
+        if pinned is None:
+            failures.append(f"{distribution} is not pinned with == in requirements.txt")
+            continue
+        checked += 1
+        if dependency_version != pinned:
+            failures.append(
+                f"{distribution}: requirements.txt pins {pinned}, "
+                f"pre-commit additional_dependencies pins {dependency_version}"
             )
 
     unpinned = [
