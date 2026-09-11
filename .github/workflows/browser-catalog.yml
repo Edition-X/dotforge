@@ -27,7 +27,11 @@ jobs:
     name: Check catalog change shape
     runs-on: ubuntu-latest
     steps:
+      # Full history: this job diffs the pull request base against its head,
+      # and a shallow checkout does not contain both.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
@@ -43,7 +47,6 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed-paths.txt
           python - <<'PY'
           import sys
