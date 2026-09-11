@@ -13,17 +13,17 @@ exclude_paths:
   # not Ansible content, and not ours to reformat.
   - host_files/localhost/ai/skills/
 
-# Severity settings
-skip_list:
-  # Skip most file permissions checks for now
-  - '204'  # [jinja2] Line too long (exceeds max line length)
-  - '306'  # [risky-file-permissions] File permissions unset or incorrect
-  - 'internal-error'  # Skip issues with syntax checking
-  - 'var-spacing'     # Skip variable spacing checks
+# Nothing is skipped.
+#
+# This list used to hold '204' and '306' — numeric rule ids from ansible-lint 4,
+# which version 26 does not recognise, so they suppressed nothing while implying
+# decisions that were never in force. 'internal-error' and 'var-spacing' are not
+# rule names either. Removing them changed no output, which is the proof they
+# were dead. If a rule genuinely needs skipping, name it and say why here.
+skip_list: []
 
-# Set line length (consistent with yamllint)
-verbosity: 1
 use_default_rules: true
+verbosity: 1
 
 # Special environment variables for ansible-lint to work with vaults
 # (these need to be set in the environment, not here)
