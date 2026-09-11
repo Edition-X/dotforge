@@ -93,8 +93,8 @@ or red, and a merge chained on it once landed a red pull request. On a failure, 
 job more than once without reading its log.
 
 **Merge.** Merge commit — the repo's history is merge-based and the browser automation
-depends on that. Run the gate and the merge as separate commands, never chained with
-`&&` onto a watcher:
+depends on that. Chain the merge only onto the gate above, whose exit code is
+trustworthy — never onto `gh pr checks --watch`:
 
 ```bash
 scripts/pr-checks-green.sh <n> && gh pr merge <n> --merge --delete-branch
