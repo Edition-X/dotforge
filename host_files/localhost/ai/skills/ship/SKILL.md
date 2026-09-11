@@ -1,11 +1,11 @@
 ---
 name: ship
-description: Land any change to the macbook-pro repo end to end without Dan in the loop — cut a branch from main, verify, push, open the PR, self-review it as an AI reviewer, fix what the review finds, wait for CI, merge through the PR, deploy to this Mac and verify the deploy. Use for every commit-worthy change in ~/Projects/macbook-pro, including work another skill (macbook, arcane-dev) has already edited on a branch. Triggers on "ship it", "land this", "open a PR and merge it", "get this onto main", or any repo change that is ready to leave the working tree.
+description: Land any change to the dotforge repo end to end without Dan in the loop — cut a branch from main, verify, push, open the PR, self-review it as an AI reviewer, fix what the review finds, wait for CI, merge through the PR, deploy to this Mac and verify the deploy. Use for every commit-worthy change in ~/Projects/dotforge, including work another skill (macbook, arcane-dev) has already edited on a branch. Triggers on "ship it", "land this", "open a PR and merge it", "get this onto main", or any repo change that is ready to leave the working tree.
 ---
 
 # Ship
 
-Work in `~/Projects/macbook-pro` lands through a pull request, never a direct push to
+Work in `~/Projects/dotforge` lands through a pull request, never a direct push to
 `main`. This skill is the whole path from "edit is ready" to "running on this Mac", and
 it is meant to run without asking Dan anything. Ask only at the boundaries in section 7.
 
@@ -15,7 +15,7 @@ report a step you skipped as done.
 ## 1. Branch
 
 ```bash
-cd ~/Projects/macbook-pro
+cd ~/Projects/dotforge
 git status --short            # must be clean, or only the files you are about to commit
 git checkout main && git pull --ff-only
 git checkout -b <type>/<kebab-description>   # feat/ fix/ chore/ docs/ refactor/
@@ -139,7 +139,7 @@ These are Dan's decisions. Stop with the PR open (or before pushing) and ask:
 make ai
 ls -la ~/.claude/skills/ship ~/.codex/skills/ship ~/.config/opencode/skills/ship \
        ~/forge/skills/ship ~/.claude-work/skills/ship
-cd ~/Projects/macbook-pro && timeout 300 claude-work -p "Add a one-line comment to the top of Brewfile explaining that it is the single source of truth, and ship it."
+cd ~/Projects/dotforge && timeout 300 claude-work -p "Add a one-line comment to the top of Brewfile explaining that it is the single source of truth, and ship it."
 ```
 
 Expect: a branch, `make lint`/`make ci`, a push, `gh pr create`, a self-review comment,

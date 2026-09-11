@@ -389,7 +389,7 @@ def vivaldi_policy_smoke() -> None:
     policy_page, result, evidence = capability.isolated_smoke(vivaldi)
     if result != "pass" or not evidence.startswith("unsupported-audit-launch-"):
         raise RuntimeError("Vivaldi best-effort policy probe failed")
-    audit = Path.home() / ".local" / "state" / "macbook-pro" / "browser-policy" / "vivaldi-audit.sh"
+    audit = Path.home() / ".local" / "state" / "dotforge" / "browser-policy" / "vivaldi-audit.sh"
     report = subprocess.run([str(audit), "--check"], capture_output=True, text=True, timeout=20)
     if report.returncode != 0 or "best-effort audit/export" not in report.stdout or "://" in report.stdout:
         raise RuntimeError("Vivaldi audit/export smoke failed")

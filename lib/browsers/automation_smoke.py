@@ -376,7 +376,7 @@ def main() -> int:
     if not args.fake or not args.no_network:
         parser.error("automation smoke runs only with --fake --no-network")
     snapshot = snapshot_module
-    state_root = Path.home() / ".local" / "state" / "macbook-pro" / "browser-automation-smoke"
+    state_root = Path.home() / ".local" / "state" / "dotforge" / "browser-automation-smoke"
     state_root.mkdir(mode=0o700, parents=True, exist_ok=True)
     root = Path(tempfile.mkdtemp(prefix="browser-automation-smoke-", dir=state_root))
     os.environ["BROWSER_AUTOMATION_NO_NOTIFY"] = "1"

@@ -1,11 +1,11 @@
 ---
 name: macbook
-description: Make any change to this Mac go through the macbook-pro repo instead of by hand — install, remove or upgrade an app, CLI, font or tool; change shell, git, ghostty, skhd, neovim, tmux or ssh config; change AI harness (Claude, Codex, OpenCode, Forge, T3) instructions, skills, MCP servers, hooks or the MCP gateway; change browser policy, extensions or bookmark catalogs (Chrome, Edge, Brave, Firefox, Vivaldi). Triggers: "install", "uninstall", "add to my mac", "update my dotfiles", "add an MCP", "my Claude config", "my bookmarks", or naming any tool or setting on this machine.
+description: Make any change to this Mac go through the dotforge repo instead of by hand — install, remove or upgrade an app, CLI, font or tool; change shell, git, ghostty, skhd, neovim, tmux or ssh config; change AI harness (Claude, Codex, OpenCode, Forge, T3) instructions, skills, MCP servers, hooks or the MCP gateway; change browser policy, extensions or bookmark catalogs (Chrome, Edge, Brave, Firefox, Vivaldi). Triggers: "install", "uninstall", "add to my mac", "update my dotfiles", "add an MCP", "my Claude config", "my bookmarks", or naming any tool or setting on this machine.
 ---
 
 # Macbook
 
-This machine's state is code. A change that isn't in `~/Projects/macbook-pro` will
+This machine's state is code. A change that isn't in `~/Projects/dotforge` will
 be silently clobbered by the next `make apply`, so every request in the table below
 routes through the repo, not through a one-off `brew install` or hand-edited dotfile.
 
@@ -44,7 +44,7 @@ no branch, no commit for a zero-diff change.
 Run these in order. Do not skip the verify step or the second dry run.
 
 ```bash
-cd ~/Projects/macbook-pro
+cd ~/Projects/dotforge
 git checkout main && git pull --ff-only
 git checkout -b <type>/<kebab-description>
 ```
@@ -66,7 +66,7 @@ git checkout -b <type>/<kebab-description>
    - mcp: `make mcp-test`
    - browsers: `make browser-test RUN_ARGS='--all-installed --isolated --policy --extensions --capture-read-only'`
      (real browsers, GUI session; needs `make browsers-authorize` once), then check the
-     bookmark bar in one browser — no `Managed by macbook-pro` folder must appear
+     bookmark bar in one browser — no `Managed by dotforge` folder must appear
 6. Run the same `make <target>` again. Expect `changed=0` — a non-zero second run
    means the task isn't idempotent.
 7. `pre-commit run --all-files`.
@@ -125,7 +125,7 @@ ls -la ~/.claude/skills/macbook ~/.codex/skills/macbook \
 Live check — a natural request should route through this process on its own:
 
 ```bash
-cd ~/Projects/macbook-pro
+cd ~/Projects/dotforge
 timeout 240 claude-work -p "Install the jq CLI on my mac."
 ```
 

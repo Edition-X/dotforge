@@ -5,7 +5,7 @@
 # calls Ansible modules was linted twice. A `.ruff_cache/` from an ad-hoc run
 # was the only trace of a linter ever touching it.
 [project]
-name = "macbook-pro"
+name = "dotforge"
 version = "0"
 description = "Ansible-managed macOS configuration"
 # The floor the browser capture scripts need; see browsers_python_minimum.

@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.x-blue.svg)](https://www.python.org/)
 [![Ansible](https://img.shields.io/badge/ansible-latest-red.svg)](https://www.ansible.com/)
 [![License](https://img.shields.io/badge/license-private-black.svg)](LICENSE)
-[![Maintenance](https://img.shields.io/badge/maintained-yes-green.svg)](https://github.com/yourusername/macbook-pro/commits/main)
+[![Maintenance](https://img.shields.io/badge/maintained-yes-green.svg)](https://github.com/yourusername/dotforge/commits/main)
 
 A powerful, automated configuration management system for MacBook Pro setup using Ansible.
 
@@ -33,9 +33,9 @@ back:
 ```bash
 # 1. Restore the vault password (from your password manager).
 #    `read -rs` keeps it out of your shell history.
-install -m 700 -d ~/.config/macbook-pro
-read -rs -p 'Vault password: ' p && printf '%s' "$p" > ~/.config/macbook-pro/vault-pass
-chmod 600 ~/.config/macbook-pro/vault-pass && unset p
+install -m 700 -d ~/.config/dotforge
+read -rs -p 'Vault password: ' p && printf '%s' "$p" > ~/.config/dotforge/vault-pass
+chmod 600 ~/.config/dotforge/vault-pass && unset p
 
 # 2. Build the venv and apply
 make apply
@@ -114,7 +114,7 @@ make browser-automation RUN_ARGS='--check --isolated-root "$HOME/.local/state"'
 ```
 
 The publishing side never uses this checkout. It works in a dedicated clone under
-`~/.local/state/macbook-pro/browser-automation`, refuses to stage a bookmark catalog that
+`~/.local/state/dotforge/browser-automation`, refuses to stage a bookmark catalog that
 is not vault-encrypted, refuses a dirty or diverged clone, stages only the five
 per-browser bookmark catalogs, and keeps exactly one pull request on
 `automation/browser-catalog` with auto-merge by merge commit. It never force pushes and

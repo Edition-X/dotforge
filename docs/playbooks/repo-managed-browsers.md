@@ -3,7 +3,7 @@
 **Status:** approved for execution
 **Written:** 2026-09-08
 **Audience:** configured lead orchestrating whole-ticket `gpt-5.6-luna` medium workers, with fresh Luna-medium verification
-**Repo:** `~/Projects/macbook-pro` (Edition-X/macbook-pro, private as proven by P0)
+**Repo:** `~/Projects/dotforge` (Edition-X/dotforge, private as proven by P0)
 **Scope:** Google Chrome, Microsoft Edge, Brave, Firefox and Vivaldi on macOS. Safari is explicitly out of scope.
 
 ---
@@ -38,9 +38,9 @@ The first ticket must confirm GitHub repository privacy before any bookmark URL 
 
 > **Changing repository visibility is an external security action. Before `gh repo edit`, lead must confirm current user authorization in the execution message.**
 
-The user selected “make repo private” during planning. Execution must still record evidence from `gh repo view` and must not treat planning selection as execution authority. Until `gh repo view Edition-X/macbook-pro --json isPrivate` proves `isPrivate: true`, do not inspect bookmark contents, capture URLs, create fixtures containing URLs, or write browser catalog files. A private repository is still not a secret store.
+The user selected “make repo private” during planning. Execution must still record evidence from `gh repo view` and must not treat planning selection as execution authority. Until `gh repo view Edition-X/dotforge --json isPrivate` proves `isPrivate: true`, do not inspect bookmark contents, capture URLs, create fixtures containing URLs, or write browser catalog files. A private repository is still not a secret store.
 
-If `isPrivate` is false, stop. Lead asks for current authorization, repeats the warning above, and only then may run `gh repo edit Edition-X/macbook-pro --visibility private`. Recheck `isPrivate: true` immediately afterward. If authorization is absent, ambiguous, or command result is not provable, return `BLOCKED_AUTHORITY`.
+If `isPrivate` is false, stop. Lead asks for current authorization, repeats the warning above, and only then may run `gh repo edit Edition-X/dotforge --visibility private`. Recheck `isPrivate: true` immediately afterward. If authorization is absent, ambiguous, or command result is not provable, return `BLOCKED_AUTHORITY`.
 
 ### Canonical execution contract
 
@@ -170,9 +170,9 @@ No ticket may skip its dependency, conceal a failed live smoke, or broaden its l
 **Steps:**
 
 1. Inspect status without reading docs content: `git status --short`. Preserve all existing untracked `docs/` files.
-2. Run `gh repo view Edition-X/macbook-pro --json nameWithOwner,isPrivate`. Record only command and sanitized result. Expected JSON has `nameWithOwner` and `isPrivate: true`; do not print URL or repository contents.
+2. Run `gh repo view Edition-X/dotforge --json nameWithOwner,isPrivate`. Record only command and sanitized result. Expected JSON has `nameWithOwner` and `isPrivate: true`; do not print URL or repository contents.
 3. If false, stop and repeat: “Changing repository visibility is an external security action. Before `gh repo edit`, lead must confirm current user authorization in the execution message.” Do not run `gh repo edit` without current-message authority.
-4. With explicit authority only, run `gh repo edit Edition-X/macbook-pro --visibility private --accept-visibility-change-consequences`; immediately rerun step 2. Any permission, confirmation or ambiguous output is `BLOCKED_AUTHORITY`.
+4. With explicit authority only, run `gh repo edit Edition-X/dotforge --visibility private --accept-visibility-change-consequences`; immediately rerun step 2. Any permission, confirmation or ambiguous output is `BLOCKED_AUTHORITY`.
 5. Lead records privacy evidence in ledger: timestamp, command, `isPrivate=true`, actor authorization source. No bookmark URL.
 
 **Stop conditions:** public or unknown visibility; missing `gh` auth; repository mismatch; any request to capture bookmark content before proof; dirty tracked work beyond pre-existing untracked docs.
@@ -181,7 +181,7 @@ No ticket may skip its dependency, conceal a failed live smoke, or broaden its l
 
 ```bash
 git status --short
-gh repo view Edition-X/macbook-pro --json nameWithOwner,isPrivate
+gh repo view Edition-X/dotforge --json nameWithOwner,isPrivate
 ```
 
 Expected: existing untracked docs only; `isPrivate` is `true`. No live browser smoke is permitted before this gate; privacy command is live acceptance evidence.
@@ -219,7 +219,7 @@ Expected: existing untracked docs only; `isPrivate` is `true`. No live browser s
 **Verify:**
 
 ```bash
-gh repo view Edition-X/macbook-pro --json isPrivate
+gh repo view Edition-X/dotforge --json isPrivate
 source venv/bin/activate
 python scripts/browser-capability-spike.py --all-installed --isolated --no-user-data
 python scripts/browser-capability-spike.py --check-report docs/research/browser-capabilities-2026-09.md
@@ -582,7 +582,7 @@ Expected: fixture cases pass; rejected count goes to local quarantine only; dry 
 **Automation contract:**
 
 - Dedicated clone/worktree under `~/.local/state`, not normal checkout.
-- Recheck `gh repo view Edition-X/macbook-pro --json isPrivate` and require `true` on every run.
+- Recheck `gh repo view Edition-X/dotforge --json isPrivate` and require `true` on every run.
 - Validate only allowlisted bookmark catalog paths; reject any path outside per-browser catalog roots and validator scripts.
 - Snapshot and capture additions only; settings/extensions drift is notification/report-only.
 - When activated in B10, stage exact allowlisted paths, create/update one dedicated automation branch and one PR, request GitHub auto-merge with merge method, never squash/rebase.
@@ -728,7 +728,7 @@ Expected: every command exits 0; second apply and final check report `changed=0`
 ### Privacy and forbidden material checks
 
 ```bash
-gh repo view Edition-X/macbook-pro --json isPrivate
+gh repo view Edition-X/dotforge --json isPrivate
 python scripts/validate-browser-catalog.py --all --no-url-output
 git log -p main..integration/repo-managed-browsers -- ':!docs/' | python scripts/validate-browser-catalog.py --history-stdin --no-url-output
 ```
@@ -775,14 +775,14 @@ No PR to main or merge to main occurs without separate current-message authority
 **Verify:**
 
 ```bash
-gh repo view Edition-X/macbook-pro --json isPrivate,defaultBranchRef
+gh repo view Edition-X/dotforge --json isPrivate,defaultBranchRef
 gh workflow view browser-catalog.yml
 make browsers
 make browser-test RUN_ARGS='--all-installed --isolated --policy --extensions'
 make browser-drift
 python scripts/browser-git-automation.py --check --isolated-root "$HOME/.local/state"
 launchctl print "gui/$(id -u)/com.dkelly.browser-capture"
-git -C "$HOME/.local/state/macbook-pro-browser-sync" status --short --branch
+git -C "$HOME/.local/state/dotforge-browser-sync" status --short --branch
 ```
 
 Expected: private main contains browser feature; second apply was `changed=0`; workflow and launchd are active; fake bookmark PR merged via merge commit then explicit cleanup merged; stable automation branch fast-forwarded; no URL printed; normal checkout untouched; fresh verifier returns `COMPLETE` or blocks with exact evidence.

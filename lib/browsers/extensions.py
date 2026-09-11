@@ -32,7 +32,7 @@ VERIFIED_UPDATE_URLS = {
     "https://edge.microsoft.com/extensionwebstorebase/v1/crx",
     "https://addons.mozilla.org/firefox/downloads/latest/lastpass-password-manager/latest.xpi",
 }
-REPORT_PATH = Path.home() / ".local" / "state" / "macbook-pro" / "browser-policy" / "extension-report.json"
+REPORT_PATH = Path.home() / ".local" / "state" / "dotforge" / "browser-policy" / "extension-report.json"
 
 
 def catalog(browser: str) -> dict[str, object]:

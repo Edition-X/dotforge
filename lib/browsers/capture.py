@@ -165,7 +165,7 @@ def live_capture(enable: bool) -> int:
     validator = catalog_module
     work = Path(tempfile.mkdtemp(prefix="browser-capture-live-"))
     quarantine = quarantine_module.Quarantine(
-        Path.home() / ".local" / "state" / "macbook-pro" / "browser-policy" / "quarantine.json"
+        Path.home() / ".local" / "state" / "dotforge" / "browser-policy" / "quarantine.json"
     )
     try:
         captured = capture_live(snapshot, work)

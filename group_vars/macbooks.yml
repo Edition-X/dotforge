@@ -5,7 +5,7 @@
 # `{{ ansible_managed }}`, which ansible-core deprecated in 2.15 and removes in
 # 2.23 — see the note in ansible.cfg. Owning the string means the removal is a
 # dependency bump we choose, not a surprise.
-managed_header: "Managed by macbook-pro - do not edit by hand"
+managed_header: "Managed by dotforge - do not edit by hand"
 
 # Identity comes from the target's own facts. `lookup('env', ...)` evaluates on
 # the controller, so the moment this repository runs against anything other
@@ -20,7 +20,7 @@ osx_username: "{{ ansible_user_id }}"
 opencode_schema_version: "1.18.10"
 
 # Project paths
-project_dir: "{{ user_dir }}/Projects/macbook-pro"
+project_dir: "{{ user_dir }}/Projects/dotforge"
 host_files_dir: "{{ project_dir }}/host_files/{{ inventory_hostname }}"
 
 # SSH configuration
