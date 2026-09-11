@@ -1,15 +1,22 @@
-ansible
-# Keep in step with the ansible-lint rev pinned in .pre-commit-config.yaml.
-# When the venv lags behind the hook, `make lint` passes and the commit hook
-# then fails on rules the older version did not have.
-ansible-lint>=25.11.0
-pre-commit>=3.5.0
-yamllint>=1.33.0
+# Direct dependencies, pinned exactly. requirements.lock holds the full
+# resolved set with hashes and is what the venv actually installs.
+#
+# These were unpinned or floored (`ansible`, `ansible-lint>=25.11.0`), so two
+# clones a week apart got different toolchains — and the file's own comment
+# acknowledged the drift it could not prevent. scripts/check-tool-pins.py now
+# fails when a version here disagrees with the matching pre-commit hook.
+
+# ansible-core, not the `ansible` bundle: the bundle ships its own copy of
+# community.general, which competed with the pinned one in collections/ and
+# made resolution depend on path order.
+ansible-core==2.18.3
+
+ansible-lint==26.6.0
+pre-commit==4.4.0
+yamllint==1.38.0
+ruff==0.16.7
+
 # Format-preserving TOML editor for scripts/codex-mcp-sync.py: Codex's
 # config.toml is owned by the ChatGPT desktop app, so the sync script must
 # round-trip comments/formatting for every section it does not touch.
-tomlkit>=0.13
-
-# Python linting for the repo's own scripts. Kept in step with the ruff rev
-# pinned in .pre-commit-config.yaml, for the same reason as ansible-lint above.
-ruff>=0.14.7
+tomlkit==0.15.1
