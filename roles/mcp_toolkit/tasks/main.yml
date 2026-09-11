@@ -45,11 +45,42 @@
   check_mode: false
   tags: [mcp]
 
+# `docker mcp feature ls` has no JSON mode, so this parses lines into a
+# name -> state mapping and matches the whole name and the whole state. The
+# previous expression searched the entire blob for "<name> disabled", which a
+# description line mentioning another feature could satisfy — and if the wording
+# ever changed it would read as "already converged" and silently do nothing.
+- name: Features - Parse the reported feature states
+  ansible.builtin.set_fact:
+    mcp_toolkit_feature_states: >-
+      {{
+        dict(
+          mcp_toolkit_features_current.stdout_lines
+          | map('trim')
+          | select('match', '^[a-z0-9-]+\s+(enabled|disabled)$')
+          | map('split')
+        )
+      }}
+  tags: [mcp]
+
+# A guard that cannot tell "absent" from "unparseable" should fail, not proceed.
+- name: Features - Require every managed feature to be reported
+  ansible.builtin.assert:
+    that:
+      - mcp_toolkit_feature_states | length > 0
+      - (mcp_toolkit_features_enabled + mcp_toolkit_features_disabled)
+        | reject('in', mcp_toolkit_feature_states) | list | length == 0
+    fail_msg: >-
+      `docker mcp feature ls` did not report a state for every managed feature;
+      its output format may have changed.
+    quiet: true
+  tags: [mcp]
+
 - name: Features - Enable required features
   ansible.builtin.command:
     argv: [docker, mcp, feature, enable, "{{ item }}"]
   loop: "{{ mcp_toolkit_features_enabled }}"
-  when: (mcp_toolkit_features_current.stdout | regex_search(item ~ '\s+disabled')) is not none
+  when: mcp_toolkit_feature_states[item] == 'disabled'
   changed_when: true
   tags: [mcp]
 
@@ -57,7 +88,7 @@
   ansible.builtin.command:
     argv: [docker, mcp, feature, disable, "{{ item }}"]
   loop: "{{ mcp_toolkit_features_disabled }}"
-  when: (mcp_toolkit_features_current.stdout | regex_search(item ~ '\s+enabled')) is not none
+  when: mcp_toolkit_feature_states[item] == 'enabled'
   changed_when: true
   tags: [mcp]
 
@@ -71,15 +102,19 @@
 
 - name: Secrets - Inspect current state
   ansible.builtin.command:
-    argv: [docker, mcp, secret, ls]
+    argv: [docker, mcp, secret, ls, --json]
   register: mcp_toolkit_secrets_current
   changed_when: false
   check_mode: false
   tags: [mcp]
 
+# Exact name match against parsed JSON. The previous test was a substring
+# search of human-readable output, so a secret called grafana.api_key_old would
+# have satisfied it and suppressed the real write.
 - name: Secrets - Determine whether grafana.api_key needs (re)setting
   ansible.builtin.set_fact:
-    mcp_toolkit_grafana_secret_present: "{{ 'grafana.api_key' in mcp_toolkit_secrets_current.stdout }}"
+    mcp_toolkit_grafana_secret_present: >-
+      {{ 'grafana.api_key' in (mcp_toolkit_secrets_current.stdout | from_json | map(attribute='name') | list) }}
   tags: [mcp]
 
 - name: Secrets - Remove grafana.api_key before rotating
@@ -138,7 +173,7 @@
 
 - name: Profile - Inspect existing profiles
   ansible.builtin.command:
-    argv: [docker, mcp, profile, ls]
+    argv: [docker, mcp, profile, ls, --format, json]
   register: mcp_toolkit_profiles_current
   changed_when: false
   check_mode: false
@@ -147,7 +182,9 @@
 - name: Profile - Create profile
   ansible.builtin.command:
     argv: [docker, mcp, profile, create, --name, "{{ mcp_toolkit_profile }}", --id, "{{ mcp_toolkit_profile }}"]
-  when: mcp_toolkit_profile not in mcp_toolkit_profiles_current.stdout
+  when: >-
+    mcp_toolkit_profile not in
+    (mcp_toolkit_profiles_current.stdout | from_json | map(attribute='id') | list)
   changed_when: true
   tags: [mcp]
 
