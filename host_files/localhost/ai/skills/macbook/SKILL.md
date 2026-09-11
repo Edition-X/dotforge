@@ -66,7 +66,9 @@ git checkout -b <type>/<kebab-description>
 7. `pre-commit run --all-files`.
 8. Commit, Conventional Commits, scope `skills`, `ai`, or the area touched
    (`packages`, `dotfiles`, `mcp`), e.g. `feat(ai): add MCP server for X`.
-9. `git checkout main && git merge --no-ff <branch> && git push origin main`.
+9. Land it with the `ship` skill: push the branch, open the PR, self-review, wait for
+   CI, merge with a merge commit, then pull `main` and re-apply. Never push to `main`
+   directly.
 10. Save an Arcane memory (`decision` for a new tool/config choice, `context` for a
     routine addition) describing what changed and why.
 11. Tell Dan what changed and the exact command to verify it himself.
@@ -101,7 +103,7 @@ git checkout -b <type>/<kebab-description>
   `~/.config/opencode/opencode.jsonc` directly — the repo owns these, edit the
   source template/file and apply.
 - `make apply` when a single `--tags` target covers the change.
-- Pushing to `main` before the verify step (step 5-6 above) has passed.
+- Pushing to `main` at all — every change lands through a pull request (`ship` skill).
 
 ## Verify
 
