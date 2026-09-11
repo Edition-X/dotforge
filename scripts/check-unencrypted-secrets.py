@@ -45,6 +45,9 @@ MUST_ENCRYPT = (
     re.compile(r"^host_files/[^/]+/browsers/[^/]+/bookmarks\.yml$"),
     # Work skills that name an employer's customers, sites and hosts.
     re.compile(r"^host_files/[^/]+/ai/skills/(?:sunrise-cells|sunrise-devcontainer-rollout)/SKILL\.md$"),
+    # The SSH client config names an employer's fleet domain and host patterns.
+    # ansible.builtin.template decrypts a vault-encrypted template on the way.
+    re.compile(r"^roles/ssh/templates/config\.j2$"),
 )
 
 # Key names that mean "this is a credential".

@@ -17,6 +17,8 @@
     mode: '0644'
   with_items: "{{ ssh_keys }}"
 
+# config.j2 is vault-encrypted (it names an employer's fleet); the template
+# module decrypts it. Edit with `ansible-vault edit roles/ssh/templates/config.j2`.
 - name: SSH - Config file
   ansible.builtin.template:
     src: "config.j2"
