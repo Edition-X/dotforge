@@ -91,6 +91,23 @@ dialog otherwise), `sudo` (require the helper, fail rather than prompt) or
 unanswered prompt used to stall a play until something else killed it — which
 once left a browser half-configured.
 
+## One description of the fleet
+
+`host_files/localhost/browsers/manifest.yml` describes each browser once:
+catalog name, label, engine, application and executable, profile directory, and
+its policy contract. The role defaults derive `browsers_catalog_names`,
+`browsers_chromium_adapters`, the Firefox policy domain and
+`browsers_generated_paths` from it; the Python package derives `BROWSERS`, the
+Chromium profile map, the capability application records and the smoke's page
+map from the same file. `validate-browser-catalog.py --all` fails if the
+manifest and the catalog directories disagree.
+
+These facts previously lived in about eight places, so adding a browser was an
+eight-file change that failed silently if one was missed — the browser simply
+went unmanaged. The cleanup role kept its own hand-written copy of the
+generated paths, which had already drifted: it missed Firefox's managed
+preference in both locations.
+
 ## Where the code lives
 
 The implementation is a package under `lib/browsers/`; `scripts/` holds a thin

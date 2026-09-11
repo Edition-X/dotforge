@@ -112,6 +112,12 @@ def seed_source(root: Path) -> Path:
     # The entry points import the package next to them, so a clone that is meant
     # to run its own code needs the package too.
     shutil.copytree(REPO / "lib" / "browsers", source / "lib" / "browsers")
+    # The catalogs are synthetic but the fleet description is the real one, so
+    # the fixture exercises the same manifest the validator checks against.
+    (catalogs / "manifest.yml").write_text(
+        (REPO / "host_files" / "localhost" / "browsers" / "manifest.yml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (source / "Brewfile").write_text('cask "fixture-browser"\n', encoding="utf-8")
     (source / ".gitignore").write_text("__pycache__/\n*.pyc\n", encoding="utf-8")
     git(source.parent, "init", "--quiet", "--initial-branch=main", str(source))

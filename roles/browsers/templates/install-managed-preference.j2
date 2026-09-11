@@ -16,7 +16,7 @@ set -eu
 STAGE_DIR={{ browsers_state_dir | quote }}
 TARGET_DIR={{ browsers_chromium_policy_dir | quote }}
 EXPECTED_UID={{ ansible_user_uid | string | quote }}
-ALLOWED_DOMAINS="{{ (browsers_chromium_adapters | map(attribute='domain') | list + [browsers_firefox_policy_domain]) | join(' ') }}"
+ALLOWED_DOMAINS="{{ (browsers_chromium_adapters | map(attribute='policy.domain') | list + [browsers_firefox_policy_domain]) | join(' ') }}"
 
 refuse() {
     echo "managed-preference helper: refused ($1)" >&2

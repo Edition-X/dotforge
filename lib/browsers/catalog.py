@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import yaml
 
-from browsers import BROWSERS
+from browsers import BROWSERS, MANIFEST
 
 KINDS = ("bookmarks", "extensions", "policies")
 CREDENTIAL_KEYS = re.compile(r"(?:access|auth|refresh|session|api)[_-]?(?:key|token)|password|passwd|secret", re.I)
@@ -194,6 +194,30 @@ def validate_vivaldi_contract(root: Path) -> None:
         raise CatalogError("Vivaldi must remain best-effort and report-only")
 
 
+def validate_manifest(root: Path) -> int:
+    """The manifest and the catalog directories must describe the same fleet.
+
+    Without this, adding a browser to one and not the other fails silently: the
+    browser simply goes unmanaged, which is exactly the failure the manifest was
+    introduced to prevent.
+    """
+    on_disk = {entry.name for entry in root.iterdir() if entry.is_dir()}
+    declared = set(BROWSERS)
+    if on_disk != declared:
+        missing = sorted(declared - on_disk)
+        extra = sorted(on_disk - declared)
+        raise CatalogError(
+            f"manifest and catalog directories disagree (missing={missing} unexpected={extra})"
+        )
+    for entry in MANIFEST:
+        policy = entry.get("policy", {})
+        if policy.get("support") not in {"managed_preference", "unsupported"}:
+            raise CatalogError(f"{entry['catalog']} declares an unknown policy support level")
+        if policy["support"] == "managed_preference" and not policy.get("domain"):
+            raise CatalogError(f"{entry['catalog']} claims managed policy without a domain")
+    return len(MANIFEST)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--all", action="store_true")
@@ -210,12 +234,13 @@ def main() -> int:
                 counts[kind] += validate_file(args.root / browser / f"{kind}.yml", browser, kind)
         if "vivaldi" in browsers:
             validate_vivaldi_contract(args.root)
+        declared = validate_manifest(args.root) if args.all else len(MANIFEST)
     except (OSError, yaml.YAMLError, CatalogError, ValueError) as error:
         print(f"browser catalog: failed ({type(error).__name__}: {error})")
         return 1
     print(
         "browser catalog: pass "
-        f"browsers={len(browsers)} bookmarks={counts['bookmarks']} "
+        f"browsers={len(browsers)} manifest={declared} bookmarks={counts['bookmarks']} "
         f"extensions={counts['extensions']} policies={counts['policies']}"
     )
     return 0

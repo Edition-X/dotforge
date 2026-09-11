@@ -1,11 +1,10 @@
 ---
 browsers_catalog_root: "{{ playbook_dir }}/host_files/localhost/browsers"
-browsers_catalog_names:
-  - chrome
-  - edge
-  - brave
-  - firefox
-  - vivaldi
+# The fleet is described once, in the manifest the Python side also reads.
+# These derivations replace hand-maintained copies of the same facts, which
+# previously lived in about eight places across YAML and Python.
+browsers_manifest: "{{ lookup('file', browsers_catalog_root ~ '/manifest.yml') | from_yaml }}"
+browsers_catalog_names: "{{ browsers_manifest.browsers | map(attribute='catalog') | list }}"
 
 # Every non-interactive entry point runs this exact interpreter. `python3` from
 # PATH is not a contract: this machine has four (venv 3.13, pyenv 3.10,
@@ -41,39 +40,53 @@ browsers_repo_dir: "{{ playbook_dir }}"
 
 browsers_state_dir: "{{ user_dir }}/.local/state/macbook-pro/browser-policy"
 browsers_chromium_policy_dir: "/Library/Managed Preferences/{{ osx_username }}"
-browsers_chromium_adapters:
-  - name: Chrome
-    catalog: chrome
-    domain: com.google.Chrome
-    bookmark_policy: ManagedBookmarks
-  - name: Edge
-    catalog: edge
-    domain: com.microsoft.Edge
-    bookmark_policy: ManagedFavorites
-  - name: Brave
-    catalog: brave
-    domain: com.brave.Browser
-    bookmark_policy: ManagedBookmarks
+browsers_chromium_adapters: >-
+  {{
+    browsers_manifest.browsers
+    | selectattr('engine', 'equalto', 'chromium')
+    | selectattr('policy.support', 'equalto', 'managed_preference')
+    | list
+  }}
 browsers_firefox_app: /Applications/Firefox.app
 browsers_firefox_resources: "{{ browsers_firefox_app }}/Contents/Resources"
 # Policy is delivered as a managed preference, not written into the application
 # bundle: a file inside Firefox.app breaks its code signature, and macOS refuses
 # to launch a freshly installed bundle whose seal no longer matches.
 browsers_firefox_bundle_policy_dir: "{{ browsers_firefox_resources }}/distribution"
-browsers_firefox_policy_domain: org.mozilla.firefox
+browsers_firefox_policy_domain: >-
+  {{
+    (browsers_manifest.browsers | selectattr('catalog', 'equalto', 'firefox') | first).policy.domain
+  }}
 browsers_firefox_policy_path: "{{ browsers_chromium_policy_dir }}/{{ browsers_firefox_policy_domain }}.plist"
 browsers_firefox_policy_stage: "{{ browsers_state_dir }}/{{ browsers_firefox_policy_domain }}.plist"
 browsers_vivaldi_app: /Applications/Vivaldi.app
 browsers_vivaldi_profile: "{{ user_dir }}/Library/Application Support/Vivaldi/Default"
 browsers_vivaldi_audit_path: "{{ browsers_state_dir }}/vivaldi-audit.sh"
 browsers_quarantine_path: "{{ browsers_state_dir }}/quarantine.json"
-browsers_generated_paths:
-  - "{{ browsers_state_dir }}/com.google.Chrome.plist"
-  - "{{ browsers_chromium_policy_dir }}/com.google.Chrome.plist"
-  - "{{ browsers_state_dir }}/com.microsoft.Edge.plist"
-  - "{{ browsers_chromium_policy_dir }}/com.microsoft.Edge.plist"
-  - "{{ browsers_state_dir }}/com.brave.Browser.plist"
-  - "{{ browsers_chromium_policy_dir }}/com.brave.Browser.plist"
-  - "{{ browsers_firefox_policy_stage }}"
-  - "{{ browsers_firefox_policy_path }}"
-  - "{{ browsers_vivaldi_audit_path }}"
+# Derived, so a browser added to the manifest is cleaned up as well as
+# installed. These were nine hand-written paths that had to be kept in step
+# with the adapter list by hand.
+browsers_generated_paths: >-
+  {{
+    (
+      browsers_manifest.browsers
+      | selectattr('policy.support', 'equalto', 'managed_preference')
+      | map(attribute='policy.domain')
+      | map('regex_replace', '^(.*)$', browsers_state_dir ~ '/\1.plist')
+      | list
+    )
+    + (
+      browsers_manifest.browsers
+      | selectattr('policy.support', 'equalto', 'managed_preference')
+      | map(attribute='policy.domain')
+      | map('regex_replace', '^(.*)$', browsers_chromium_policy_dir ~ '/\1.plist')
+      | list
+    )
+    + [
+      browsers_vivaldi_audit_path,
+      browsers_capture_plist,
+      browsers_capture_run_script,
+      browsers_privileged_helper_stage,
+      browsers_sudoers_stage,
+    ]
+  }}
