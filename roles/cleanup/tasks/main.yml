@@ -11,6 +11,10 @@
     - "{{ ssh_dir }}/id_rsa.pub"
     - "{{ ssh_dir }}/id_ed25519.pub"
     - "{{ config_paths.ssh_config }}"
+    # Legacy: a symlink to a vault-encrypted file, so it could never have been
+    # used as a password file. The real one lives at
+    # ~/.config/macbook-pro/vault-pass and is deliberately not removed here —
+    # losing it means losing access to every encrypted secret.
     - "{{ user_dir }}/.vault_pass.txt"
     - "{{ config_paths.aliases }}"
     - "{{ config_paths.functions }}"

@@ -27,22 +27,27 @@ A powerful, automated configuration management system for MacBook Pro setup usin
 ## 🧭 First-time Setup
 
 The playbook decrypts secrets with an Ansible Vault password that is
-deliberately **not** in the repo (`credentials.txt` is gitignored). A fresh
-clone cannot run until you put it back:
+deliberately not in the repository. A fresh clone cannot run until you put it
+back:
 
 ```bash
-# 1. Restore the vault password (from your password manager)
-echo 'THE-VAULT-PASSWORD' > credentials.txt
+# 1. Restore the vault password (from your password manager).
+#    `read -rs` keeps it out of your shell history.
+install -m 700 -d ~/.config/macbook-pro
+read -rs -p 'Vault password: ' p && printf '%s' "$p" > ~/.config/macbook-pro/vault-pass
+chmod 600 ~/.config/macbook-pro/vault-pass && unset p
 
 # 2. Build the venv and apply
 make apply
 ```
 
-`ansible.cfg` points `vault_password_file` at `./credentials.txt`. Note that
-`~/.env_vars` also exports `ANSIBLE_VAULT_PASSWORD_FILE`; having both set makes
-`ansible-vault` ambiguous about which vault id to use, which is why the Makefile
-unsets the environment variable before every run. Do the same if you invoke
-`ansible-vault` by hand.
+`ansible.cfg` points `vault_password_file` at that absolute path, and nothing
+else competes with it. There used to be three mechanisms: this file (by a
+relative path, so it depended on the working directory), an
+`ANSIBLE_VAULT_PASSWORD_FILE` export from `~/.env_vars`, and a
+`~/.vault_pass.txt` symlink that pointed at a *vault-encrypted* file and so
+could never have worked. The Makefile had to unset the environment variable on
+every run to keep them from disagreeing.
 
 ## 🚀 Quick Start
 
