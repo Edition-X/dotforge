@@ -310,8 +310,8 @@
   ansible.builtin.file:
     path: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   # Created even under --check, so the install task below (which needs the
   # destination directory to already exist) has somewhere to aim. Same idiom
@@ -324,8 +324,8 @@
     src: "{{ mcp_toolkit_export_stage.path }}/profile.export.yaml"
     dest: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}/profile.export.yaml"
     remote_src: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   tags: [mcp]
 
@@ -407,8 +407,8 @@
   ansible.builtin.copy:
     content: "{{ mcp_gateway_sunrise_token }}"
     dest: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}/token"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   register: mcp_toolkit_token_file
   no_log: true
@@ -418,8 +418,8 @@
   ansible.builtin.template:
     src: mcp-gateway-run.sh.j2
     dest: "{{ user_dir }}/.config/mcp-gateway/{{ mcp_toolkit_profile }}/run.sh"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   register: mcp_toolkit_run_script
   tags: [mcp]
@@ -428,8 +428,8 @@
   ansible.builtin.template:
     src: com.dkelly.mcp-gateway-sunrise.plist.j2
     dest: "{{ user_dir }}/Library/LaunchAgents/com.dkelly.mcp-gateway-{{ mcp_toolkit_profile }}.plist"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   register: mcp_toolkit_plist
   tags: [mcp]

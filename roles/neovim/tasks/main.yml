@@ -3,8 +3,9 @@
   ansible.builtin.file:
     src: "{{ host_files_dir }}/nvim"
     dest: "{{ config_paths.nvim }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     state: link
+    follow: false
   tags:
     - dot
