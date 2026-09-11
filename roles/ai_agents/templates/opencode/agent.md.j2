@@ -36,6 +36,21 @@ permission:
   edit:
     "*": deny
     "docs/**": allow
+{# The lead never implements. edit:deny covers the edit tool; these close the
+   shell routes around it that the 2026-09-11 INF-612 session used (378 bash
+   calls against 51 dispatches). Reads, diffs, checks and merges stay open. #}
+  bash:
+    "sed -i*": deny
+    "perl -i*": deny
+    "tee *": deny
+    "patch *": deny
+    "git apply*": deny
+    "git am*": deny
+    "git add*": deny
+    "git commit*": deny
+    "git stash*": deny
+    "* > *": deny
+    "* >> *": deny
 {% elif item.role == 'documentation' %}
   edit:
     "*": deny
