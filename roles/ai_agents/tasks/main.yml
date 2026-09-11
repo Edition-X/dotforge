@@ -383,6 +383,18 @@
       check_mode: false
       changed_when: false
 
+    # The validator drives the real OpenCode CLI, which is absent wherever the
+    # CLI is not installed — a CI runner, for instance. Skipping is reported
+    # rather than silent: a validation that quietly does not run is worse than
+    # one that is openly unavailable.
+    - name: OpenCode - Find the CLI the validator needs
+      ansible.builtin.command:
+        argv: [/usr/bin/which, opencode]
+      register: ai_agents_opencode_cli
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
     - name: OpenCode - Validate staged configuration
       ansible.builtin.command:
         cmd: >-
@@ -391,6 +403,14 @@
       register: ai_agents_opencode_validation
       changed_when: false
       check_mode: false
+      when: ai_agents_opencode_cli.rc == 0
+
+    - name: OpenCode - Report that validation was skipped
+      ansible.builtin.debug:
+        msg: >-
+          OpenCode config validation skipped: the `opencode` CLI is not
+          installed, so the staged configuration was not checked against it.
+      when: ai_agents_opencode_cli.rc != 0
 
     - name: OpenCode - Config directory
       ansible.builtin.file:
