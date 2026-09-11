@@ -12,7 +12,8 @@ ansible-playbook site.yml --tags ai
   `~/.config/opencode/AGENTS.md`.
 - `skills/` — one skill set, linked into all five harnesses.
 - OpenCode config, agents, commands, and routing policy are rendered by the
-  `ai_agents` role from `host_vars/localhost/opencode.yml` and source files here.
+  `ai_agents` role from `group_vars/macbooks.yml`, `host_files/localhost/ai/routing/`
+  and source files here.
 
 Edit here, never in the harness directories. Those are links back to this
 directory, and `scripts/check-agent-config-drift.sh` reports it when they stop

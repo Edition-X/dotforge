@@ -87,17 +87,19 @@ RETIRED_PROVIDER_IDS = ("claude-fable-5-1",)
 # these paths. docs/ holds the playbook itself (which legitimately names
 # provider IDs) and is untracked, so it is not scanned here.
 #
-# R3 (OpenCode lead-worker migration) removed opencode_agent_models from
-# host_vars/localhost/opencode.yml and the model IDs from
+# R3 (OpenCode lead-worker migration) removed opencode_agent_models from the
+# since-deleted host_vars/localhost/opencode.yml and the model IDs from
 # scripts/check-opencode-source.sh, so both now carry no provider ID of their
 # own and are added below alongside group_vars/macbooks.yml and
 # roles/ai_agents/templates/, as promised when this tuple was first scoped.
+# iter_scan_files() returns [] for a path that does not exist, so a stale
+# entry here would silently scan nothing rather than fail — keep this list in
+# step with what actually exists.
 LEAKED_ID_SCAN_PATHS = (
     ROUTING_DIR / "prompts",
     REPO_ROOT / "host_files/localhost/ai/skills/execute-playbook",
     AGENTS_FILE,
     REPO_ROOT / "group_vars/macbooks.yml",
-    REPO_ROOT / "host_vars/localhost/opencode.yml",
     REPO_ROOT / "roles/ai_agents/templates",
 )
 

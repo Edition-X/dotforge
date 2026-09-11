@@ -6,7 +6,7 @@
 - `make apply` installs configuration; `make check` previews it.
 - `roles/ai_agents` owns shared harness instructions, skills, and OpenCode setup.
 - `host_files/localhost/ai/` is source for shared AI files and OpenCode command files.
-- `host_vars/localhost/opencode.yml` is central OpenCode model-routing policy.
+- `host_files/localhost/ai/routing/` is central, provider-neutral model-routing policy; `group_vars/macbooks.yml` holds OpenCode-specific install settings.
 
 ## Engineering rules
 

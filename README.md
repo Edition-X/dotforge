@@ -234,7 +234,7 @@ repo file, only in the runtime config files below (each `0600`).
 
 OpenCode configuration is repo-managed by `ai_agents`. Source templates live
 under `roles/ai_agents/templates/`, model assignments live in
-`host_vars/localhost/opencode.yml`, and generated files deploy under
+`host_files/localhost/ai/routing/`, and generated files deploy under
 `~/.config/opencode/`. Existing config is backed up once under
 `~/.ai-config-backup/opencode/`; auth, OAuth state, sessions, caches, package
 files, and user-owned agents or commands remain outside repository ownership.
