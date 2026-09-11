@@ -30,7 +30,7 @@ fi
 
 cleanup() {
     ls -d "$tmp_root"
-    trash "$tmp_root"
+    rm -rf "$tmp_root"  # self-created mktemp dir, not user data
 }
 trap cleanup EXIT
 
