@@ -14,7 +14,7 @@ from types import ModuleType
 
 import yaml
 
-from browsers import BROWSERS, CHROMIUM_PROFILES, REPO
+from browsers import BROWSERS, CHROMIUM_PROFILES, REPO, vault
 from browsers import catalog as catalog_module
 from browsers import quarantine as quarantine_module
 from browsers import reconcile as reconcile_module
@@ -111,12 +111,16 @@ def capture_live(snapshot: ModuleType, work: Path) -> dict[str, list[dict[str, o
 
 
 def write_catalog(path: Path, catalog: dict[str, object]) -> None:
+    """Write a bookmark catalog, always vault-encrypted.
+
+    The catalogs hold personal URLs and the repository is public, so plaintext
+    never reaches disk under the repository — the validator and the publishing
+    automation both refuse a plaintext catalog.
+    """
+    rendered = yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True, explicit_start=True)
     descriptor, temporary = tempfile.mkstemp(prefix=".bookmarks-", dir=path.parent)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-        rendered = yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True, explicit_start=True)
-        for line in rendered.splitlines():
-            annotation = "  # noqa yaml[line-length]" if len(line) > 120 else ""
-            stream.write(f"{line}{annotation}\n")
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(vault.encrypt_text(rendered))
     os.chmod(temporary, 0o644)
     os.replace(temporary, path)
 
@@ -167,7 +171,7 @@ def live_capture(enable: bool) -> int:
         captured = capture_live(snapshot, work)
         for browser in BROWSERS:
             path = REPO / "host_files" / "localhost" / "browsers" / browser / "bookmarks.yml"
-            catalog = yaml.safe_load(path.read_text(encoding="utf-8"))
+            catalog = yaml.safe_load(vault.read_text(path))
             additions, rejected = reconcile_module.reconcile(catalog, captured[browser], validator, quarantine)
             validator.validate_bookmarks(catalog, browser)
             if enable:

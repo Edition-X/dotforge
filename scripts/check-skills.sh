@@ -15,6 +15,13 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 skills_dir="${repo_root}/host_files/localhost/ai/skills"
+# The one password location, read from ansible.cfg so the two never disagree.
+vault_password_file=$(sed -n 's/^vault_password_file[[:space:]]*=[[:space:]]*//p' "${repo_root}/ansible.cfg")
+vault_password_file="${vault_password_file/#\~/$HOME}"
+# One scratch directory for every decrypted skill, removed on exit — a trap set
+# per file would replace the previous handler and orphan the earlier plaintext.
+scratch=$(mktemp -d)
+trap 'rm -rf "${scratch}"' EXIT
 
 # Real PEM header, not any prose that merely mentions "PRIVATE KEY" (e.g. a
 # footer like "-----END OPENSSH PRIVATE KEY-----" quoted in a skill's prose).
@@ -40,6 +47,23 @@ for dir in "${skills_dir}"/*/; do
     fi
 
     rel_file="host_files/localhost/ai/skills/${name}/SKILL.md"
+
+    # A vault-encrypted skill is linted on its plaintext. Without the vault
+    # password (a hosted runner, by design) it is reported and skipped; the
+    # must-encrypt check in check-unencrypted-secrets.py still covers it.
+    if head -c 14 "${file}" | grep -q '^[$]ANSIBLE_VAULT'; then
+        if [[ ! -f "${vault_password_file}" ]]; then
+            echo "SKIP ${name}: vault-encrypted, no vault password here"
+            continue
+        fi
+        decrypted="${scratch}/${name}.md"
+        if ! ansible-vault view --vault-password-file "${vault_password_file}" "${file}" >"${decrypted}" 2>/dev/null; then
+            echo "FAIL ${name}: vault-encrypted SKILL.md could not be decrypted"
+            fail=1
+            continue
+        fi
+        file="${decrypted}"
+    fi
 
     # Frontmatter: file must start with a --- line, then a closing --- line.
     if [[ "$(sed -n '1p' "${file}")" != "---" ]]; then

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -13,7 +14,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import yaml
 
-from browsers import BROWSERS, MANIFEST
+from browsers import BROWSERS, MANIFEST, vault
 
 KINDS = ("bookmarks", "extensions", "policies")
 CREDENTIAL_KEYS = re.compile(r"(?:access|auth|refresh|session|api)[_-]?(?:key|token)|password|passwd|secret", re.I)
@@ -23,6 +24,14 @@ OAUTH_MARKER = re.compile(r"(?:oauth|callback|redirect_uri|code_verifier|id_toke
 
 class CatalogError(ValueError):
     pass
+
+
+class CatalogEncrypted(CatalogError):
+    """The catalog is vault-encrypted and this machine cannot decrypt it.
+
+    Distinct from a validation failure so that CI — which has no vault
+    password by design — can report the file as skipped rather than broken.
+    """
 
 
 def normalized_url(value: object) -> str:
@@ -181,7 +190,15 @@ VALIDATORS = {"bookmarks": validate_bookmarks, "extensions": validate_extensions
 
 
 def validate_file(path: Path, browser: str, kind: str) -> int:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    # Bookmark catalogs carry personal URLs and the repository is public, so a
+    # plaintext one is a finding in its own right, before any schema check.
+    if kind == "bookmarks" and not vault.is_encrypted(path):
+        raise CatalogError("bookmark catalog must be vault-encrypted")
+    try:
+        text = vault.read_text(path)
+    except vault.VaultUnavailable as error:
+        raise CatalogEncrypted(f"{kind} catalog is vault-encrypted and cannot be decrypted here") from error
+    data = yaml.safe_load(text)
     if not isinstance(data, dict) or data.get("version") != 1 or data.get("browser") != browser:
         raise CatalogError("catalog version or browser ownership is invalid")
     return VALIDATORS[kind](data, browser)
@@ -228,10 +245,19 @@ def main() -> int:
         parser.error("pass --all or --browser")
     browsers = (args.browser,) if args.browser else BROWSERS
     counts = {kind: 0 for kind in KINDS}
+    skipped = 0
     try:
         for browser in browsers:
             for kind in KINDS:
-                counts[kind] += validate_file(args.root / browser / f"{kind}.yml", browser, kind)
+                try:
+                    counts[kind] += validate_file(args.root / browser / f"{kind}.yml", browser, kind)
+                except CatalogEncrypted:
+                    # A hosted runner holds a placeholder vault password on
+                    # purpose. Only there is "cannot decrypt" acceptable; on a
+                    # machine that should have the password it is a failure.
+                    if not os.environ.get("CI"):
+                        raise
+                    skipped += 1
         if "vivaldi" in browsers:
             validate_vivaldi_contract(args.root)
         declared = validate_manifest(args.root) if args.all else len(MANIFEST)
@@ -241,7 +267,7 @@ def main() -> int:
     print(
         "browser catalog: pass "
         f"browsers={len(browsers)} manifest={declared} bookmarks={counts['bookmarks']} "
-        f"extensions={counts['extensions']} policies={counts['policies']}"
+        f"extensions={counts['extensions']} policies={counts['policies']} encrypted-skipped={skipped}"
     )
     return 0
 

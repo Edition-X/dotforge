@@ -161,6 +161,15 @@ ai_external_skills:
   - paperclip-create-plugin
   - para-memory-files
 
+# Skills whose SKILL.md is vault-encrypted in this repository because it names
+# an employer's customers, sites or hosts. The repository is public; these are
+# not. They deploy as a decrypted copy (0700 directory, 0600 file) instead of a
+# symlink, so a harness reads plaintext while git only ever holds ciphertext.
+# check-unencrypted-secrets.py refuses a plaintext commit of any path here.
+ai_encrypted_skills:
+  - sunrise-cells
+  - sunrise-devcontainer-rollout
+
 # OpenCode files are explicit so cleanup never removes user-owned agents,
 # commands, credentials, history, caches, or package state.
 #

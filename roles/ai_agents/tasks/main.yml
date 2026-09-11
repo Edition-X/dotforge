@@ -128,6 +128,7 @@
   when:
     - item.stat.exists
     - not item.stat.islnk
+    - item.item.1 not in ai_encrypted_skills
 
 - name: Harness - Shared skills
   ansible.builtin.file:
@@ -137,9 +138,45 @@
     force: true
     owner: "{{ ansible_user_id }}"
     group: "{{ ansible_user_gid }}"
-  loop: "{{ ai_harnesses | product(ai_agents_skills) | list }}"
+  loop: "{{ ai_harnesses | product(ai_agents_skills | difference(ai_encrypted_skills)) | list }}"
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"
+
+# Vault-encrypted skills cannot be links: a harness would read ciphertext. A
+# stale link from before the skill was encrypted is replaced by a directory.
+- name: Harness - Remove links where an encrypted skill needs a directory
+  ansible.builtin.file:
+    path: "{{ item.0.skills }}/{{ item.1 }}"
+    state: absent
+  loop: "{{ ai_harnesses | product(ai_encrypted_skills) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+  when: (item.0.skills ~ '/' ~ item.1) is link
+
+- name: Harness - Encrypted skill directories
+  ansible.builtin.file:
+    path: "{{ item.0.skills }}/{{ item.1 }}"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0700'
+  loop: "{{ ai_harnesses | product(ai_encrypted_skills) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+
+# copy decrypts a vault-encrypted src on the way through, so the deployed file
+# is plaintext for the harness while the repository only ever holds ciphertext.
+- name: Harness - Encrypted skills, decrypted copy
+  ansible.builtin.copy:
+    src: "{{ ai_source_dir }}/skills/{{ item.1 }}/SKILL.md"
+    dest: "{{ item.0.skills }}/{{ item.1 }}/SKILL.md"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0600'
+  loop: "{{ ai_harnesses | product(ai_encrypted_skills) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+  no_log: true
 
 - name: AI agents - Find deployed skill links
   ansible.builtin.find:

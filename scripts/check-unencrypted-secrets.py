@@ -41,6 +41,10 @@ MUST_ENCRYPT = (
     re.compile(r"^host_files/[^/]+/id_ed25519$"),
     re.compile(r"^host_files/[^/]+/vault_pass\.txt$"),
     re.compile(r"^host_vars/[^/]+/vault\.yml$"),
+    # Personal bookmark URLs. The repository is public; these are not.
+    re.compile(r"^host_files/[^/]+/browsers/[^/]+/bookmarks\.yml$"),
+    # Work skills that name an employer's customers, sites and hosts.
+    re.compile(r"^host_files/[^/]+/ai/skills/(?:sunrise-cells|sunrise-devcontainer-rollout)/SKILL\.md$"),
 )
 
 # Key names that mean "this is a credential".
@@ -132,7 +136,10 @@ def check(paths: list[str], staged: bool) -> int:
     failures = 0
 
     for path in paths:
-        if path.startswith(SKIP_PREFIXES):
+        # Must-encrypt wins over the vendored-tree skip: an encrypted skill
+        # lives under a skipped prefix, and skipping it would silently accept
+        # the plaintext version too.
+        if not any(pattern.match(path) for pattern in MUST_ENCRYPT) and path.startswith(SKIP_PREFIXES):
             continue
 
         for pattern in MUST_ENCRYPT:

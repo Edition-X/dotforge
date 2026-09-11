@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Publish captured bookmark additions from an isolated clone through one private PR."""
+"""Publish captured bookmark additions from an isolated clone through one pull request.
+
+The repository is public. What keeps bookmark URLs private is that every catalog
+is vault-encrypted before it is staged; a plaintext catalog is a stop condition.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +15,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from browsers import BROWSERS, REPO
+from browsers import BROWSERS, REPO, vault
 
 REPO_SLUG = "Edition-X/macbook-pro"
 AUTOMATION_BRANCH = "automation/browser-catalog"
@@ -121,10 +125,6 @@ class GitHubHub:
             raise AutomationStop(f"gh {arguments[0]} failed rc={result.returncode}")
         return result.stdout.strip()
 
-    def is_private(self) -> bool:
-        payload = json.loads(self._gh("repo", "view", self.slug, "--json", "isPrivate"))
-        return payload.get("isPrivate") is True
-
     def pull_requests(self, branch: str) -> list[int]:
         payload = json.loads(
             self._gh("pr", "list", "--repo", self.slug, "--head", branch, "--state", "open", "--json", "number")
@@ -163,9 +163,16 @@ def resolve_isolated_root(isolated_root: Path) -> Path:
     return clone
 
 
-def require_private(hub: object) -> None:
-    if hub.is_private() is not True:
-        raise AutomationStop("repository privacy is false or unknown")
+def require_encrypted_catalogs(clone: Path) -> None:
+    """Refuse to stage a bookmark catalog that is not vault-encrypted.
+
+    This replaced a check that the GitHub repository was private. The
+    repository is public now; the catalogs' ciphertext is what protects the
+    URLs, so that is what gets checked — on the exact files about to be staged.
+    """
+    plaintext = [path for path in STAGE_ALLOWLIST if not vault.is_encrypted(clone / path)]
+    if plaintext:
+        raise AutomationStop(f"plaintext bookmark catalog count={len(plaintext)}")
 
 
 def prepare_clone(clone: Path, remote: str, git_factory: Callable[[Path], Git]) -> Git:
@@ -316,9 +323,9 @@ def run(
     interpreter: str = sys.executable,
 ) -> int:
     clone = resolve_isolated_root(isolated_root)
-    require_private(hub)
     git = prepare_clone(clone, remote, git_factory)
     capture(clone)
+    require_encrypted_catalogs(clone)
     validate_catalogs(clone, interpreter)
     paths = check_staged_paths(git)
     if not paths:

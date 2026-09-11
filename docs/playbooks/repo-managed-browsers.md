@@ -32,6 +32,8 @@ Chromium browsers each have one `Default` profile. Firefox has one active `defau
 
 ### Hard privacy gate
 
+> **Revised 2026-09-11:** the repository is being made public. The gate below is superseded: privacy now rests on the bookmark catalogs being vault-encrypted in git (validator, capture and publishing automation all refuse plaintext), not on repository visibility. Kept for the record of how B0–B9 were executed.
+
 The first ticket must confirm GitHub repository privacy before any bookmark URL is read into or written under this repository.
 
 > **Changing repository visibility is an external security action. Before `gh repo edit`, lead must confirm current user authorization in the execution message.**
