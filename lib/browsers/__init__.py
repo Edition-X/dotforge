@@ -22,18 +22,52 @@ from pathlib import Path
 # one the user is sitting in.
 REPO = Path(__file__).resolve().parent.parent.parent
 
-# One list, consumed by every module here. The Ansible side reads the same
-# names from the role's browsers_catalog_names.
-BROWSERS = ("chrome", "edge", "brave", "firefox", "vivaldi")
-
 CATALOG_ROOT = REPO / "host_files" / "localhost" / "browsers"
+MANIFEST_PATH = CATALOG_ROOT / "manifest.yml"
 STATE_ROOT = Path.home() / ".local" / "state" / "macbook-pro"
 POLICY_STATE = STATE_ROOT / "browser-policy"
 
-# Profile directories relative to ~/Library/Application Support.
+APPLICATION_SUPPORT = Path.home() / "Library" / "Application Support"
+
+
+def _load_manifest() -> list[dict[str, object]]:
+    """Read the fleet description that Ansible reads from the same file."""
+    import yaml  # local: keeps the package importable for callers without it
+
+    document = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
+    if not isinstance(document, dict) or document.get("version") != 1:
+        raise RuntimeError("browser manifest version is unsupported")
+    entries = document.get("browsers")
+    if not isinstance(entries, list) or not entries:
+        raise RuntimeError("browser manifest lists no browsers")
+    return entries
+
+
+MANIFEST = _load_manifest()
+
+# Catalog names, in manifest order.
+BROWSERS = tuple(str(entry["catalog"]) for entry in MANIFEST)
+
+# Chromium profile directories relative to ~/Library/Application Support.
 CHROMIUM_PROFILES = {
-    "chrome": "Google/Chrome/Default",
-    "edge": "Microsoft Edge/Default",
-    "brave": "BraveSoftware/Brave-Browser/Default",
-    "vivaldi": "Vivaldi/Default",
+    str(entry["catalog"]): str(entry["profile"])
+    for entry in MANIFEST
+    if entry["engine"] == "chromium"
 }
+
+
+def manifest_for(catalog: str) -> dict[str, object]:
+    for entry in MANIFEST:
+        if entry["catalog"] == catalog:
+            return entry
+    raise KeyError(f"no manifest entry for browser {catalog}")
+
+
+def managed(engine: str | None = None) -> list[dict[str, object]]:
+    """Browsers with a proven policy contract, optionally filtered by engine."""
+    return [
+        entry
+        for entry in MANIFEST
+        if entry["policy"]["support"] == "managed_preference"
+        and (engine is None or entry["engine"] == engine)
+    ]

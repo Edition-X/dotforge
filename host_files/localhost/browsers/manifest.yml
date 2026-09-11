@@ -1,0 +1,97 @@
+---
+# The browser fleet, described once.
+#
+# These facts used to be restated in about eight places: browsers_catalog_names
+# and browsers_chromium_adapters in the role defaults, BROWSERS in four Python
+# modules, CHROMIUM_PROFILES in two, CHROMIUM_BROWSERS in the smoke and a tuple
+# of application records in the capability module. Adding a sixth browser meant
+# an eight-file change with no failure if one was missed — the omission simply
+# meant that browser went unmanaged.
+#
+# Ansible reads this through the role defaults; Python reads it in
+# browsers/__init__.py. `validate-browser-catalog.py --all` fails if the entries
+# here and the catalog directories on disk disagree.
+#
+# policy.support values:
+#   managed_preference - a vendor-documented policy contract, applied by the role
+#   unsupported        - no proven contract on the installed build; audit only
+version: 1
+
+browsers:
+  - catalog: chrome
+    label: Chrome
+    engine: chromium
+    application: /Applications/Google Chrome.app
+    executable: Contents/MacOS/Google Chrome
+    profile: Google/Chrome/Default
+    policy:
+      support: managed_preference
+      domain: com.google.Chrome
+      page: chrome://policy
+      bookmarks_key: ManagedBookmarks
+      extensions_key: ExtensionSettings
+      bookmarks_pages:
+        - chrome://bookmarks
+
+  - catalog: edge
+    label: Edge
+    engine: chromium
+    application: /Applications/Microsoft Edge.app
+    executable: Contents/MacOS/Microsoft Edge
+    profile: Microsoft Edge/Default
+    policy:
+      support: managed_preference
+      domain: com.microsoft.Edge
+      page: edge://policy
+      # Edge names the same concept differently.
+      bookmarks_key: ManagedFavorites
+      extensions_key: ExtensionSettings
+      bookmarks_pages:
+        - edge://favorites
+
+  - catalog: brave
+    label: Brave
+    engine: chromium
+    application: /Applications/Brave Browser.app
+    executable: Contents/MacOS/Brave Browser
+    profile: BraveSoftware/Brave-Browser/Default
+    policy:
+      support: managed_preference
+      domain: com.brave.Browser
+      page: brave://policy
+      bookmarks_key: ManagedBookmarks
+      extensions_key: ExtensionSettings
+      # Brave still answers to the Chromium URL, which is the fallback.
+      bookmarks_pages:
+        - brave://bookmarks
+        - chrome://bookmarks
+
+  - catalog: firefox
+    label: Firefox
+    engine: gecko
+    application: /Applications/Firefox.app
+    executable: Contents/MacOS/firefox
+    profile: Firefox
+    policy:
+      support: managed_preference
+      domain: org.mozilla.firefox
+      page: about:policies
+      bookmarks_key: ManagedBookmarks
+      extensions_key: ExtensionSettings
+      bookmarks_pages: []
+
+  - catalog: vivaldi
+    label: Vivaldi
+    engine: chromium
+    application: /Applications/Vivaldi.app
+    executable: Contents/MacOS/Vivaldi
+    profile: Vivaldi/Default
+    policy:
+      # Chromium-based, but the installed build has never proved a vendor
+      # enterprise-policy contract, so nothing is enforced — only audited.
+      support: unsupported
+      domain: ''
+      page: vivaldi://policy
+      bookmarks_key: ''
+      extensions_key: ''
+      bookmarks_pages: []

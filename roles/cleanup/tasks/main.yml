@@ -96,16 +96,25 @@
   tags:
     - cleanup
 
-# Browser policy: only the exact files this repo generates. Profiles, bookmark
-# catalogs, saved logins, quarantine and browser data are never removed here —
-# and the isolated automation clone under ~/.local/state is left alone too, so
-# uninstalling policy never discards captured work.
+# Browser policy: only the exact files the browsers role declares it generates.
+# Read from that role's defaults rather than restated here — the previous copy
+# was hand-maintained and had already drifted from what the role installs.
+# Profiles, bookmark catalogs, saved logins, quarantine and the isolated
+# automation clone are never removed, so uninstalling policy never discards
+# captured work. The root-owned helper and sudoers rule are left for a
+# deliberate privileged removal.
+- name: Cleanup - Load the browser role's declared paths
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/roles/browsers/defaults/main.yml"
+  tags:
+    - cleanup
+
 - name: Cleanup - Stop the browser capture service
   ansible.builtin.command:
     argv:
       - /bin/launchctl
       - bootout
-      - "gui/{{ ansible_user_uid }}/com.dkelly.browser-capture"
+      - "gui/{{ ansible_user_uid }}/{{ browsers_capture_label }}"
   register: cleanup_browser_capture_bootout
   changed_when: cleanup_browser_capture_bootout.rc == 0
   failed_when: false
@@ -116,14 +125,7 @@
   ansible.builtin.file:
     state: absent
     path: "{{ item }}"
-  loop:
-    - "{{ user_dir }}/Library/LaunchAgents/com.dkelly.browser-capture.plist"
-    - "{{ user_dir }}/.local/state/macbook-pro/browser-automation/capture-run.sh"
-    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/com.google.Chrome.plist"
-    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/com.microsoft.Edge.plist"
-    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/com.brave.Browser.plist"
-    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/firefox-policies.json"
-    - "{{ user_dir }}/.local/state/macbook-pro/browser-policy/vivaldi-audit.sh"
+  loop: "{{ browsers_generated_paths }}"
   tags:
     - cleanup
 

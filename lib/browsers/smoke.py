@@ -17,15 +17,15 @@ import time
 from pathlib import Path
 from types import ModuleType
 
-from browsers import REPO
+from browsers import REPO, managed
 from browsers import capability as capability_module
 from browsers import catalog as catalog_module
 from browsers import snapshot as snapshot_module
 
+# Catalog name -> (label, bookmark pages to accept), from the manifest.
 CHROMIUM_BROWSERS = {
-    "chrome": ("Chrome", ("chrome://bookmarks",)),
-    "edge": ("Edge", ("edge://favorites",)),
-    "brave": ("Brave", ("brave://bookmarks", "chrome://bookmarks")),
+    str(entry["catalog"]): (str(entry["label"]), tuple(entry["policy"]["bookmarks_pages"]))
+    for entry in managed("chromium")
 }
 
 

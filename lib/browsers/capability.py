@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from browsers import MANIFEST
+
 
 @dataclass(frozen=True)
 class Browser:
@@ -42,52 +44,20 @@ class Browser:
     extension_policy: str
 
 
-BROWSER_APPS = (
+# Built from the manifest rather than restated. `domain` carries the policy
+# domain where one is proven, and a short reason where it is not — the reports
+# below print it either way.
+BROWSER_APPS = tuple(
     Browser(
-        "Chrome",
-        Path("/Applications/Google Chrome.app"),
-        Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-        "chrome://policy",
-        "com.google.Chrome",
-        "ManagedBookmarks",
-        "ExtensionSettings",
-    ),
-    Browser(
-        "Edge",
-        Path("/Applications/Microsoft Edge.app"),
-        Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
-        "edge://policy",
-        "com.microsoft.Edge",
-        "ManagedFavorites",
-        "ExtensionSettings",
-    ),
-    Browser(
-        "Brave",
-        Path("/Applications/Brave Browser.app"),
-        Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"),
-        "brave://policy",
-        "com.brave.Browser",
-        "ManagedBookmarks",
-        "ExtensionSettings",
-    ),
-    Browser(
-        "Firefox",
-        Path("/Applications/Firefox.app"),
-        Path("/Applications/Firefox.app/Contents/MacOS/firefox"),
-        "about:policies",
-        "Firefox distribution",
-        "ManagedBookmarks",
-        "ExtensionSettings",
-    ),
-    Browser(
-        "Vivaldi",
-        Path("/Applications/Vivaldi.app"),
-        Path("/Applications/Vivaldi.app/Contents/MacOS/Vivaldi"),
-        "vivaldi://policy",
-        "unverified",
-        "best effort",
-        "best effort",
-    ),
+        name=str(entry["label"]),
+        app=Path(str(entry["application"])),
+        executable=Path(str(entry["application"])) / str(entry["executable"]),
+        policy_page=str(entry["policy"]["page"]),
+        domain=str(entry["policy"]["domain"]) or "unverified",
+        bookmark_policy=str(entry["policy"]["bookmarks_key"]) or "best effort",
+        extension_policy=str(entry["policy"]["extensions_key"]) or "best effort",
+    )
+    for entry in MANIFEST
 )
 
 # Counts came from the pre-B0 sanitized baseline in the approved playbook.

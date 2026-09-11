@@ -15,13 +15,13 @@
         | rejectattr('presence', 'equalto', 'required')
         | list | length == 0
     fail_msg: >-
-      {{ browsers_chromium_adapter.name }} extension catalog needs vendor-verified presence entries
+      {{ browsers_chromium_adapter.label }} extension catalog needs vendor-verified presence entries
       and a reviewed migration before blocking enforcement
     quiet: true
   loop: "{{ browsers_chromium_adapters }}"
   loop_control:
     loop_var: browsers_chromium_adapter
-    label: "{{ browsers_chromium_adapter.name }}"
+    label: "{{ browsers_chromium_adapter.label }}"
   vars:
     # Store update endpoints proven against vendor evidence: Chrome Web Store
     # (also used by Brave), Microsoft Edge Add-ons and addons.mozilla.org.
@@ -38,11 +38,12 @@
   loop: "{{ browsers_chromium_adapters }}"
   loop_control:
     loop_var: browsers_chromium_adapter
-    label: "{{ browsers_chromium_adapter.name }}"
+    label: "{{ browsers_chromium_adapter.label }}"
   vars:
-    browsers_chromium_name: "{{ browsers_chromium_adapter.name }}"
+    browsers_chromium_name: "{{ browsers_chromium_adapter.label }}"
     browsers_chromium_catalog: "{{ browsers_chromium_adapter.catalog }}"
-    browsers_chromium_domain: "{{ browsers_chromium_adapter.domain }}"
-    browsers_chromium_bookmark_policy: "{{ browsers_chromium_adapter.bookmark_policy }}"
-    browsers_chromium_policy_stage: "{{ browsers_state_dir }}/{{ browsers_chromium_adapter.domain }}.plist"
-    browsers_chromium_policy_path: "{{ browsers_chromium_policy_dir }}/{{ browsers_chromium_adapter.domain }}.plist"
+    browsers_chromium_domain: "{{ browsers_chromium_adapter.policy.domain }}"
+    browsers_chromium_bookmark_policy: "{{ browsers_chromium_adapter.policy.bookmarks_key }}"
+    browsers_chromium_policy_stage: "{{ browsers_state_dir }}/{{ browsers_chromium_adapter.policy.domain }}.plist"
+    browsers_chromium_policy_path: >-
+      {{ browsers_chromium_policy_dir }}/{{ browsers_chromium_adapter.policy.domain }}.plist
