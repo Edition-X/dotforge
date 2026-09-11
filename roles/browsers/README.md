@@ -91,6 +91,23 @@ dialog otherwise), `sudo` (require the helper, fail rather than prompt) or
 unanswered prompt used to stall a play until something else killed it — which
 once left a browser half-configured.
 
+## Where the code lives
+
+The implementation is a package under `lib/browsers/`; `scripts/` holds a thin
+entry point per command, so every existing invocation — Makefile targets, this
+role, the launchd job, CI — is unchanged. The entry point puts `lib/` on
+`sys.path` relative to itself, deliberately: the publishing automation runs the
+*isolated clone's* copy of the code, and an installed package would have
+resolved back to the main checkout instead.
+
+Before this, the files were hyphenated scripts that cannot be imported, so six
+of them carried a private copy of an `importlib` loader. That loader also gave
+one file two module identities — `browser-snapshot.py` was loaded as both
+`browser_snapshot` and `browser_snapshot_cleanup`, so a single process held two
+copies with separate state. The browser list, the profile map and the repository
+root were each defined in several places; they are defined once now, in
+`browsers/__init__.py`.
+
 ## One interpreter, declared
 
 `browsers_python` in the role defaults names the interpreter every
