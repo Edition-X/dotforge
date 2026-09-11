@@ -3,8 +3,8 @@
   ansible.builtin.file:
     path: "{{ config_paths.claude_work_config }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   tags:
     - claude
@@ -13,8 +13,8 @@
   ansible.builtin.file:
     path: "{{ config_paths.local_bin }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0755'
   tags:
     - claude
@@ -24,9 +24,10 @@
     src: "{{ host_files_dir }}/bin/claude-work"
     dest: "{{ config_paths.claude_work_executable }}"
     state: link
+    follow: false
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   tags:
     - claude
 
@@ -34,8 +35,8 @@
   ansible.builtin.file:
     path: "{{ config_paths.t3_user_data_dir }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   tags:
     - claude

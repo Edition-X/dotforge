@@ -146,7 +146,7 @@
 # directories too. rmdir refuses on a non-empty directory, which is the intent.
 - name: Cleanup directories if empty
   ansible.builtin.command:
-    cmd: "rmdir {{ item | quote }}"
+    cmd: "rmdir {{ item }}"
     removes: "{{ item }}"
   loop:
     - "{{ config_paths.ghostty_config | dirname }}"

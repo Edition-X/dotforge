@@ -3,9 +3,10 @@
   ansible.builtin.file:
     src: "{{ host_files_dir }}/aliases"
     dest: "{{ config_paths.aliases }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     state: link
+    follow: false
   tags:
     - dot
 
@@ -13,9 +14,10 @@
   ansible.builtin.file:
     src: "{{ host_files_dir }}/pyrightconfig.json"
     dest: "{{ config_paths.pyright_config }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     state: link
+    follow: false
   tags:
     - dot
 
@@ -24,8 +26,8 @@
   ansible.builtin.template:
     src: "env_vars.j2"
     dest: "{{ config_paths.env_vars }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   tags:
     - dot
@@ -34,8 +36,8 @@
   ansible.builtin.template:
     src: "zshrc.j2"
     dest: "{{ config_paths.zshrc }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0644'
   notify: Invalidate antigen cache
   tags:
@@ -45,8 +47,8 @@
   ansible.builtin.file:
     path: "{{ user_dir }}/.config/ghostty"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   tags:
     - dot
@@ -59,9 +61,10 @@
     src: "{{ host_files_dir }}/ghostty.config"
     dest: "{{ config_paths.ghostty_config }}"
     state: link
+    follow: false
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   tags:
     - dot
 
@@ -69,9 +72,10 @@
   ansible.builtin.file:
     src: "{{ host_files_dir }}/functions"
     dest: "{{ config_paths.functions }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     state: link
+    follow: false
   tags:
     - dot
 
@@ -80,8 +84,8 @@
   ansible.builtin.template:
     src: "env_secrets.j2"
     dest: "{{ config_paths.env_secrets }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   tags:
     - dot
@@ -94,9 +98,10 @@
     src: "{{ host_files_dir }}/gitconfig"
     dest: "{{ config_paths.gitconfig }}"
     state: link
+    follow: false
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   tags:
     - dot
     - git
@@ -105,8 +110,8 @@
   ansible.builtin.file:
     path: "{{ config_paths.git_ignore | dirname }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0755'
   tags:
     - dot
@@ -117,9 +122,10 @@
     src: "{{ host_files_dir }}/git_ignore"
     dest: "{{ config_paths.git_ignore }}"
     state: link
+    follow: false
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   tags:
     - dot
     - git
@@ -129,9 +135,10 @@
     src: "{{ host_files_dir }}/skhdrc"
     dest: "{{ config_paths.skhdrc }}"
     state: link
+    follow: false
     force: true
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
   notify: Restart skhd service
   tags:
     - dot
@@ -160,8 +167,8 @@
   ansible.builtin.file:
     path: "{{ config_paths.forge_dir }}"
     state: directory
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0700'
   tags:
     - dot
@@ -174,8 +181,8 @@
   ansible.builtin.template:
     src: "forge.mcp.json.j2"
     dest: "{{ config_paths.forge_mcp }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   no_log: true
   tags:

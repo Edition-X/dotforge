@@ -3,8 +3,8 @@
   ansible.builtin.copy:
     src: "{{ host_files_dir }}/{{ item }}"
     dest: "{{ ssh_dir }}/{{ item }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0600'
   with_items: "{{ ssh_keys }}"
 
@@ -12,8 +12,8 @@
   ansible.builtin.copy:
     src: "{{ host_files_dir }}/{{ item }}.pub"
     dest: "{{ ssh_dir }}/{{ item }}.pub"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0644'
   with_items: "{{ ssh_keys }}"
 
@@ -21,8 +21,8 @@
   ansible.builtin.template:
     src: "config.j2"
     dest: "{{ config_paths.ssh_config }}"
-    owner: "{{ ansible_user_uid | quote }}"
-    group: "{{ ansible_user_gid | quote }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
     mode: '0644'
   tags:
     - dot
