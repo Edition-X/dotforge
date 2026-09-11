@@ -41,6 +41,9 @@ with open(log, "a") as fh:
 if argv[0] == "run":
     # The real CLI blocks on an open non-TTY stdin; the bridge must hand it /dev/null.
     assert sys.stdin.read() == ""
+    if os.environ.get("FAKE_HANG"):
+        import time
+        time.sleep(30)
     sid = "ses_fake"
     for i in range(2):
         print(json.dumps({"type": "step_start", "sessionID": sid, "part": {"sessionID": sid}}))
@@ -96,10 +99,12 @@ class BridgeTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_bridge(self, *args: str, final: str = HANDOFF, deny: bool = False):
+    def run_bridge(self, *args: str, final: str = HANDOFF, deny: bool = False, hang: bool = False):
         env = {**os.environ, "OC_TICKET_OPENCODE": str(self.fake), "FAKE_LOG": str(self.log), "FAKE_FINAL": final}
         if deny:
             env["FAKE_DENY"] = "1"
+        if hang:
+            env["FAKE_HANG"] = "1"
         command = [str(BRIDGE), *args, "--dir", str(self.repo)]
         out = subprocess.run(command, capture_output=True, text=True, env=env, check=False)
         calls = [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
@@ -150,6 +155,11 @@ class BridgeTests(unittest.TestCase):
         result = json.loads(out.stdout)
         self.assertEqual(result["status"], "NO_HANDOFF")
         self.assertIn("ticket", result["missing_fields"])
+
+    def test_silent_hang_is_killed_at_the_timeout(self):
+        out, _ = self.run_bridge("--role", "worker", "--ticket", str(self.ticket), "--timeout", "1", hang=True)
+        self.assertEqual(out.returncode, 2, out.stdout)
+        self.assertEqual(json.loads(out.stdout)["status"], "TRANSPORT_FAILED")
 
     def test_resume_requires_message_and_ticket_must_exist(self):
         out, _ = self.run_bridge("--role", "worker", "--resume", "ses_old")

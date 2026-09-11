@@ -145,7 +145,6 @@ def run_agent(args: argparse.Namespace) -> tuple[int, str | None, list[str], Cou
     steps = 0
     denials: list[str] = []
     timed_out = False
-    started = time.monotonic()
     # stdin must be closed: with a non-TTY stdin still open, `opencode run`
     # waits for piped input and never starts the session.
     proc = subprocess.Popen(
@@ -168,11 +167,18 @@ def run_agent(args: argparse.Namespace) -> tuple[int, str | None, list[str], Cou
     reader = threading.Thread(target=drain_stderr, daemon=True)
     reader.start()
 
+    # A wall-clock timer, not a check per output line: a hung run produces no
+    # output at all, which is exactly when the timeout has to fire.
+    def on_timeout() -> None:
+        nonlocal timed_out
+        timed_out = True
+        proc.kill()
+
+    timer = threading.Timer(args.timeout, on_timeout) if args.timeout else None
+    if timer:
+        timer.start()
+
     for line in proc.stdout:
-        if args.timeout and time.monotonic() - started > args.timeout:
-            timed_out = True
-            proc.kill()
-            break
         try:
             event = json.loads(line)
         except ValueError:
@@ -186,6 +192,8 @@ def run_agent(args: argparse.Namespace) -> tuple[int, str | None, list[str], Cou
             tools[tool] += 1
             print(f"  step {steps}: {tool}", file=sys.stderr)
     exit_code = proc.wait()
+    if timer:
+        timer.cancel()
     reader.join(timeout=5)
     return exit_code, session_id, denials, tools, steps, timed_out
 
@@ -220,8 +228,9 @@ def main(argv: list[str]) -> int:
     duration = round(time.monotonic() - started, 1)
 
     if not session_id:
+        error = f"killed after {args.timeout}s with no output" if timed_out else "no session id in OpenCode output"
         print(json.dumps({
-            "status": "TRANSPORT_FAILED", "error": "no session id in OpenCode output",
+            "status": "TRANSPORT_FAILED", "error": error,
             "opencode_exit_code": exit_code, "duration_s": duration,
         }))
         return 2
