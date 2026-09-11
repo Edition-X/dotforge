@@ -34,15 +34,21 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
+        if: github.head_ref == 'automation/browser-catalog'
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
           cache: 'pip'
 
       - name: Install dependencies
+        if: github.head_ref == 'automation/browser-catalog'
         run: pip install -r requirements.txt
 
       - name: Check changed paths against the catalog allowlist
+        # Only the capture service's own branch. Its commits must contain
+        # nothing but bookmark catalogs; a human pull request legitimately
+        # changes catalogs alongside the code that manages them.
+        if: github.head_ref == 'automation/browser-catalog'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

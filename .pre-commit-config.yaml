@@ -119,6 +119,10 @@ repos:
     rev: v26.6.0
     hooks:
       - id: ansible-lint
+        # The hook declares python3.14. That exists on the machine this repo
+        # manages and not on a CI runner, so `make ci` passed locally and
+        # failed in GitHub. Pinned to the interpreter the repo declares.
+        language_version: python3.13
         files: \.(yaml|yml)$
         # The ansible-lint hook will use our custom .ansible-lint configuration
         args: ['--force-color']
