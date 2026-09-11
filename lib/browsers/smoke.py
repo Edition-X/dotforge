@@ -119,17 +119,15 @@ def chromium_policy_smoke(validator: ModuleType, browser_catalog: str) -> None:
     if policy_page != "observed" or result != "pass" or not evidence.startswith("required-keys-status-ok-"):
         raise RuntimeError(f"{browser_name} policy page did not accept required policies")
 
-    catalog_path = REPO / "host_files" / "localhost" / "browsers" / browser_catalog / "bookmarks.yml"
-    catalog = validator.yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
-    managed_folder = catalog["managed_folder"]
     login = pwd.getpwuid(os.getuid()).pw_name
     policy_path = Path("/Library/Managed Preferences") / login / f"{browser.domain}.plist"
     production_policy_hash = capability._sha256(policy_path)
     with policy_path.open("rb") as stream:
         policy = plistlib.load(stream)
-    bookmarks = policy.get(browser.bookmark_policy, [])
-    if not bookmarks or bookmarks[0].get("toplevel_name") != managed_folder:
-        raise RuntimeError(f"{browser_name} managed-folder policy is missing")
+    # The catalog records bookmarks; it is never pushed back as policy. A
+    # bookmark key here would put a read-only managed folder on the bar again.
+    if browser.bookmark_policy in policy:
+        raise RuntimeError(f"{browser_name} policy carries a managed bookmark folder")
 
     root = Path(tempfile.mkdtemp(prefix=f"browser-{browser_catalog}-managed-folder-"))
     profile = root / "profile"
@@ -203,7 +201,10 @@ def chromium_policy_smoke(validator: ModuleType, browser_catalog: str) -> None:
                 capability._trash(root, "TRASH_PROFILE")
     if capability._sha256(policy_path) != production_policy_hash:
         raise RuntimeError(f"{browser_name} production policy was not restored byte-for-byte")
-    print(f"browser {browser_name} smoke: pass policy=mandatory managed-folder=visible profile=isolated")
+    print(
+        f"browser {browser_name} smoke: pass policy=mandatory bookmark-policy=absent "
+        "fixture-channel=visible profile=isolated"
+    )
 
 
 class MarionetteSession:
@@ -318,9 +319,6 @@ def firefox_active_policies(app: Path, profile: Path, port: int = 2830) -> dict[
 def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
     capability = capability_module
     firefox = next(browser for browser in capability.BROWSER_APPS if browser.name == "Firefox")
-    catalog_path = REPO / "host_files" / "localhost" / "browsers" / "firefox" / "bookmarks.yml"
-    catalog = validator.yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
-    managed_folder = catalog["managed_folder"]
     extensions_catalog = extension_catalog("firefox", validator)
 
     # Policy lives in a managed preference. A file inside Firefox.app would break
@@ -344,9 +342,8 @@ def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
         policy = plistlib.load(stream)
     if policy.get("EnterprisePoliciesEnabled") is not True:
         raise RuntimeError("Firefox enterprise policies are not enabled")
-    bookmarks = policy.get("ManagedBookmarks", [])
-    if not bookmarks or bookmarks[0].get("toplevel_name") != managed_folder:
-        raise RuntimeError("Firefox managed bookmark policy is missing")
+    if "ManagedBookmarks" in policy:
+        raise RuntimeError("Firefox policy carries a managed bookmark folder")
     settings = policy.get("ExtensionSettings", {})
     if settings.get("*", {}).get("installation_mode") != "allowed":
         raise RuntimeError("Firefox extension policy is missing")
@@ -364,9 +361,12 @@ def firefox_policy_smoke(validator: ModuleType, snapshot: ModuleType) -> None:
         active = firefox_active_policies(firefox.app, root / "profile")
         if active.get("status") != 1:
             raise RuntimeError("Firefox policy engine is not active")
-        if {"ManagedBookmarks", "ExtensionSettings"} - set(active.get("names", [])):
+        names = set(active.get("names", []))
+        if "ExtensionSettings" not in names:
             raise RuntimeError("Firefox did not activate the required policies")
-        if active.get("toplevel") != managed_folder or active.get("wildcard") != "allowed":
+        if "ManagedBookmarks" in names or active.get("bookmarks"):
+            raise RuntimeError("Firefox activated a managed bookmark folder")
+        if active.get("wildcard") != "allowed":
             raise RuntimeError("Firefox active policy values do not match the catalog")
         required_ids = {str(record["id"]) for record in extensions_catalog["required"]}
         if required_ids - set(active.get("forced", [])):

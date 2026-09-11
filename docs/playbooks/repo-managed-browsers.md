@@ -115,6 +115,8 @@ Never write profile files. Fail closed on snapshot integrity failure. Suspicious
 
 Initial release captures additions only. Absence never implies deletion, move or rename. Managed bookmark folders provide reliable from-scratch restore, but policy bookmarks are separate/managed; later ordinary bookmarks may remain as ordinary copies.
 
+**Revised 2026-09-11:** the managed-folder render was removed. Catalogs are a record of the profile, never pushed back as `ManagedBookmarks`/`ManagedFavorites`; the duplicate read-only folder it produced on every bookmark bar was the unacceptable duplicate UX this paragraph anticipated. The smoke now fails if a bookmark policy key is present.
+
 B0/B1 live experiment measures duplicate behavior with fake URLs and isolated profiles. Stop for user choice if duplicate UX is unacceptable. Custom WebExtension/native host is not baseline; any such design needs separate approval.
 
 ### Extensions and LastPass

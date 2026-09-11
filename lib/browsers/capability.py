@@ -456,7 +456,7 @@ def _inspect_chromium_policy(
     profile: Path,
     page: str,
     process: subprocess.Popen[bytes],
-    expected_keys: tuple[str, str],
+    expected_keys: tuple[str, ...],
 ) -> tuple[bool, bool, bool, str, str]:
     endpoint = _devtools_target(profile, process)
     client = DevToolsSocket(endpoint)
@@ -582,7 +582,19 @@ def _stop_launched_process(process: subprocess.Popen[bytes]) -> None:
         process.wait(timeout=5)
 
 
-def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
+def isolated_smoke(
+    browser: Browser, expected_keys: tuple[str, ...] | None = None
+) -> tuple[str, str, str]:
+    """Launch the browser against an isolated profile and read its policy page.
+
+    `expected_keys` are the policy rows that must show status ok. The default
+    is the extension key alone: the role no longer renders a bookmark policy,
+    and Chromium lists every known policy in the page DOM, so an unset
+    ManagedBookmarks row is present with a non-ok status. The B0 capability
+    spike installs a fixture that sets both keys and passes both explicitly.
+    """
+    if expected_keys is None:
+        expected_keys = (browser.extension_policy,)
     temp_dir = Path(tempfile.mkdtemp(prefix=f"browser-capability-{browser.name.lower()}-"))
     print(f"TEMP_PROFILE {temp_dir}")
     state = PolicyState()
@@ -681,7 +693,7 @@ def isolated_smoke(browser: Browser) -> tuple[str, str, str]:
             profile,
             browser.policy_page,
             process,
-            (browser.bookmark_policy, browser.extension_policy),
+            expected_keys,
         )
         accepted = page_seen and key_seen and status_ok and level in {"mandatory", "recommended"}
         return (
@@ -735,7 +747,8 @@ def discover() -> int:
 
     def run(browser: Browser) -> None:
         nonlocal failures
-        smoke, result, evidence = isolated_smoke(browser)
+        # The fixture payload sets both keys, so the spike proves both rows.
+        smoke, result, evidence = isolated_smoke(browser, (browser.bookmark_policy, browser.extension_policy))
         if result != "pass" and browser.name != "Vivaldi":
             failures += 1
         bookmarks, enabled, components = BASELINE[browser.name]
