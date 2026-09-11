@@ -7,10 +7,12 @@
 # dependency bump we choose, not a surprise.
 managed_header: "Managed by macbook-pro - do not edit by hand"
 
-# User and directory variables
-user_name: "{{ lookup('env', 'USER') }}"
-user_dir: "{{ lookup('env', 'HOME') }}"
-user_group: "staff"
+# Identity comes from the target's own facts. `lookup('env', ...)` evaluates on
+# the controller, so the moment this repository runs against anything other
+# than localhost every path below would silently refer to the operator's own
+# machine instead. user_name and user_group were referenced nowhere at all.
+user_dir: "{{ ansible_user_dir }}"
+osx_username: "{{ ansible_user_id }}"
 
 # Project paths
 project_dir: "{{ user_dir }}/Projects/macbook-pro"
@@ -21,9 +23,6 @@ ssh_dir: "{{ user_dir }}/.ssh"
 ssh_keys:
   - id_rsa
   - id_ed25519
-
-# Python configuration
-pip_executable: "{{ user_dir }}/.pyenv/shims/pip"
 
 # Homebrew install prefix. /opt/homebrew on Apple Silicon, /usr/local on Intel.
 # Shared across roles (packages, dotfiles), so it lives here rather than in a
