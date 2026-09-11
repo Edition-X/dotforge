@@ -112,9 +112,10 @@ def seed_source(root: Path) -> Path:
             (catalogs / browser / f"{kind}.yml").write_text(
                 yaml.safe_dump(document, sort_keys=False, explicit_start=True), encoding="utf-8"
             )
-    (source / "scripts" / "validate-browser-catalog.py").write_text(
-        (REPO / "scripts" / "validate-browser-catalog.py").read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    for helper in ("validate-browser-catalog.py", "check-unencrypted-secrets.py"):
+        (source / "scripts" / helper).write_text(
+            (REPO / "scripts" / helper).read_text(encoding="utf-8"), encoding="utf-8"
+        )
     (source / "Brewfile").write_text('cask "fixture-browser"\n', encoding="utf-8")
     git(source.parent, "init", "--quiet", "--initial-branch=main", str(source))
     git(source, "config", "user.email", "fixture@example.invalid")
@@ -194,6 +195,36 @@ def case_happy(state: Path, remote: Path) -> None:
         raise RuntimeError("second run did not publish")
     if hub.created != 1 or hub.updated != [4242] or len(hub.auto_merged) != 2:
         raise RuntimeError("second run did not reuse the single pull request")
+
+
+def case_secret_gate(state: Path, remote: Path) -> None:
+    """The secret gate must refuse a staged credential.
+
+    Aimed at the gate directly rather than through run(): the catalog schema
+    rejects an unexpected key before publish() is ever reached, so a case that
+    merely planted one in a catalog would have proved nothing about the gate.
+    """
+    clone = AUTOMATION.resolve_isolated_root(state)
+    clone.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "clone", "--quiet", "--no-hardlinks", str(remote), str(clone)],
+        check=True, capture_output=True, timeout=120,
+    )
+    configure_clone(clone)
+
+    # A clean clone passes.
+    AUTOMATION.scan_staged_for_secrets(clone, sys.executable)
+
+    planted = clone / "host_vars" / "localhost" / "planted.yml"
+    planted.parent.mkdir(parents=True, exist_ok=True)
+    planted.write_text("db_password: hunter2\n", encoding="utf-8")
+    git(clone, "add", "--", "host_vars/localhost/planted.yml")
+    expect_stop("secret gate", AUTOMATION.scan_staged_for_secrets, clone, sys.executable)
+
+    # And it refuses to run at all when the gate itself is missing, rather than
+    # silently treating an absent check as a pass.
+    (clone / "scripts" / "check-unencrypted-secrets.py").unlink()
+    expect_stop("missing secret gate", AUTOMATION.scan_staged_for_secrets, clone, sys.executable)
 
 
 def case_no_additions(state: Path, remote: Path) -> None:
@@ -340,7 +371,8 @@ def main() -> int:
     try:
         source = seed_source(root)
         for case in (case_happy, case_no_additions, case_public, case_unexpected_path, case_suspicious_url,
-                     case_non_fast_forward, case_two_pull_requests, case_dirty):
+                     case_non_fast_forward, case_two_pull_requests, case_dirty,
+                     case_secret_gate):
             state = Path(tempfile.mkdtemp(prefix="state-", dir=root))
             case(state, fresh_remote(root, source, case.__name__))
             cases += 1

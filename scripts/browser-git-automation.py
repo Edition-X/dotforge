@@ -65,6 +65,32 @@ def notify(message: str) -> None:
     )
 
 
+FORCE_FLAGS = frozenset({"--force", "-f", "--force-with-lease", "--force-if-includes"})
+
+
+def _git(root: Path, arguments: Sequence[str], timeout: int = 300) -> subprocess.CompletedProcess[str]:
+    """Run one git command with the environment this automation requires.
+
+    Every git invocation goes through here so none can differ. The clone used
+    to be a bare subprocess.run without GIT_TERMINAL_PROMPT, which is exactly
+    the call that runs first under launchd — a credential prompt there would
+    have blocked until the timeout with no terminal to answer it.
+    """
+    if any(argument in FORCE_FLAGS for argument in arguments):
+        raise AutomationStop("force push or force update is never allowed")
+    environment = os.environ.copy()
+    environment["GIT_TERMINAL_PROMPT"] = "0"
+    environment["GIT_ASKPASS"] = ""
+    return subprocess.run(
+        ["git", "--no-optional-locks", *arguments],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=environment,
+        cwd=str(root) if root else None,
+    )
+
+
 class Git:
     """Run git against one worktree, refusing force pushes outright."""
 
@@ -72,17 +98,7 @@ class Git:
         self.root = root
 
     def __call__(self, *arguments: str, check: bool = True, raw: bool = False) -> str:
-        if any(argument in {"--force", "-f", "--force-with-lease"} for argument in arguments):
-            raise AutomationStop("force push or force update is never allowed")
-        environment = os.environ.copy()
-        environment["GIT_TERMINAL_PROMPT"] = "0"
-        result = subprocess.run(
-            ["git", "--no-optional-locks", "-C", str(self.root), *arguments],
-            capture_output=True,
-            text=True,
-            timeout=300,
-            env=environment,
-        )
+        result = _git(self.root, arguments)
         if check and result.returncode != 0:
             raise AutomationStop(f"git {arguments[0]} failed rc={result.returncode}")
         # Porcelain output carries meaning in its leading column, so raw callers
@@ -90,16 +106,7 @@ class Git:
         return result.stdout if raw else result.stdout.strip()
 
     def succeeds(self, *arguments: str) -> bool:
-        environment = os.environ.copy()
-        environment["GIT_TERMINAL_PROMPT"] = "0"
-        result = subprocess.run(
-            ["git", "--no-optional-locks", "-C", str(self.root), *arguments],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env=environment,
-        )
-        return result.returncode == 0
+        return _git(self.root, arguments, timeout=120).returncode == 0
 
     def status(self) -> list[tuple[str, str]]:
         entries: list[tuple[str, str]] = []
@@ -176,12 +183,7 @@ def require_private(hub: object) -> None:
 def prepare_clone(clone: Path, remote: str, git_factory: Callable[[Path], Git]) -> Git:
     clone.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if not (clone / ".git").is_dir():
-        result = subprocess.run(
-            ["git", "clone", "--no-hardlinks", remote, str(clone)],
-            capture_output=True,
-            text=True,
-            timeout=600,
-        )
+        result = _git(clone.parent, ["clone", "--no-hardlinks", remote, str(clone)], timeout=600)
         if result.returncode != 0:
             raise AutomationStop("isolated clone could not be created")
     git = git_factory(clone)
@@ -245,12 +247,44 @@ def live_capture_with(interpreter: str) -> Callable[[Path], None]:
     return capture
 
 
-def publish(git: Git, hub: object, paths: Sequence[str], remote_branch: str = AUTOMATION_BRANCH) -> int:
+def scan_staged_for_secrets(clone: Path, interpreter: str) -> None:
+    """Run the repository's own secret gate over what is about to be committed.
+
+    The commit used to carry --no-verify, which made the one commit path that
+    runs unattended the only one exempt from the checks every human commit goes
+    through. Calling the gate explicitly keeps that exemption closed without
+    depending on hooks being installed in a throwaway clone.
+    """
+    checker = clone / "scripts" / "check-unencrypted-secrets.py"
+    if not checker.is_file():
+        raise AutomationStop("secret gate is missing from the isolated clone")
+    result = subprocess.run(
+        [interpreter, str(checker)],
+        capture_output=True,
+        text=True,
+        cwd=str(clone),
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise AutomationStop("staged catalog changes failed the secret gate")
+
+
+def publish(
+    git: Git,
+    hub: object,
+    paths: Sequence[str],
+    interpreter: str = sys.executable,
+    remote_branch: str = AUTOMATION_BRANCH,
+) -> int:
     numbers = hub.pull_requests(remote_branch)
     if len(numbers) > 1:
         raise AutomationStop("more than one automation pull request is open")
     for path in paths:
         git("add", "--", path)
+    scan_staged_for_secrets(git.root, interpreter)
+    # --no-verify is safe now that the gate above ran explicitly: a throwaway
+    # clone has no hooks installed, so the flag only avoids a misleading
+    # "hooks not found" path rather than skipping a check.
     git("commit", "--no-verify", "-m", COMMIT_MESSAGE)
     git("push", "origin", f"HEAD:refs/heads/{remote_branch}")
     title = COMMIT_MESSAGE
@@ -270,6 +304,7 @@ def run(
     remote: str,
     capture: Callable[[Path], None],
     git_factory: Callable[[Path], Git] = Git,
+    interpreter: str = sys.executable,
 ) -> int:
     clone = resolve_isolated_root(isolated_root)
     require_private(hub)
@@ -281,7 +316,7 @@ def run(
         report("pass additions=0 published=false")
         notify("No new bookmarks captured.")
         return 0
-    number = publish(git, hub, paths)
+    number = publish(git, hub, paths, interpreter)
     report(f"pass catalogs={len(paths)} pull-request=1 auto-merge=requested method=merge-commit pr={number}")
     notify(f"Captured additions in {len(paths)} catalogs; pull request {number} set to auto-merge.")
     return 0
@@ -369,7 +404,13 @@ def main() -> int:
         if os.environ.get("BROWSER_AUTOMATION_AUTHORIZED") != "1":
             raise AutomationStop("live run needs BROWSER_AUTOMATION_AUTHORIZED=1 from an activated service")
         require_usable_interpreter(args.python)
-        return run(args.isolated_root, GitHubHub(), origin_url(), live_capture_with(args.python))
+        return run(
+            args.isolated_root,
+            GitHubHub(),
+            origin_url(),
+            live_capture_with(args.python),
+            interpreter=args.python,
+        )
     except (AutomationStop, OSError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired) as error:
         message = f"stop ({type(error).__name__}: {error})"
         print(f"browser automation: {message}" if "://" not in str(error) else "browser automation: stop (redacted)")
