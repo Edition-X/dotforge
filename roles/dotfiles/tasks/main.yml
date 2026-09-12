@@ -154,6 +154,11 @@
 #
 # check_mode: false so the probe still runs under `make check` and the `when`
 # below is evaluated against the real machine rather than being skipped.
+#
+# This detects a job that is gone, which is the failure that actually happens.
+# It does not detect a job that is still registered with launchd but no longer
+# running; reviving that needs `--restart-service`, and `--start-service` on an
+# already-bootstrapped job is a no-op (verified: rc 0, running pid untouched).
 - name: Skhd - Check whether the launchd agent is loaded
   ansible.builtin.command:
     cmd: "launchctl print gui/{{ ansible_user_uid }}/com.koekeishiya.skhd"
