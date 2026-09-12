@@ -37,10 +37,15 @@
                            'model': ai_routing_models.tiers.lead.anthropic.model,
                            'effortLevel': ai_routing_models.tiers.lead.anthropic.effort
                          }, recursive=True)
+                       | combine({'enabledPlugins': _existing_plugins | combine(_managed_plugins)}, recursive=True)
            )
          }) }}
   vars:
     _existing: "{{ (item.content | b64decode | from_json) if (item.content is defined) else {} }}"
+    # Plugins this repo declares for the profile are enabled; anything Dan
+    # installed by hand (the personal profile's caveman) is left as it is.
+    _existing_plugins: "{{ _existing.enabledPlugins | default({}) }}"
+    _managed_plugins: "{{ dict((item.item.item.plugins | default([])) | zip_longest([], fillvalue=true)) }}"
     # Order-preserving union: keep the existing list's order untouched and
     # append only genuinely new entries. The `union` filter goes via a Python
     # set and its iteration order depends on per-process hash randomization,

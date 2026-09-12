@@ -64,8 +64,34 @@ the same set. The tradeoff is that upstream updates are a manual re-copy.
 tracker config — run `/setup-matt-pocock-skills` once in a repo before using
 `/wayfinder` there.
 
-The paperclip skills are not here at all: they live in `Projects/paperclip` and
-are linked straight from it, so that repo stays their source of truth.
+## Lead-only skills
+
+Every skill still deploys to every harness, but the skills listed in
+`ai_lead_only_skills` (`group_vars/macbooks.yml`) are lead procedures: `build`
+dispatches, `ship` pushes and merges, `macbook` applies to this Mac. The
+OpenCode renderer denies them to the worker, verifier, rescue, documentation
+and scout agents through each agent's `permission.skill` map, because the
+worker contract in `routing/prompts/worker.md` forbids exactly those acts. The
+OpenCode orchestrator keeps the full set, so driving OpenCode directly still
+routes "install jq" through `macbook`. Codex has no per-agent skill permission
+and is unchanged.
+
+## Company plugins (work profile)
+
+The work profile (`~/.claude-work`, what T3 Code launches) also carries Claude
+Code plugins from the company marketplace, declared per profile as
+`marketplaces` and `plugins` in `ai_claude_profiles`. Plugins are per
+`CLAUDE_CONFIG_DIR`, so the personal profile does not get them.
+`roles/ai_agents/tasks/claude_plugins.yml` adds the marketplace and installs
+each plugin when missing, and `claude_settings.yml` re-declares
+`enabledPlugins`. `grafana-usage-report` moved there from `skills/` because the
+two copies were byte-identical and the plugin carries the eval suite. Check a
+plugin's projected token cost with `claude-work plugin details <name>` before
+declaring a new one.
+
+Retired 2026-09-12: the paperclip skills (that project's last activity was
+April) and the unused `pdf`, `figma` and `notion-knowledge-capture` skills;
+`create-linear-ticket` and `fetch-linear-context` were folded into `linear`.
 
 ## Lead-worker routing
 

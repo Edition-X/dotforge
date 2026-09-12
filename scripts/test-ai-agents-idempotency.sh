@@ -61,7 +61,7 @@ run_playbook() {
     ansible-playbook \
         -i "${repo_root}/inventory-tests" \
         "${repo_root}/tests/ai_agents.yml" \
-        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_external_skills\":[],\"ai_encrypted_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
+        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_claude_plugins_manage\":false,\"ai_encrypted_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
 }
 
 first_output="${tmp_root}/first-run.log"

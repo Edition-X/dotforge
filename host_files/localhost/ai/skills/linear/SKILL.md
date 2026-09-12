@@ -1,87 +1,88 @@
 ---
 name: linear
-description: Manage issues, projects & team workflows in Linear. Use when the user wants to read, create or updates tickets in Linear.
-metadata:
-  short-description: Manage Linear issues in Codex
+description: Manage issues, projects & team workflows in Linear. Use to read/fetch a ticket by issue key (e.g. INF-123) or Linear URL, answer "what does INF-… say", resume ticket work, understand requirements/comments/blockers/acceptance criteria; to create a ticket with Sunrise defaults; or to update a ticket, comment on it, change status, labels, or cycle.
 ---
 
 # Linear
 
-## Overview
+## When to use
 
-This skill provides a structured workflow for managing issues, projects & team workflows in Linear. It ensures consistent integration with the Linear MCP server, which offers natural-language project management for issues, projects, documentation, and team collaboration.
+- The user references a Linear issue key (e.g. `INF-123`) or a Linear URL.
+- The user asks to fetch, inspect, or summarize a ticket ("what does INF-280 say", "resume ticket work", requirements/comments/linked docs/blockers/acceptance criteria).
+- The user asks to create a ticket ("create a ticket", "file an issue", "open a Linear ticket").
+- The user asks to update, comment on, re-assign, re-label, re-cycle, or change the status of a ticket.
+- In OpenCode, all Linear reads and writes run through the `documentation` agent; no other agent touches Linear MCP tools there.
 
-## Prerequisites
-- Linear MCP server must be connected and accessible via OAuth
-- Confirm access to the relevant Linear workspace, teams, and projects
+## Defaults (Sunrise)
 
-## Required Workflow
+When acting for Dan Kelly, apply these unless the user explicitly overrides them:
 
-**Follow these steps in order. Do not skip steps.**
+- Team/type: `INF` (Digital Infrastructure)
+- Assignee: `Dan Kelly`
+- Cycle: current active cycle for the INF team
+- Description style: concise, action-oriented, implementation-focused — not verbose
 
-### Step 0: Set up Linear MCP (if not already configured)
+Known Sunrise IDs (use directly, skip lookup):
+- Team key: `INF`, team name: `Digital Infrastructure`
+- Team ID: `c39305a8-8b12-4047-b51a-740411f2d9d2`
+- Dan Kelly user ID: `014fa50d-c55c-4e89-85fb-ccd6cc2a66a6`
 
-If any MCP call fails because Linear MCP is not connected, pause and set it up:
+Fast path for ticket creation:
+1. Use the known INF team ID directly.
+2. Use Dan Kelly's known user ID directly.
+3. Resolve only the current active cycle for the INF team (still requires a lookup — it changes over time).
+4. Create the ticket with a short title and concise implementation-focused description.
 
-1. Add the Linear MCP:
-   - `codex mcp add linear --url https://mcp.linear.app/mcp`
-2. Enable remote MCP client:
-   - Set `[features] rmcp_client = true` in `config.toml` **or** run `codex --enable rmcp_client`
-3. Log in with OAuth:
-   - `codex mcp login linear`
+Only fall back to broader search (team, user, or cycle lookups) if:
+- the team changes
+- the assignee changes
+- the workspace no longer recognizes the saved IDs
 
-After successful login, the user will have to restart codex. You should finish your answer and tell them so when they try again they can continue with Step 1.
+## Fetch and summarize an issue
 
-**Windows/WSL note:** If you see connection errors on Windows, try configuring the Linear MCP to run via WSL:
-```json
-{"mcpServers": {"linear": {"command": "wsl", "args": ["npx", "-y", "mcp-remote", "https://mcp.linear.app/sse", "--transport", "sse-only"]}}}
-```
+1. Identify the issue key or URL from the user request, branch name, commit messages, or PR title.
+2. Use the Linear get_issue tool (and list_comments) to pull: title, description, status, priority, labels, assignee, cycle, comments, attachments, related/blocking issues, and linked project or Notion docs.
+3. Summarize into:
+   - purpose (what the work is trying to achieve)
+   - acceptance criteria / done definition
+   - implementation notes and relevant prior decisions
+   - blockers / open questions
+   - linked resources (docs, PRs, Notion URLs)
+4. Keep the summary concise and implementation-focused — enough to start work, not a transcript dump.
+5. If the issue materially informs a code/config change, save durable context to Arcane before finishing.
 
-### Step 1
-Clarify the user's goal and scope (e.g., issue triage, sprint planning, documentation audit, workload balance). Confirm team/project, priority, labels, cycle, and due dates as needed.
+## Create an issue
 
-### Step 2
-Select the appropriate workflow (see Practical Workflows below) and identify the Linear MCP tools you will need. Confirm required identifiers (issue ID, project ID, team key) before calling tools.
+1. Summarize the work into a short, specific title.
+2. Write a brief description:
+   - one-sentence summary
+   - 2-5 bullets for the required work, only if needed
+   - no long background section or context dump unless requested
+3. Apply the Sunrise defaults above (team INF, assignee Dan Kelly, current active cycle) unless the user names a different team, assignee, or cycle — then follow the user instead.
+4. If scope is ambiguous, ask only the minimum clarifying question before creating.
+5. Use the Linear create_issue tool (or an equivalent save/create tool) with all resolved fields (team, assignee, cycle, title, description).
 
-### Step 3
-Execute Linear MCP tool calls in logical batches:
-- Read first (list/get/search) to build context.
-- Create or update next (issues, projects, labels, comments) with all required fields.
-- For bulk operations, explain the grouping logic before applying changes.
+Example shape:
 
-### Step 4
-Summarize results, call out remaining gaps or blockers, and propose next actions (additional issues, label changes, assignments, or follow-up comments).
+Title: `Set up dedicated Jetson arm64 GitHub runner lane`
 
-## Available Tools
+Description:
+- Stand up a dedicated on-prem Jetson arm64 self-hosted GitHub runner for Jetson-native workloads.
+- Reuse the existing runner bootstrap/runtime where practical.
+- Keep capacity fixed for now with no autoscaling.
+- Add appropriate hardware-specific labels and runner group scoping.
+- Onboard the first target workflow/repo safely.
 
-Issue Management: `list_issues`, `get_issue`, `create_issue`, `update_issue`, `list_my_issues`, `list_issue_statuses`, `list_issue_labels`, `create_issue_label`
+## Update / comment
 
-Project & Team: `list_projects`, `get_project`, `create_project`, `update_project`, `list_teams`, `get_team`, `list_users`
+1. Read the issue first (get_issue / list_comments) to confirm current state before changing anything.
+2. Apply the requested change with the Linear update_issue tool (status, labels, assignee, cycle, description) or add a comment with the Linear create_comment tool.
+3. Keep updates and comments concise and specific — state what changed and why.
+4. Batch related changes together; explain the grouping logic before applying bulk updates.
+5. Summarize the result: what changed, remaining gaps, and any proposed next actions.
 
-Documentation & Collaboration: `list_documents`, `get_document`, `search_documentation`, `list_comments`, `create_comment`, `list_cycles`
+## Never
 
-## Practical Workflows
-
-- Sprint Planning: Review open issues for a target team, pick top items by priority, and create a new cycle (e.g., "Q1 Performance Sprint") with assignments.
-- Bug Triage: List critical/high-priority bugs, rank by user impact, and move the top items to "In Progress."
-- Documentation Audit: Search documentation (e.g., API auth), then open labeled "documentation" issues for gaps or outdated sections with detailed fixes.
-- Team Workload Balance: Group active issues by assignee, flag anyone with high load, and suggest or apply redistributions.
-- Release Planning: Create a project (e.g., "v2.0 Release") with milestones (feature freeze, beta, docs, launch) and generate issues with estimates.
-- Cross-Project Dependencies: Find all "blocked" issues, identify blockers, and create linked issues if missing.
-- Automated Status Updates: Find your issues with stale updates and add status comments based on current state/blockers.
-- Smart Labeling: Analyze unlabeled issues, suggest/apply labels, and create missing label categories.
-- Sprint Retrospectives: Generate a report for the last completed cycle, note completed vs. pushed work, and open discussion issues for patterns.
-
-## Tips for Maximum Productivity
-
-- Batch operations for related changes; consider smart templates for recurring issue structures.
-- Use natural queries when possible ("Show me what John is working on this week").
-- Leverage context: reference prior issues in new requests.
-- Break large updates into smaller batches to avoid rate limits; cache or reuse filters when listing frequently.
-
-## Troubleshooting
-
-- Authentication: Clear browser cookies, re-run OAuth, verify workspace permissions, ensure API access is enabled.
-- Tool Calling Errors: Confirm the model supports multiple tool calls, provide all required fields, and split complex requests.
-- Missing Data: Refresh token, verify workspace access, check for archived projects, and confirm correct team selection.
-- Performance: Remember Linear API rate limits; batch bulk operations, use specific filters, or cache frequent queries.
+- Delete issues, projects, labels, or comments.
+- Apply bulk edits across many issues without the user confirming the batch first.
+- Change the status, assignee, or content of another person's issue without the user's explicit go-ahead.

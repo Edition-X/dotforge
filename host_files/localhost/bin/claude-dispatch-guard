@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Claude Code PreToolUse hook: implementation goes over the bridge, not to a subagent.
+
+Installed only in the ``claude-work`` profile (the one T3 Code launches), next
+to ``claude-edit-guard``. Claude in T3 is the planner and reviewer; the
+builder is an OpenCode worker reached through ``oc-ticket`` (the ``build``
+skill). In the first week of that split claude-work dispatched
+``general-purpose`` subagents 36 times against 2 bridged builds: the edit
+guard closed the direct-edit route and this hook closes the subagent route.
+
+Denied: ``Agent`` calls whose ``subagent_type`` is an implementation shape
+(``general-purpose``, ``worker``, ``rescue``, or unset — Claude Code's default
+is general-purpose). Allowed: read-only and review agents (``Explore``,
+``Plan``, ``scout``, ``verifier``, ``documentation``, ``claude``, and anything
+else named), so research fan-out is untouched.
+
+The guard honours ``claude-edit-guard off``: when Dan has told Claude to do
+the work itself in a repo, both guards stand down there for twelve hours.
+
+Reads the PreToolUse JSON on stdin, answers with a permission decision on
+stdout. Any internal error fails open (allow, exit 0) so a hook bug can never
+wedge a session.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+GUARDED_TOOL = "Agent"
+IMPLEMENTATION_AGENTS = {"general-purpose", "worker", "rescue"}
+# Same state directory, marker path and TTL as claude-edit-guard, so one
+# `claude-edit-guard off` lifts both guards for the repo.
+DIRECT_MODE_TTL_SECONDS = 12 * 60 * 60
+
+
+def state_dir() -> Path:
+    override = os.environ.get("CLAUDE_EDIT_GUARD_STATE")
+    if override:
+        return Path(override)
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR") or str(Path.home() / ".claude-work")
+    return Path(config_dir) / "edit-guard"
+
+
+def repo_root(cwd: str) -> str:
+    try:
+        out = subprocess.run(
+            ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return str(Path(cwd).resolve())
+
+
+def direct_mode_active(cwd: str) -> bool:
+    digest = hashlib.sha256(repo_root(cwd).encode()).hexdigest()[:16]
+    marker = state_dir() / "direct" / digest
+    if not marker.is_file():
+        return False
+    try:
+        started = float(marker.read_text().strip() or "0")
+    except ValueError:
+        started = 0.0
+    return time.time() - started <= DIRECT_MODE_TTL_SECONDS
+
+
+def deny(reason: str) -> int:
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }))
+    return 0
+
+
+def hook() -> int:
+    try:
+        payload = json.load(sys.stdin)
+    except ValueError:
+        return 0
+    if payload.get("tool_name") != GUARDED_TOOL:
+        return 0
+    tool_input = payload.get("tool_input") or {}
+    agent = str(tool_input.get("subagent_type") or "general-purpose")
+    if agent not in IMPLEMENTATION_AGENTS:
+        return 0
+    cwd = payload.get("cwd") or os.getcwd()
+    if direct_mode_active(cwd):
+        return 0
+    return deny(
+        f"Dispatch guard: `{agent}` is an implementation subagent. In this profile "
+        "implementation goes to an OpenCode worker: write the ticket and dispatch it "
+        "with the `build` skill (oc-ticket --role worker). For read-only research use "
+        "`Explore` or `scout`; for a review use `verifier`. If Dan asked you to do the "
+        "work yourself, run `claude-edit-guard off` in this repo and retry."
+    )
+
+
+def main() -> int:
+    try:
+        return hook()
+    except Exception:  # noqa: BLE001 - a hook must never block on its own bug
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,111 @@
+---
+# Company Claude Code plugins for the profiles that declare them
+# (ai_claude_profiles[].marketplaces / .plugins). Plugins are per
+# CLAUDE_CONFIG_DIR, so the work profile T3 launches gets them and the
+# personal one does not unless it declares its own.
+#
+# The CLI is the writer: `claude plugin marketplace add` clones the source
+# under <config_dir>/plugins/marketplaces/ and records it in
+# known_marketplaces.json; `claude plugin install` records installed_plugins.json
+# and flips enabledPlugins in settings.json. Both are checked against those
+# files first so a second run is a no-op. Skipped entirely when
+# ai_claude_plugins_manage is false (the isolated idempotency test has no
+# network and no marketplace to clone).
+
+- name: Claude plugins - Stat marketplace registry
+  ansible.builtin.stat:
+    path: "{{ item.config_dir }}/plugins/known_marketplaces.json"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: ai_claude_plugins_manage | default(true) | bool
+  register: ai_agents_claude_marketplaces_stat
+  tags: [ai, claude]
+
+- name: Claude plugins - Read marketplace registry
+  ansible.builtin.slurp:
+    src: "{{ item.stat.path }}"
+  loop: "{{ ai_agents_claude_marketplaces_stat.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name if item.item is defined else 'skipped' }}"
+  when:
+    - item.skipped is not defined
+    - item.stat.exists
+  register: ai_agents_claude_marketplaces_raw
+  tags: [ai, claude]
+
+- name: Claude plugins - Known marketplaces per profile
+  ansible.builtin.set_fact:
+    ai_agents_claude_known_marketplaces: >-
+      {{ ai_agents_claude_known_marketplaces | default({}) | combine({
+           item.item.item.name: (
+             (item.content | b64decode | from_json).keys() | list
+           ) if item.content is defined else []
+         }) }}
+  loop: "{{ ai_agents_claude_marketplaces_raw.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.item.name if item.item is defined else 'skipped' }}"
+  when: item.skipped is not defined
+  tags: [ai, claude]
+
+- name: Claude plugins - Add missing marketplaces
+  ansible.builtin.command:
+    argv: "{{ item.0.claude_argv + ['plugin', 'marketplace', 'add', item.1.source] }}"
+  loop: "{{ ai_claude_profiles | subelements('marketplaces', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1.name }}"
+  when:
+    - ai_claude_plugins_manage | default(true) | bool
+    - item.1.name not in (ai_agents_claude_known_marketplaces | default({})).get(item.0.name, [])
+  changed_when: true
+  tags: [ai, claude]
+
+- name: Claude plugins - Stat installed plugins registry
+  ansible.builtin.stat:
+    path: "{{ item.config_dir }}/plugins/installed_plugins.json"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: ai_claude_plugins_manage | default(true) | bool
+  register: ai_agents_claude_installed_stat
+  tags: [ai, claude]
+
+- name: Claude plugins - Read installed plugins registry
+  ansible.builtin.slurp:
+    src: "{{ item.stat.path }}"
+  loop: "{{ ai_agents_claude_installed_stat.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name if item.item is defined else 'skipped' }}"
+  when:
+    - item.skipped is not defined
+    - item.stat.exists
+  register: ai_agents_claude_installed_raw
+  tags: [ai, claude]
+
+- name: Claude plugins - Installed plugins per profile
+  ansible.builtin.set_fact:
+    ai_agents_claude_installed_plugins: >-
+      {{ ai_agents_claude_installed_plugins | default({}) | combine({
+           item.item.item.name: (
+             ((item.content | b64decode | from_json).plugins | default({})).keys() | list
+           ) if item.content is defined else []
+         }) }}
+  loop: "{{ ai_agents_claude_installed_raw.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.item.name if item.item is defined else 'skipped' }}"
+  when: item.skipped is not defined
+  tags: [ai, claude]
+
+# -y accepts a marketplace-declared install command without a prompt; none of
+# the declared plugins has one today, but a headless apply must never hang.
+- name: Claude plugins - Install missing plugins
+  ansible.builtin.command:
+    argv: "{{ item.0.claude_argv + ['plugin', 'install', '-y', item.1] }}"
+  loop: "{{ ai_claude_profiles | subelements('plugins', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+  when:
+    - ai_claude_plugins_manage | default(true) | bool
+    - item.1 not in (ai_agents_claude_installed_plugins | default({})).get(item.0.name, [])
+  changed_when: true
+  tags: [ai, claude]
