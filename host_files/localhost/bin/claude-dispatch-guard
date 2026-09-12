@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""Claude Code PreToolUse hook: implementation goes over the bridge, not to a subagent.
+
+Installed only in the ``claude-work`` profile (the one T3 Code launches), next
+to ``claude-edit-guard``. Claude in T3 is the planner and reviewer; the
+builder is an OpenCode worker reached through ``oc-ticket`` (the ``build``
+skill). In the first week of that split claude-work dispatched
+``general-purpose`` subagents 36 times against 2 bridged builds: the edit
+guard closed the direct-edit route and this hook closes the subagent route.
+
+Denied: ``Agent`` calls for the native implementation roles (``worker``,
+``rescue``), and ``general-purpose`` (or unset, Claude Code's default) when the
+prompt asks for code changes — edit, implement, refactor, fix, commit, branch,
+create a file. A ``general-purpose`` call with a read-only prompt passes,
+because Claude Code's own review skills (/code-review, /security-review,
+/simplify) fan their finders out through it. ``Explore``, ``Plan``, ``scout``,
+``verifier``, ``documentation`` and anything else named always pass.
+
+The guard honours ``claude-edit-guard off``: when Dan has told Claude to do
+the work itself in a repo, both guards stand down there for twelve hours.
+
+Reads the PreToolUse JSON on stdin, answers with a permission decision on
+stdout. Any internal error fails open (allow, exit 0) so a hook bug can never
+wedge a session.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+GUARDED_TOOL = "Agent"
+# Always implementation, whatever the prompt says.
+IMPLEMENTATION_AGENTS = {"worker", "rescue"}
+# Implementation only if the prompt asks for it.
+PROMPT_JUDGED_AGENTS = {"general-purpose", ""}
+IMPLEMENTATION_INTENT_RE = re.compile(
+    r"\b(implement|refactor|rewrite|edit|modify|update|change|patch|fix|add|remove|delete|rename|"
+    r"create|write|generate|scaffold|migrate|apply|commit|push|branch|merge|install)\b"
+    r"(?=.*\b(file|files|code|function|class|module|test|tests|script|config|bug|feature|"
+    r"branch|commit|pr|pull request|repo|repository|\.py|\.ts|\.yml|\.yaml|\.sh|\.md|\.json|\.tf)\b)",
+    re.IGNORECASE | re.DOTALL,
+)
+# Same state directory, marker path and TTL as claude-edit-guard, so one
+# `claude-edit-guard off` lifts both guards for the repo.
+DIRECT_MODE_TTL_SECONDS = 12 * 60 * 60
+
+
+def state_dir() -> Path:
+    override = os.environ.get("CLAUDE_EDIT_GUARD_STATE")
+    if override:
+        return Path(override)
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR") or str(Path.home() / ".claude-work")
+    return Path(config_dir) / "edit-guard"
+
+
+def repo_root(cwd: str) -> str:
+    try:
+        out = subprocess.run(
+            ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return str(Path(cwd).resolve())
+
+
+def direct_mode_active(cwd: str) -> bool:
+    direct = state_dir() / "direct"
+    if not direct.is_dir() or not any(direct.iterdir()):
+        return False  # nothing switched off anywhere: skip the git fork
+    digest = hashlib.sha256(repo_root(cwd).encode()).hexdigest()[:16]
+    marker = direct / digest
+    if not marker.is_file():
+        return False
+    try:
+        started = float(marker.read_text().strip() or "0")
+    except ValueError:
+        started = 0.0
+    if time.time() - started > DIRECT_MODE_TTL_SECONDS:
+        marker.unlink(missing_ok=True)  # same expiry as claude-edit-guard
+        return False
+    return True
+
+
+def implementation_shaped(agent: str, prompt: str) -> bool:
+    if agent in IMPLEMENTATION_AGENTS:
+        return True
+    if agent in PROMPT_JUDGED_AGENTS:
+        return bool(IMPLEMENTATION_INTENT_RE.search(prompt))
+    return False
+
+
+def deny(reason: str) -> int:
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }))
+    return 0
+
+
+def hook() -> int:
+    try:
+        payload = json.load(sys.stdin)
+    except ValueError:
+        return 0
+    if payload.get("tool_name") != GUARDED_TOOL:
+        return 0
+    tool_input = payload.get("tool_input") or {}
+    agent = str(tool_input.get("subagent_type") or "").strip().lower()
+    prompt = str(tool_input.get("prompt") or "")
+    if not implementation_shaped(agent, prompt):
+        return 0
+    cwd = payload.get("cwd") or os.getcwd()
+    if direct_mode_active(cwd):
+        return 0
+    label = agent or "general-purpose"
+    return deny(
+        f"Dispatch guard: `{label}` with this prompt is an implementation subagent. In "
+        "this profile implementation goes to an OpenCode worker: write the ticket and "
+        "dispatch it with the `build` skill (oc-ticket --role worker). Read-only research "
+        "and review fan-out (Explore, scout, verifier, or general-purpose with a read-only "
+        "prompt) is allowed. If Dan asked you to do the work yourself, run "
+        "`claude-edit-guard off` in this repo and retry."
+    )
+
+
+def main() -> int:
+    if len(sys.argv) > 1:
+        # No CLI of its own: the switch is shared with claude-edit-guard.
+        print("claude-dispatch-guard is a hook; use `claude-edit-guard off|on|status`.", file=sys.stderr)
+        return 2
+    try:
+        return hook()
+    except Exception:  # noqa: BLE001 - a hook must never block on its own bug
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

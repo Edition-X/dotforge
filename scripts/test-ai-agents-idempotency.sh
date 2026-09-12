@@ -61,7 +61,7 @@ run_playbook() {
     ansible-playbook \
         -i "${repo_root}/inventory-tests" \
         "${repo_root}/tests/ai_agents.yml" \
-        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_external_skills\":[],\"ai_encrypted_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
+        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_claude_plugins_manage\":false,\"ai_encrypted_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
 }
 
 first_output="${tmp_root}/first-run.log"
@@ -106,13 +106,17 @@ jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.cl
     printf 'Claude personal settings missing managed model/effortLevel\n' >&2
     exit 1
 }
-for managed_bin in oc-ticket claude-edit-guard; do
+for managed_bin in oc-ticket claude-edit-guard claude-dispatch-guard; do
     [[ -x "${test_home}/.local/bin/${managed_bin}" ]] || { printf 'managed executable missing or not executable: %s\n' "$managed_bin" >&2; exit 1; }
 done
 # The edit guard is a work-profile hook only: T3 launches claude-work, and the
 # personal profile stays a general-purpose CLI.
 jq -e '.hooks.PreToolUse[0].hooks[0].command | endswith("/claude-edit-guard")' "${test_home}/.claude-work/settings.json" >/dev/null || {
     printf 'claude-work settings lack the claude-edit-guard PreToolUse hook\n' >&2
+    exit 1
+}
+jq -e '[.hooks.PreToolUse[] | select(.matcher == "Agent") | .hooks[0].command | endswith("/claude-dispatch-guard")] == [true]' "${test_home}/.claude-work/settings.json" >/dev/null || {
+    printf 'claude-work settings lack the claude-dispatch-guard Agent hook\n' >&2
     exit 1
 }
 jq -e '.hooks.SessionStart | length == 1' "${test_home}/.claude-work/settings.json" >/dev/null || {

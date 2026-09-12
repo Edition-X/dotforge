@@ -77,6 +77,17 @@ permission:
 {% else %}
   linear_*: allow
 {% endif %}
+{% if item.role != 'orchestrator' %}
+{# Lead procedures (dispatch, push, merge, apply to this Mac) are denied to
+   every non-lead agent: a worker's contract forbids exactly those acts, so
+   loading `ship` or `build` could only end in BLOCKED_AUTHORITY. The
+   orchestrator keeps the full set because Dan drives it directly in the TUI.
+   The list is ai_lead_only_skills in group_vars/macbooks.yml. #}
+  skill:
+{% for lead_skill in ai_lead_only_skills %}
+    {{ lead_skill }}: deny
+{% endfor %}
+{% endif %}
 ---
 {% if item.role != 'scout' %}
 {{ (lookup('file', ai_source_dir ~ '/skills/execute-playbook/SKILL.md')) | regex_replace('(?s)^---.*?---\n', '') | trim }}

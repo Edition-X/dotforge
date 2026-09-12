@@ -16,7 +16,7 @@ Build a concise "where we are" summary before making changes.
    - commits ahead/behind base
    - diff against base branch
 3. Infer issue key from branch name, commits, PR title, or user input.
-4. Fetch Linear context using `fetch-linear-context` behavior.
+4. Fetch Linear context with the `linear` skill (fetch and summarize an issue).
 5. Follow linked Notion URLs using `fetch-notion-context` behavior.
 6. Read changed code/config files only after identifying them from git/diff.
 7. Produce a handoff summary before implementation:

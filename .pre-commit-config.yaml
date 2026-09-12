@@ -75,6 +75,22 @@ repos:
         files: >-
           ^(scripts/codex-agent-settings-sync\.py|scripts/test-codex-agent-settings-sync\.sh)$
 
+      - id: test-oc-ticket
+        name: test the Claude -> OpenCode ticket bridge and its ticket lint
+        entry: scripts/test-oc-ticket.py
+        language: script
+        pass_filenames: false
+        files: >-
+          ^(host_files/localhost/bin/oc-ticket|scripts/test-oc-ticket\.py)$
+
+      - id: test-claude-dispatch-guard
+        name: test the work-profile dispatch guard hook
+        entry: scripts/test-claude-dispatch-guard.py
+        language: script
+        pass_filenames: false
+        files: >-
+          ^(host_files/localhost/bin/claude-dispatch-guard|host_files/localhost/bin/claude-edit-guard|scripts/test-claude-dispatch-guard\.py)$
+
   # 6,800 lines of Python and 2,200 of shell had no static analysis at all,
   # while the YAML that mostly calls modules was linted twice.
   - repo: https://github.com/astral-sh/ruff-pre-commit

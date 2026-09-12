@@ -1,6 +1,6 @@
 ---
 name: build
-description: Hand an approved implementation to an OpenCode worker through the oc-ticket bridge and review what comes back. Use in Claude Code and T3 Code whenever a plan is approved and it is time to implement, whenever the edit guard denies a direct edit, or when Dan says "build it", "implement the plan", "send it to opencode", or "dispatch the ticket". Not for quick one-to-three-file edits Dan asked Claude to make itself, and not inside OpenCode or Codex, which have their own worker.
+description: Hand an approved implementation to an OpenCode worker through the oc-ticket bridge and review what comes back. Use in Claude Code and T3 Code the moment a plan is approved — Dan says "build it", "implement the plan", "go ahead", "do it", "approved", "ship the plan", "send it to opencode", "dispatch the ticket" — and whenever the edit guard or dispatch guard denies a direct edit or a general-purpose subagent. Not for quick one-to-three-file edits Dan asked Claude to make itself, and not inside OpenCode or Codex, which have their own worker.
 ---
 
 # Build
@@ -48,6 +48,11 @@ Return the handoff block with all eleven evidence fields as your final message.
 ```
 
 ## 3. Dispatch
+
+Run `oc-ticket --lint --ticket <scratch>/ticket-01.md` first and fix anything listed
+under `missing` before dispatching — a worker dispatch lints anyway and refuses (exit 3)
+on missing required fields (`--no-lint` overrides). Rescue and verifier tickets are an
+evidence trail, not the template; they are linted for information only and always dispatch.
 
 ```bash
 oc-ticket --role worker --ticket <scratch>/ticket-01.md --dir <repo>

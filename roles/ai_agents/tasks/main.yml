@@ -23,6 +23,16 @@
     ai_agents_skills: >-
       {{ ai_agents_skills_found.files | map(attribute='path') | map('basename') | sort }}
 
+# ai_lead_only_skills is a hand-kept list; a renamed or retired skill would
+# otherwise leave a silent deny for a name that no longer exists.
+- name: Fail when a lead-only skill does not exist
+  ansible.builtin.assert:
+    that: ai_lead_only_skills | difference(ai_agents_skills) | length == 0
+    fail_msg: >-
+      ai_lead_only_skills names skills that are not under skills/:
+      {{ ai_lead_only_skills | difference(ai_agents_skills) }}
+    quiet: true
+
 # Created even under --check, so that the backup task below has somewhere to
 # aim and a dry run reports what it would actually back up rather than erroring.
 # An empty directory is a harmless thing to leave behind after a check run.
@@ -200,7 +210,6 @@
     label: "{{ item.1.path }}"
   when:
     - item.1.path | basename not in ai_agents_skills
-    - item.1.path | basename not in ai_external_skills
   register: ai_agents_unmanaged_skill_links
   tags: [ai]
 
@@ -216,19 +225,26 @@
     - not item.stat.exists
   tags: [ai]
 
-# Linked to the repo that owns them, so edits in Projects/paperclip take effect
-# for every harness without a re-apply.
-- name: Harness - Externally owned skills
+# Skills that used to be linked out to another repo (the paperclip skills,
+# retired 2026-09-12: that project's last memory is from April) are plain
+# links into a directory that still exists, so the dangling-link pruner above
+# never sees them. Only links are removed, deliberately: a real directory of
+# the same name would be something Dan put there by hand.
+- name: AI agents - Remove retired externally owned skill links
   ansible.builtin.file:
-    src: "{{ ai_external_skills_src }}/{{ item.1 }}"
-    dest: "{{ item.0.skills }}/{{ item.1 }}"
-    state: link
-    force: true
-    owner: "{{ ansible_user_id }}"
-    group: "{{ ansible_user_gid }}"
-  loop: "{{ ai_harnesses | product(ai_external_skills) | list }}"
+    path: "{{ item.0.skills }}/{{ item.1 }}"
+    state: absent
+  loop: "{{ ai_harnesses | product(ai_agents_retired_external_skills) | list }}"
+  vars:
+    ai_agents_retired_external_skills:
+      - paperclip
+      - paperclip-create-agent
+      - paperclip-create-plugin
+      - para-memory-files
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"
+  when: (item.0.skills ~ '/' ~ item.1) is link
+  tags: [ai]
 
 - name: OpenCode - Backup directory
   ansible.builtin.file:
@@ -554,6 +570,15 @@
 
 - name: Claude MCP - Manage arcane registration
   ansible.builtin.include_tasks: claude_mcp.yml
+  tags:
+    - ai
+    - claude
+
+# Before claude_settings.yml: `claude plugin install` writes enabledPlugins
+# and extraKnownMarketplaces into settings.json itself, and the settings merge
+# then re-declares enabledPlugins from ai_claude_profiles[].plugins on top.
+- name: Claude plugins - Add company marketplace and install plugins
+  ansible.builtin.include_tasks: claude_plugins.yml
   tags:
     - ai
     - claude

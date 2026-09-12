@@ -111,6 +111,9 @@ These requests have a fixed procedure. Load the skill first, then follow it.
 | Anything about a Sunrise robot cell (moon, mars, bg4, IPC, Orin, RTC) or running commands on one | `sunrise-cells` |
 | Execute an approved playbook or multi-ticket effort, ticket by ticket | `execute-playbook` |
 | Land a finished dotforge change: branch, PR, AI review, CI, merge, deploy to this Mac | `ship` |
+| A red GitHub Actions run, a failed job, a flaky or offline runner on a Sunrise repo | `gha-ci-triage` |
+| A flapping alert, a threshold, a new alert rule or dashboard in monitoring-config | `monitoring-alerts` |
+| Read, create or update a Linear ticket (INF-123, a Linear URL) | `linear` |
 
 Do not improvise these from memory. If a skill and this file disagree, the skill wins for that task.
 
@@ -120,7 +123,9 @@ Claude Code and T3 Code are the planner and reviewer. OpenCode, on the Codex-sid
 worker tier, is the builder. In Claude (personal `claude` and T3's `claude-work`):
 
 - Plan in plan mode, get Dan's approval, then hand each ticket to OpenCode with the
-  `build` skill (`oc-ticket --role worker`). Review the real diff, rerun the checks, one
+  `build` skill (`oc-ticket --role worker`). The work profile denies implementation-shaped
+  subagents (`worker`, `rescue`, and `general-purpose` when its prompt asks for code
+  changes) for the same reason it denies wide direct edits; read-only fan-out stays open. Review the real diff, rerun the checks, one
   correction to the same session, rescue on a repeated fingerprint, then back to Dan.
 - A quick task — up to three source files in one session — may be edited directly.
   The work profile's edit guard enforces that budget; docs, plans, scratch and

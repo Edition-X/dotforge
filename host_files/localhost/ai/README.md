@@ -64,8 +64,35 @@ the same set. The tradeoff is that upstream updates are a manual re-copy.
 tracker config — run `/setup-matt-pocock-skills` once in a repo before using
 `/wayfinder` there.
 
-The paperclip skills are not here at all: they live in `Projects/paperclip` and
-are linked straight from it, so that repo stays their source of truth.
+## Lead-only skills
+
+Every skill still deploys to every harness, but the skills listed in
+`ai_lead_only_skills` (`group_vars/macbooks.yml`) are lead procedures: `build`
+dispatches, `ship` pushes and merges, `macbook` applies to this Mac. The
+OpenCode renderer denies them to the worker, verifier, rescue, documentation
+and scout agents through each agent's `permission.skill` map, because the
+worker contract in `routing/prompts/worker.md` forbids exactly those acts. The
+OpenCode orchestrator keeps the full set, so driving OpenCode directly still
+routes "install jq" through `macbook`. Codex has no per-agent skill permission
+and is unchanged.
+
+## Company plugins (work profile)
+
+The work profile (`~/.claude-work`, what T3 Code launches) also carries Claude
+Code plugins from the company marketplace, declared per profile as
+`marketplaces` and `plugins` in `ai_claude_profiles`. Plugins are per
+`CLAUDE_CONFIG_DIR`, so the personal profile does not get them.
+`roles/ai_agents/tasks/claude_plugins.yml` adds the marketplace and installs
+each plugin when missing, and `claude_settings.yml` enables the declared
+plugins in `enabledPlugins` (additively: retiring one is
+`claude-work plugin uninstall <name>` plus removing it from the list). `grafana-usage-report` moved there from `skills/` because the
+two copies were byte-identical and the plugin carries the eval suite. Check a
+plugin's projected token cost with `claude-work plugin details <name>` before
+declaring a new one.
+
+Retired 2026-09-12: the paperclip skills (that project's last activity was
+April) and the unused `pdf`, `figma` and `notion-knowledge-capture` skills;
+`create-linear-ticket` and `fetch-linear-context` were folded into `linear`.
 
 ## Lead-worker routing
 
@@ -90,7 +117,7 @@ full procedure.
 | Claude Code (personal, `~/.claude`) | Root/default profile, selected at Opus 5 medium | Native subagents under `~/.claude/agents/*.md` | Full native support; no custom `orchestrator` agent — the root profile *is* the lead. |
 | Claude Code (work, `~/.claude-work`) | Same as personal | Native subagents under `~/.claude-work/agents/*.md`, byte-identical to personal | Same policy, isolated auth/state; this is what T3 Code's Claude provider runs. |
 | Codex CLI (`~/.codex`) | Root CLI, `config.toml` top-level `model`/`model_reasoning_effort` pinned to lead tier | Native subagents under `~/.codex/agents/*.toml` | Full native support; `agents.default_subagent_model`/`default_subagent_reasoning_effort` in `config.toml` default new subagent threads to the worker tier. |
-| T3 Code (Claude provider) | Inherited: same root profile as `claude-work`, planner and reviewer | **Bridged to OpenCode**: `build` skill → `oc-ticket --role worker\|rescue\|verifier` (see "Claude plans, OpenCode builds" below); the native Claude subagents remain as a fallback | No duplicate T3 agent definitions, and no live canary row (see below). T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
+| T3 Code (Claude provider) | Inherited: same root profile as `claude-work`, planner and reviewer | **Bridged to OpenCode**: `build` skill → `oc-ticket --role worker\|rescue\|verifier` (see "Claude plans, OpenCode builds" below); the native `worker`/`rescue` subagents are denied by the dispatch guard and remain a fallback only after `claude-edit-guard off` | No duplicate T3 agent definitions, and no live canary row (see below). T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
 | T3 Code (Codex provider) | Inherited: same `~/.codex` as the CLI | Inherited: same `~/.codex/agents/*.toml` | No separate T3 entry needed, and no live canary row (see below); T3's Codex provider reads the same app-owned `config.toml`. |
 | Forge 2.13.21 | N/A — Forge-owned built-in agents (Forge, Muse, Sage) | N/A | Shared `AGENTS.md` instructions and skills only. Forge 2.13.21 exposes no supported custom-agent authoring surface (`forge agent` only lists the three built-ins, no create/config subcommand), so it cannot host a native Luna worker. Do not claim parity with the other four harnesses. |
 

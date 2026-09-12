@@ -116,8 +116,12 @@ ai_claude_profiles:
     # The work profile is what T3 Code launches, and T3 is the planner and
     # reviewer half of the Claude-plans / OpenCode-builds split. The edit
     # guard gives a session a small budget of direct source edits (a quick
-    # task) and then denies with a pointer at the `build` skill. Personal
-    # `claude` stays a general-purpose CLI and carries no guard.
+    # task) and then denies with a pointer at the `build` skill. The dispatch
+    # guard closes the other route around the bridge: in the first week of
+    # the split, claude-work dispatched `general-purpose` subagents 36 times
+    # against 2 bridged builds, so implementation-shaped Agent calls are
+    # denied with the same pointer. Personal `claude` stays a general-purpose
+    # CLI and carries neither guard.
     hooks:
       PreToolUse:
         - matcher: "Edit|Write|MultiEdit|NotebookEdit"
@@ -125,6 +129,26 @@ ai_claude_profiles:
             - type: command
               command: "{{ config_paths.local_bin }}/claude-edit-guard"
               timeout: 10
+        - matcher: "Agent"
+          hooks:
+            - type: command
+              command: "{{ config_paths.local_bin }}/claude-dispatch-guard"
+              timeout: 10
+    # Company Claude Code plugins, installed into this profile only (plugins
+    # are per CLAUDE_CONFIG_DIR, and T3 launches this one). Managed by
+    # roles/ai_agents/tasks/claude_plugins.yml: the marketplace is added and
+    # each plugin installed when missing, and enabledPlugins is merged into
+    # settings.json. Chosen from the marketplace's 18 by actual use: the
+    # rest are PM/report tooling, or (`sunrise-model-routing`) conflict with
+    # the routing policy under host_files/localhost/ai/routing/.
+    marketplaces:
+      - name: claude-skills-plugins
+        source: Sunrise-Robotics/claude-skills-plugins
+    plugins:
+      - grafana-usage-report@claude-skills-plugins
+      - sunrise-writing@claude-skills-plugins
+      - marketplace-plugin-kit@claude-skills-plugins
+      - codebase-analysis@claude-skills-plugins
 
 # Managed Claude Code hooks shared by every profile. Together with a profile's
 # own `hooks` above, this REPLACES the `hooks` object in that profile's
@@ -139,11 +163,13 @@ ai_claude_hooks:
 
 # Executables from host_files/localhost/bin linked into ~/.local/bin by
 # roles/ai_agents/tasks/t3.yml. claude-work is T3's Claude provider binary;
-# claude-edit-guard is the work-profile PreToolUse hook; oc-ticket is the
-# bridge Claude uses to hand a ticket to an OpenCode worker/rescue/verifier.
+# claude-edit-guard and claude-dispatch-guard are the work-profile PreToolUse
+# hooks; oc-ticket is the bridge Claude uses to hand a ticket to an OpenCode
+# worker/rescue/verifier.
 ai_managed_bin:
   - claude-work
   - claude-edit-guard
+  - claude-dispatch-guard
   - oc-ticket
 
 # Tool permissions every Claude profile must pre-approve.
@@ -173,15 +199,25 @@ ai_harnesses:
     instructions: "{{ user_dir }}/.config/opencode/AGENTS.md"
     skills: "{{ user_dir }}/.config/opencode/skills"
 
-# Skills owned by another repo. Linked to that repo rather than vendored here,
-# so the owning repo stays the single source of truth and edits there take
-# effect without a re-apply.
-ai_external_skills_src: "{{ user_dir }}/Projects/paperclip/skills"
-ai_external_skills:
-  - paperclip
-  - paperclip-create-agent
-  - paperclip-create-plugin
-  - para-memory-files
+# Skills that are lead procedures: they plan, dispatch, review, push, merge
+# or apply to this Mac. Every skill still deploys to every harness (the
+# OpenCode orchestrator is a lead when Dan drives the TUI), but the OpenCode
+# worker, verifier, rescue, documentation and scout agents get these denied
+# through the per-agent `permission.skill` map, because a worker's contract
+# (routing/prompts/worker.md) forbids the pushes, dispatches and merges these
+# skills perform. Codex has no per-agent skill permission; it is unchanged.
+ai_lead_only_skills:
+  - build
+  - ship
+  - macbook
+  - arcane-dev
+  - execute-playbook
+  - wayfinder
+  - setup-matt-pocock-skills
+  - review-pr-feedback
+  - plan-to-html
+  - grilling
+  - research
 
 # Skills whose SKILL.md is vault-encrypted in this repository because it names
 # an employer's customers, sites or hosts. The repository is public; these are
@@ -191,6 +227,8 @@ ai_external_skills:
 ai_encrypted_skills:
   - sunrise-cells
   - sunrise-devcontainer-rollout
+  - gha-ci-triage
+  - monitoring-alerts
 
 # OpenCode files are explicit so cleanup never removes user-owned agents,
 # commands, credentials, history, caches, or package state.

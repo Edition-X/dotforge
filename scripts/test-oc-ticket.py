@@ -32,6 +32,19 @@ recommended_next: lead reviews diff
 unresolved_risks: none
 """
 
+GOOD_TICKET = """# Ticket T-1: subtract feature
+
+Branch: `spike-1-subtract` from `main`.
+Allowed files: calc.py, test_calc.py. Forbidden: everything else.
+Context: add a subtract function alongside the existing add function.
+Change: implement subtract(a, b) and cover it with a test.
+Acceptance criteria: subtract(4, 1) == 3.
+Verification: `python3 -m pytest -q` must exit 0.
+Commit message: `feat(calc): add subtract function`
+Constraints: never push; never read `.env`; do not create or move files outside the repo.
+Return the handoff block with all eleven evidence fields as your final message.
+"""
+
 FAKE_OPENCODE = r'''#!/usr/bin/env python3
 import json, os, sys
 argv = sys.argv[1:]
@@ -92,7 +105,7 @@ class BridgeTests(unittest.TestCase):
         self.fake.chmod(self.fake.stat().st_mode | stat.S_IEXEC)
         self.log = root / "calls.log"
         self.ticket = root / "ticket-1.md"
-        self.ticket.write_text("# ticket\n")
+        self.ticket.write_text(GOOD_TICKET)
         self.repo = root / "repo"
         self.repo.mkdir()
 
@@ -166,6 +179,109 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(out.returncode, 2)
         out, _ = self.run_bridge("--role", "worker", "--ticket", str(self.repo / "missing.md"))
         self.assertEqual(out.returncode, 2)
+
+    def test_dispatch_refuses_ticket_missing_required_fields(self):
+        bad = self.ticket.with_name("bad-ticket.md")
+        bad.write_text("# not a ticket heading\n\nJust some prose.\n")
+        out, calls = self.run_bridge("--role", "worker", "--ticket", str(bad))
+        self.assertEqual(out.returncode, 3, out.stdout)
+        self.assertEqual(calls, [])  # never even shelled out to opencode
+        result = json.loads(out.stdout)
+        self.assertFalse(result["ok"])
+        self.assertIn("verification", result["missing"])
+        self.assertIn("commit message", result["missing"])
+
+    def test_dispatch_no_lint_bypasses_missing_fields(self):
+        bad = self.ticket.with_name("bad-ticket.md")
+        bad.write_text("# not a ticket heading\n\nJust some prose.\n")
+        out, calls = self.run_bridge("--role", "worker", "--ticket", str(bad), "--no-lint")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertTrue(calls)
+
+
+class LintTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_lint(self, text: str) -> tuple[int, dict]:
+        ticket = self.root / "ticket.md"
+        ticket.write_text(text)
+        out = subprocess.run(
+            [str(BRIDGE), "--lint", "--ticket", str(ticket)], capture_output=True, text=True, check=False,
+        )
+        return out.returncode, json.loads(out.stdout)
+
+    def test_good_ticket_passes(self):
+        code, result = self.run_lint(GOOD_TICKET)
+        self.assertEqual(code, 0, result)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["missing"], [])
+        self.assertEqual(result["warnings"], [])
+
+    def test_missing_verification_and_commit_message_fails_with_exit_3(self):
+        text = GOOD_TICKET.replace(
+            "Verification: `python3 -m pytest -q` must exit 0.\n", "",
+        ).replace(
+            "Commit message: `feat(calc): add subtract function`\n", "",
+        )
+        code, result = self.run_lint(text)
+        self.assertEqual(code, 3)
+        self.assertFalse(result["ok"])
+        self.assertIn("verification", result["missing"])
+        self.assertIn("commit message", result["missing"])
+
+    def test_non_conventional_commit_message_warns_but_passes(self):
+        text = GOOD_TICKET.replace(
+            "Commit message: `feat(calc): add subtract function`",
+            "Commit message: Added the subtract function",
+        )
+        code, result = self.run_lint(text)
+        self.assertEqual(code, 0, result)
+        self.assertTrue(result["ok"])
+        self.assertIn("commit message is not Conventional Commits shaped", result["warnings"])
+
+    def test_bold_labels_and_em_dash_heading_pass_without_false_warnings(self):
+        text = GOOD_TICKET.replace("# Ticket T-1: subtract feature", "## Ticket T-1 \u2014 subtract feature")
+        def bold(line: str) -> str:
+            if ":" not in line or line.startswith(("#", "Return")):
+                return line
+            label, rest = line.split(":", 1)
+            return f"**{label}:**{rest}"
+
+        text = "\n".join(bold(line) for line in text.splitlines())
+        code, result = self.run_lint(text)
+        self.assertEqual(code, 0, result)
+        self.assertEqual(result["missing"], [])
+        self.assertEqual(result["warnings"], ["heading is not `# Ticket <ID>: <goal>` shaped"])
+
+    def test_incidental_handoff_word_is_not_a_handoff_request(self):
+        text = GOOD_TICKET.replace(
+            "Return the handoff block with all eleven evidence fields as your final message.",
+            "Context note: this follows the handoff from ticket T-0.",
+        )
+        code, result = self.run_lint(text)
+        self.assertEqual(code, 3)
+        self.assertIn("handoff request", result["missing"])
+
+    def test_lint_ignores_role(self):
+        ticket = self.root / "ticket.md"
+        ticket.write_text(GOOD_TICKET)
+        out = subprocess.run(
+            [str(BRIDGE), "--lint", "--role", "worker", "--ticket", str(ticket)],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(out.returncode, 0, out.stdout)
+
+    def test_unreadable_ticket_exits_2(self):
+        missing = self.root / "missing.md"
+        out = subprocess.run(
+            [str(BRIDGE), "--lint", "--ticket", str(missing)], capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(out.returncode, 2, out.stdout)
 
 
 if __name__ == "__main__":

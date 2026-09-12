@@ -12,11 +12,28 @@ host_files/localhost/ai/routing/workflow.yml.
     oc-ticket --role worker --resume ses_... --message "Correction 1 of 1: ..."
     oc-ticket --role rescue --ticket ticket-01.md --message "Evidence trail: ..."
     oc-ticket --role verifier --ticket ticket-01.md
+    oc-ticket --lint --ticket ticket-01.md
 
 stdout: exactly one JSON object with session_id, status, the parsed handoff,
 the raw final text, permission denials and run metrics. stderr: progress.
 Exit 0 only when the handoff status is COMPLETE; 1 for any other status
-(including a missing handoff); 2 when OpenCode itself could not be run.
+(including a missing handoff); 2 when OpenCode itself could not be run (or,
+with --lint, when the ticket file cannot be read); 3 when the ticket fails
+the required-field lint described below (either via --lint, or because a
+normal dispatch refused to run — pass --no-lint to force dispatch anyway).
+
+--lint validates a ticket file against the `build` skill's template (section
+2: "Write one self-contained ticket file per ticket") without dispatching
+anything. It prints one JSON object: {"ticket", "ok", "missing", "warnings"}.
+`missing` lists required fields absent from the ticket (heading, Branch,
+Allowed files, Context, Change, Acceptance criteria, Verification, Commit
+message, Constraints, and the handoff-block sentence) — any of these missing
+is the most common cause of a wrong build, so dispatch also runs this lint
+first and, for a worker ticket, refuses (exit 3) unless --no-lint is passed;
+rescue and verifier tickets are linted for information only. `warnings` never
+block: no fenced command in Verification, Allowed files naming nothing that
+looks like a path, a non-Conventional-Commits commit message, a ticket over
+200 lines, or `.env`/`secret` mentioned in Allowed files.
 
 Facts this relies on, measured 2026-09-12 with OpenCode 1.18.30:
 - ``--agent`` only accepts agents whose mode is ``primary`` or ``all``; the
@@ -71,6 +88,98 @@ DEFAULT_MESSAGES = {
 }
 PERMISSION_RE = re.compile(r"permission requested: (.+?)(?:; auto-rejecting)?\s*$")
 FIELD_RE = re.compile(r"^\s*[-*]?\s*`?(" + "|".join(EVIDENCE_FIELDS) + r")`?\s*:\s*(.*)$", re.IGNORECASE)
+
+# Required ticket fields per the `build` skill's template (section 2). Matched
+# case-insensitively at line start, tolerating leading/trailing `**` bold
+# markers around the label, e.g. "**Branch:**" as well as "Branch:".
+REQUIRED_LABELS = (
+    "Branch", "Allowed files", "Context", "Change", "Acceptance criteria",
+    "Verification", "Commit message", "Constraints",
+)
+# A markdown heading that names a ticket; the `<ID>: <goal>` shape is only
+# warned about, so a heading with an em dash or the id in the title still
+# dispatches.
+HEADING_RE = re.compile(r"^#+\s.*\bticket\b", re.IGNORECASE)
+HEADING_SHAPE_RE = re.compile(r"^#+\s*\*{0,2}\s*ticket\s+\S+.*:\s*\S+", re.IGNORECASE)
+HANDOFF_REQUEST_RE = re.compile(r"\breturn\b.*\bhandoff\b", re.IGNORECASE)
+COMMIT_SHAPE_RE = re.compile(r"^[a-z]+(\([a-z0-9._/-]+\))?!?: .+")
+# Roles whose ticket must carry the build skill's full template. A rescue
+# ticket is an evidence trail and a verifier ticket names what to re-check;
+# both are linted for information only.
+LINT_GATED_ROLES = ("worker",)
+
+
+def _label_text(lines: list[str], label: str) -> list[str]:
+    """Text after `label:` for every line starting with that label (bold-tolerant)."""
+    pattern = re.compile(r"^\*{0,2}\s*" + re.escape(label) + r"\s*\*{0,2}\s*:\s*(.*)$", re.IGNORECASE)
+    matches = []
+    for line in lines:
+        match = pattern.match(line.strip())
+        if match:
+            # `**Label:** value` leaves the closing bold marker in the value.
+            matches.append(match.group(1).strip().lstrip("*").strip())
+    return matches
+
+
+def _first_heading(lines: list[str]) -> str | None:
+    """The first non-blank line when it is a markdown heading, else None."""
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        return stripped if stripped.startswith("#") else None
+    return None
+
+
+def lint_ticket_text(text: str) -> dict[str, object]:
+    """Validate a ticket body against the `build` skill's template. Never raises."""
+    lines = text.splitlines()
+    missing: list[str] = []
+    warnings: list[str] = []
+
+    heading = _first_heading(lines)
+    if heading is None or not HEADING_RE.match(heading):
+        missing.append("heading")
+    elif not HEADING_SHAPE_RE.match(heading):
+        warnings.append("heading is not `# Ticket <ID>: <goal>` shaped")
+    for label in REQUIRED_LABELS:
+        if not _label_text(lines, label):
+            missing.append(label.lower())
+    if not any(HANDOFF_REQUEST_RE.search(line) for line in lines):
+        missing.append("handoff request")
+
+    verification = _label_text(lines, "Verification")
+    if verification and not any("`" in v for v in verification):
+        warnings.append("verification has no fenced/backtick command")
+
+    allowed = _label_text(lines, "Allowed files")
+    allowed_text = " ".join(allowed)
+    if allowed and not re.search(r"\S+/\S+|\S+\.\w{1,6}\b", allowed_text):
+        warnings.append("allowed files does not look like it names a path")
+    if allowed and re.search(r"\.env\b|secret", allowed_text, re.IGNORECASE):
+        warnings.append("allowed files mentions .env or secret")
+
+    commit = _label_text(lines, "Commit message")
+    if commit:
+        subject = commit[0].strip().strip("`")
+        if not COMMIT_SHAPE_RE.match(subject):
+            warnings.append("commit message is not Conventional Commits shaped")
+
+    if len(lines) > 200:
+        warnings.append("ticket is over 200 lines")
+
+    return {"ok": not missing, "missing": missing, "warnings": warnings}
+
+
+def lint_ticket_file(ticket: str) -> tuple[int, dict[str, object]]:
+    """Lint a ticket file on disk. Returns (exit_code, json-ready payload)."""
+    try:
+        text = Path(ticket).read_text()
+    except OSError as exc:
+        return 2, {"ticket": ticket, "ok": False, "missing": [], "warnings": [], "error": str(exc)}
+    result = lint_ticket_text(text)
+    payload = {"ticket": ticket, "ok": result["ok"], "missing": result["missing"], "warnings": result["warnings"]}
+    return (0 if result["ok"] else 3), payload
 
 
 def opencode_bin() -> str:
@@ -200,21 +309,56 @@ def run_agent(args: argparse.Namespace) -> tuple[int, str | None, list[str], Cou
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--role", choices=ROLES, required=True)
+    parser.add_argument("--role", choices=ROLES, help="required unless --lint is given")
     parser.add_argument("--ticket", help="self-contained ticket file attached to the message")
     parser.add_argument("--resume", metavar="SESSION", help="continue an existing OpenCode session (corrections)")
     parser.add_argument("--message", help="message to send; defaults per role, required with --resume")
     parser.add_argument("--dir", default=os.getcwd(), help="repository to run in (default: cwd)")
     parser.add_argument("--title", help="OpenCode session title (default: ticket file stem)")
     parser.add_argument("--timeout", type=int, default=1800, help="seconds before the run is killed")
+    parser.add_argument(
+        "--lint", action="store_true",
+        help="validate --ticket against the build skill's template and exit; do not dispatch (--role is ignored)",
+    )
+    parser.add_argument(
+        "--no-lint", action="store_true",
+        help="skip the pre-dispatch ticket lint (warnings never block; this only bypasses missing-field checks)",
+    )
     args = parser.parse_args(argv[1:])
 
+    if args.lint:
+        if not args.ticket:
+            parser.error("--ticket is required with --lint")
+        exit_code, payload = lint_ticket_file(args.ticket)
+        print(json.dumps(payload))
+        return exit_code
+
+    if not args.role:
+        parser.error("--role is required unless --lint is given")
     if not args.ticket and not args.resume:
         parser.error("--ticket is required unless --resume is given")
     if args.resume and not args.message:
         parser.error("--message is required with --resume")
     if args.ticket and not Path(args.ticket).is_file():
         parser.error(f"ticket file not found: {args.ticket}")
+    if args.ticket and not args.no_lint:
+        exit_code, payload = lint_ticket_file(args.ticket)
+        if "error" in payload:
+            print(json.dumps(payload))
+            print(f"oc-ticket: cannot read ticket: {payload['error']}", file=sys.stderr)
+            return exit_code
+        if not payload["ok"] and args.role in LINT_GATED_ROLES:
+            print(json.dumps(payload))
+            print(
+                f"oc-ticket: ticket failed lint, missing: {', '.join(payload['missing'])} "
+                "(pass --no-lint to dispatch anyway)",
+                file=sys.stderr,
+            )
+            return exit_code
+        for note in payload["missing"]:
+            print(f"oc-ticket: lint ({args.role} ticket, advisory): missing {note}", file=sys.stderr)
+        for note in payload["warnings"]:
+            print(f"oc-ticket: lint warning: {note}", file=sys.stderr)
     args.message = args.message or DEFAULT_MESSAGES[args.role]
     args.title = args.title or (Path(args.ticket).stem if args.ticket else None)
     args.dir = str(Path(args.dir).resolve())

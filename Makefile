@@ -201,6 +201,7 @@ test: test-scout test-bridge test-review-pr-feedback test-ai-agents test-browser
 test-bridge: $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(VENV) python scripts/test-oc-ticket.py
 	@$(VENV) python scripts/test-claude-edit-guard.py
+	@$(VENV) python scripts/test-claude-dispatch-guard.py
 	@$(VENV) python scripts/test-harness-usage-report.py
 
 # Offline scout evidence checks. No billed calls.
