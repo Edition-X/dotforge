@@ -40,9 +40,17 @@
   tags:
     - brew
 
+# brew writes the missing-dependency lines to stdout for some dependency types
+# (casks, formulae) and to stderr for others (npm globals observed in
+# practice) — read both, or the report silently comes back empty on the very
+# drift it exists to show.
 - name: Brew - Report bundle drift
   ansible.builtin.debug:
-    msg: "{{ packages_brew_bundle_check.stdout_lines | select('search', '^→') | list }}"
+    msg: >-
+      {{
+        (packages_brew_bundle_check.stdout_lines + packages_brew_bundle_check.stderr_lines)
+        | select('search', '^→') | list
+      }}
   when: packages_brew_bundle_check.rc != 0
   tags:
     - brew
