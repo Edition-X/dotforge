@@ -15,6 +15,17 @@
     "max_lines": 400,
     "max_bytes": 20000
   },
+  "lsp": {
+    "yaml": {
+      "command": ["yaml-language-server", "--stdio"],
+      "extensions": [".yaml", ".yml"]
+    },
+    "ansible": {
+      "command": ["ansible-language-server", "--stdio"],
+      "extensions": [".yml", ".yaml"]
+    },
+    "yaml-ls": { "disabled": true }
+  },
   "mcp": {
     "arcane": {
       "type": "local",

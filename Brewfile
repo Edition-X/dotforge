@@ -317,3 +317,10 @@ uv "mlx-audio", with: ["misaki", "numpy<2", "spacy<4"]
 # OpenAI Codex CLI — installed via npm, not the brew formula of the same name
 npm "@openai/codex"
 npm "clawdhub"
+
+# Language servers for OpenCode's LSP integration
+npm "pyright"
+npm "yaml-language-server"
+npm "bash-language-server"
+npm "@ansible/ansible-language-server"
+npm "dockerfile-language-server-nodejs"
