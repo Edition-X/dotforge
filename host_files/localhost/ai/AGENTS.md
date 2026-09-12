@@ -124,8 +124,8 @@ worker tier, is the builder. In Claude (personal `claude` and T3's `claude-work`
 
 - Plan in plan mode, get Dan's approval, then hand each ticket to OpenCode with the
   `build` skill (`oc-ticket --role worker`). The work profile denies implementation-shaped
-  subagents (`general-purpose`, `worker`, `rescue`) for the same reason it denies wide
-  direct edits; `Explore`, `scout` and `verifier` stay open. Review the real diff, rerun the checks, one
+  subagents (`worker`, `rescue`, and `general-purpose` when its prompt asks for code
+  changes) for the same reason it denies wide direct edits; read-only fan-out stays open. Review the real diff, rerun the checks, one
   correction to the same session, rescue on a repeated fingerprint, then back to Dan.
 - A quick task — up to three source files in one session — may be edited directly.
   The work profile's edit guard enforces that budget; docs, plans, scratch and

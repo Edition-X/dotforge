@@ -18,7 +18,9 @@
   loop: "{{ ai_claude_profiles }}"
   loop_control:
     label: "{{ item.name }}"
-  when: ai_claude_plugins_manage | default(true) | bool
+  when:
+    - ai_claude_plugins_manage | default(true) | bool
+    - item.marketplaces is defined or item.plugins is defined
   register: ai_agents_claude_marketplaces_stat
   tags: [ai, claude]
 
@@ -66,7 +68,9 @@
   loop: "{{ ai_claude_profiles }}"
   loop_control:
     label: "{{ item.name }}"
-  when: ai_claude_plugins_manage | default(true) | bool
+  when:
+    - ai_claude_plugins_manage | default(true) | bool
+    - item.marketplaces is defined or item.plugins is defined
   register: ai_agents_claude_installed_stat
   tags: [ai, claude]
 

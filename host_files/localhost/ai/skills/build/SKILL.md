@@ -50,8 +50,9 @@ Return the handoff block with all eleven evidence fields as your final message.
 ## 3. Dispatch
 
 Run `oc-ticket --lint --ticket <scratch>/ticket-01.md` first and fix anything listed
-under `missing` before dispatching — dispatch lints anyway and refuses (exit 3) on
-missing required fields.
+under `missing` before dispatching — a worker dispatch lints anyway and refuses (exit 3)
+on missing required fields (`--no-lint` overrides). Rescue and verifier tickets are an
+evidence trail, not the template; they are linted for information only and always dispatch.
 
 ```bash
 oc-ticket --role worker --ticket <scratch>/ticket-01.md --dir <repo>

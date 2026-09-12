@@ -42,10 +42,12 @@
          }) }}
   vars:
     _existing: "{{ (item.content | b64decode | from_json) if (item.content is defined) else {} }}"
-    # Plugins this repo declares for the profile are enabled; anything Dan
-    # installed by hand (the personal profile's caveman) is left as it is.
+    # Plugins this repo declares for the profile are enabled. The merge is
+    # additive: anything Dan installed by hand (the personal profile's caveman)
+    # is left as it is, and retiring a declared plugin is
+    # `claude-work plugin uninstall <name>` plus removing it here.
     _existing_plugins: "{{ _existing.enabledPlugins | default({}) }}"
-    _managed_plugins: "{{ dict((item.item.item.plugins | default([])) | zip_longest([], fillvalue=true)) }}"
+    _managed_plugins: "{{ dict((item.item.item.plugins | default([])) | product([true])) }}"
     # Order-preserving union: keep the existing list's order untouched and
     # append only genuinely new entries. The `union` filter goes via a Python
     # set and its iteration order depends on per-process hash randomization,

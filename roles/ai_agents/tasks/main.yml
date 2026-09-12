@@ -23,6 +23,16 @@
     ai_agents_skills: >-
       {{ ai_agents_skills_found.files | map(attribute='path') | map('basename') | sort }}
 
+# ai_lead_only_skills is a hand-kept list; a renamed or retired skill would
+# otherwise leave a silent deny for a name that no longer exists.
+- name: Fail when a lead-only skill does not exist
+  ansible.builtin.assert:
+    that: ai_lead_only_skills | difference(ai_agents_skills) | length == 0
+    fail_msg: >-
+      ai_lead_only_skills names skills that are not under skills/:
+      {{ ai_lead_only_skills | difference(ai_agents_skills) }}
+    quiet: true
+
 # Created even under --check, so that the backup task below has somewhere to
 # aim and a dry run reports what it would actually back up rather than erroring.
 # An empty directory is a harmless thing to leave behind after a check run.
@@ -217,8 +227,9 @@
 
 # Skills that used to be linked out to another repo (the paperclip skills,
 # retired 2026-09-12: that project's last memory is from April) are plain
-# links into a directory this repo does not own. They are removed here so
-# the harness skill directories only ever hold what this repo deploys.
+# links into a directory that still exists, so the dangling-link pruner above
+# never sees them. Only links are removed, deliberately: a real directory of
+# the same name would be something Dan put there by hand.
 - name: AI agents - Remove retired externally owned skill links
   ansible.builtin.file:
     path: "{{ item.0.skills }}/{{ item.1 }}"

@@ -29,7 +29,8 @@ anything. It prints one JSON object: {"ticket", "ok", "missing", "warnings"}.
 Allowed files, Context, Change, Acceptance criteria, Verification, Commit
 message, Constraints, and the handoff-block sentence) — any of these missing
 is the most common cause of a wrong build, so dispatch also runs this lint
-first and refuses (exit 3) unless --no-lint is passed. `warnings` never
+first and, for a worker ticket, refuses (exit 3) unless --no-lint is passed;
+rescue and verifier tickets are linted for information only. `warnings` never
 block: no fenced command in Verification, Allowed files naming nothing that
 looks like a path, a non-Conventional-Commits commit message, a ticket over
 200 lines, or `.env`/`secret` mentioned in Allowed files.
@@ -95,8 +96,17 @@ REQUIRED_LABELS = (
     "Branch", "Allowed files", "Context", "Change", "Acceptance criteria",
     "Verification", "Commit message", "Constraints",
 )
-HEADING_RE = re.compile(r"^#+\s*\*{0,2}\s*ticket\s+\S+.*:\s*\S+", re.IGNORECASE)
+# A markdown heading that names a ticket; the `<ID>: <goal>` shape is only
+# warned about, so a heading with an em dash or the id in the title still
+# dispatches.
+HEADING_RE = re.compile(r"^#+\s.*\bticket\b", re.IGNORECASE)
+HEADING_SHAPE_RE = re.compile(r"^#+\s*\*{0,2}\s*ticket\s+\S+.*:\s*\S+", re.IGNORECASE)
+HANDOFF_REQUEST_RE = re.compile(r"\breturn\b.*\bhandoff\b", re.IGNORECASE)
 COMMIT_SHAPE_RE = re.compile(r"^[a-z]+(\([a-z0-9._/-]+\))?!?: .+")
+# Roles whose ticket must carry the build skill's full template. A rescue
+# ticket is an evidence trail and a verifier ticket names what to re-check;
+# both are linted for information only.
+LINT_GATED_ROLES = ("worker",)
 
 
 def _label_text(lines: list[str], label: str) -> list[str]:
@@ -106,17 +116,19 @@ def _label_text(lines: list[str], label: str) -> list[str]:
     for line in lines:
         match = pattern.match(line.strip())
         if match:
-            matches.append(match.group(1))
+            # `**Label:** value` leaves the closing bold marker in the value.
+            matches.append(match.group(1).strip().lstrip("*").strip())
     return matches
 
 
-def _has_heading(lines: list[str]) -> bool:
+def _first_heading(lines: list[str]) -> str | None:
+    """The first non-blank line when it is a markdown heading, else None."""
     for line in lines:
         stripped = line.strip()
         if not stripped:
             continue
-        return bool(HEADING_RE.match(stripped))
-    return False
+        return stripped if stripped.startswith("#") else None
+    return None
 
 
 def lint_ticket_text(text: str) -> dict[str, object]:
@@ -125,13 +137,16 @@ def lint_ticket_text(text: str) -> dict[str, object]:
     missing: list[str] = []
     warnings: list[str] = []
 
-    if not _has_heading(lines):
+    heading = _first_heading(lines)
+    if heading is None or not HEADING_RE.match(heading):
         missing.append("heading")
+    elif not HEADING_SHAPE_RE.match(heading):
+        warnings.append("heading is not `# Ticket <ID>: <goal>` shaped")
     for label in REQUIRED_LABELS:
         if not _label_text(lines, label):
             missing.append(label.lower())
-    if "handoff" not in text.lower():
-        missing.append("handoff")
+    if not any(HANDOFF_REQUEST_RE.search(line) for line in lines):
+        missing.append("handoff request")
 
     verification = _label_text(lines, "Verification")
     if verification and not any("`" in v for v in verification):
@@ -328,7 +343,11 @@ def main(argv: list[str]) -> int:
         parser.error(f"ticket file not found: {args.ticket}")
     if args.ticket and not args.no_lint:
         exit_code, payload = lint_ticket_file(args.ticket)
-        if not payload["ok"]:
+        if "error" in payload:
+            print(json.dumps(payload))
+            print(f"oc-ticket: cannot read ticket: {payload['error']}", file=sys.stderr)
+            return exit_code
+        if not payload["ok"] and args.role in LINT_GATED_ROLES:
             print(json.dumps(payload))
             print(
                 f"oc-ticket: ticket failed lint, missing: {', '.join(payload['missing'])} "
@@ -336,6 +355,10 @@ def main(argv: list[str]) -> int:
                 file=sys.stderr,
             )
             return exit_code
+        for note in payload["missing"]:
+            print(f"oc-ticket: lint ({args.role} ticket, advisory): missing {note}", file=sys.stderr)
+        for note in payload["warnings"]:
+            print(f"oc-ticket: lint warning: {note}", file=sys.stderr)
     args.message = args.message or DEFAULT_MESSAGES[args.role]
     args.title = args.title or (Path(args.ticket).stem if args.ticket else None)
     args.dir = str(Path(args.dir).resolve())

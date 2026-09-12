@@ -419,7 +419,7 @@ make lint
 make ci
 source venv/bin/activate
 ansible-playbook -i inventory -l local --check tests/ai_agents.yml \
-  -e '{"ai_external_skills":[]}'
+  -e '{"ai_claude_plugins_manage":false,"ai_encrypted_skills":[]}'
 ```
 
 Expected first command: `Agent routing source valid`. Remaining commands exit 0.

@@ -37,19 +37,34 @@ class DispatchGuardTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_implementation_agents_are_denied_with_a_build_pointer(self):
-        for agent in ("general-purpose", "worker", "rescue"):
-            result = run_hook(self.state, str(self.repo), "Agent", {"subagent_type": agent, "prompt": "x"})
+    IMPLEMENT = "Implement the subtract function in calc.py, add a test, and commit on a new branch."
+    READ_ONLY = "Review the diff for correctness bugs and report findings with file:line. Do not edit anything."
+
+    def test_native_implementation_roles_are_denied_whatever_the_prompt(self):
+        for agent in ("worker", "rescue", "Worker "):
+            result = run_hook(self.state, str(self.repo), "Agent", {"subagent_type": agent, "prompt": self.READ_ONLY})
             self.assertEqual(decision(result), "deny", agent)
             self.assertIn("build", result["hookSpecificOutput"]["permissionDecisionReason"])
 
-    def test_missing_subagent_type_is_treated_as_general_purpose(self):
-        result = run_hook(self.state, str(self.repo), "Agent", {"prompt": "x"})
-        self.assertEqual(decision(result), "deny")
+    def test_general_purpose_is_judged_by_its_prompt(self):
+        implement = {"subagent_type": "general-purpose", "prompt": self.IMPLEMENT}
+        self.assertEqual(decision(run_hook(self.state, str(self.repo), "Agent", implement)), "deny")
+        read_only = {"subagent_type": "General-Purpose", "prompt": self.READ_ONLY}
+        self.assertIsNone(run_hook(self.state, str(self.repo), "Agent", read_only))
 
-    def test_read_only_and_review_agents_pass(self):
+    def test_missing_subagent_type_is_judged_like_general_purpose(self):
+        self.assertEqual(decision(run_hook(self.state, str(self.repo), "Agent", {"prompt": self.IMPLEMENT})), "deny")
+        self.assertIsNone(run_hook(self.state, str(self.repo), "Agent", {"prompt": self.READ_ONLY}))
+
+    def test_read_only_and_review_agents_pass_even_with_an_implementation_prompt(self):
         for agent in ("Explore", "Plan", "scout", "verifier", "documentation", "claude"):
-            self.assertIsNone(run_hook(self.state, str(self.repo), "Agent", {"subagent_type": agent}), agent)
+            result = run_hook(self.state, str(self.repo), "Agent", {"subagent_type": agent, "prompt": self.IMPLEMENT})
+            self.assertIsNone(result, agent)
+
+    def test_cli_arguments_do_not_hang_on_stdin(self):
+        out = subprocess.run([str(GUARD), "off"], capture_output=True, text=True, check=False)
+        self.assertEqual(out.returncode, 2)
+        self.assertIn("claude-edit-guard", out.stderr)
 
     def test_other_tools_are_ignored(self):
         self.assertIsNone(run_hook(self.state, str(self.repo), "Bash", {"command": "ls"}))
@@ -57,10 +72,10 @@ class DispatchGuardTests(unittest.TestCase):
     def test_edit_guard_off_lifts_the_dispatch_guard_too(self):
         env = {**os.environ, "CLAUDE_EDIT_GUARD_STATE": str(self.state)}
         subprocess.run([str(EDIT_GUARD), "off"], cwd=str(self.repo), env=env, check=True, capture_output=True)
-        self.assertIsNone(run_hook(self.state, str(self.repo), "Agent", {"subagent_type": "general-purpose"}))
+        call = {"subagent_type": "worker", "prompt": self.IMPLEMENT}
+        self.assertIsNone(run_hook(self.state, str(self.repo), "Agent", call))
         subprocess.run([str(EDIT_GUARD), "on"], cwd=str(self.repo), env=env, check=True, capture_output=True)
-        again = run_hook(self.state, str(self.repo), "Agent", {"subagent_type": "general-purpose"})
-        self.assertEqual(decision(again), "deny")
+        self.assertEqual(decision(run_hook(self.state, str(self.repo), "Agent", call)), "deny")
 
     def test_malformed_input_fails_open(self):
         env = {**os.environ, "CLAUDE_EDIT_GUARD_STATE": str(self.state)}

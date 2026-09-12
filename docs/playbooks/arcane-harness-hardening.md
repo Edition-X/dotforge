@@ -155,7 +155,6 @@ make check RUN_ARGS='--tags ai'   # dry run; read the diff, confirm only intende
        label: "{{ item.1.path }}"
      when:
        - item.1.path | basename not in ai_agents_skills
-       - item.1.path | basename not in ai_external_skills
      register: ai_agents_unmanaged_skill_links
      tags: [ai]
 

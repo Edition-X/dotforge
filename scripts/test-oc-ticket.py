@@ -244,6 +244,29 @@ class LintTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIn("commit message is not Conventional Commits shaped", result["warnings"])
 
+    def test_bold_labels_and_em_dash_heading_pass_without_false_warnings(self):
+        text = GOOD_TICKET.replace("# Ticket T-1: subtract feature", "## Ticket T-1 \u2014 subtract feature")
+        def bold(line: str) -> str:
+            if ":" not in line or line.startswith(("#", "Return")):
+                return line
+            label, rest = line.split(":", 1)
+            return f"**{label}:**{rest}"
+
+        text = "\n".join(bold(line) for line in text.splitlines())
+        code, result = self.run_lint(text)
+        self.assertEqual(code, 0, result)
+        self.assertEqual(result["missing"], [])
+        self.assertEqual(result["warnings"], ["heading is not `# Ticket <ID>: <goal>` shaped"])
+
+    def test_incidental_handoff_word_is_not_a_handoff_request(self):
+        text = GOOD_TICKET.replace(
+            "Return the handoff block with all eleven evidence fields as your final message.",
+            "Context note: this follows the handoff from ticket T-0.",
+        )
+        code, result = self.run_lint(text)
+        self.assertEqual(code, 3)
+        self.assertIn("handoff request", result["missing"])
+
     def test_lint_ignores_role(self):
         ticket = self.root / "ticket.md"
         ticket.write_text(GOOD_TICKET)
