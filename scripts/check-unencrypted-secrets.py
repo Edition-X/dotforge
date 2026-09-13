@@ -16,9 +16,10 @@ allowlist — so gitleaks runs alongside this for provider-shaped and
 high-entropy secrets, and this owns the structural rule.
 
 The rule this encodes is the repository's actual convention: every secret lives
-in `host_vars/<host>/vault.yml` and is referenced indirectly, so a
-credential-shaped key should never hold a literal. A value containing `{{` is a
-reference and passes; anything else under such a key is a finding.
+in 1Password and is referenced indirectly, so a credential-shaped key should
+never hold a literal. A value containing `{{` (a variable) or starting with
+`op://` (a 1Password secret reference) is a reference and passes; anything else
+under such a key is a finding.
 
 Values are never printed — only the file, the key path and the key name.
 """
@@ -122,9 +123,9 @@ def literal_findings(document: object, trail: tuple[str, ...] = ()) -> list[str]
             if value is None or isinstance(value, bool):
                 continue
             text = str(value)
-            # A reference to a vault variable or any other computed value is the
-            # convention this repository follows.
-            if "{{" in text or not text.strip():
+            # A variable reference, a 1Password secret reference, or nothing at
+            # all: that is the convention this repository follows.
+            if "{{" in text or text.startswith("op://") or not text.strip():
                 continue
             findings.append(".".join(path))
     elif isinstance(document, list):
@@ -172,7 +173,7 @@ def check(paths: list[str], staged: bool) -> int:
             for document in documents:
                 for key_path in literal_findings(document):
                     print(f"❌ {path}: `{key_path}` holds a literal value under a credential-shaped key.")
-                    print("   Move it into host_vars/<host>/vault.yml and reference it as {{ vault_… }}.")
+                    print("   Put it in 1Password and reference it through secrets_1password_items.")
                     failures += 1
 
     if failures:

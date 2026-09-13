@@ -1,4 +1,60 @@
 ---
+# Secrets, resolved once per play. Tagged always so `make ai`, `make mcp` and
+# the rest get them without running every role. Extra vars still win over
+# these facts, which is how a test supplies a placeholder instead.
+- name: Secrets - Require a signed-in 1Password CLI
+  ansible.builtin.assert:
+    that:
+      - >-
+        (lookup('ansible.builtin.pipe', 'op account list --format json')
+         | default('[]', true) | from_json) | length > 0
+    fail_msg: >-
+      The 1Password CLI has no account. Turn on 1Password > Settings > Developer >
+      "Integrate with 1Password CLI" and run `op vault list` once, or pass
+      `-e secrets_mode=vars` and supply the secret variables yourself.
+    quiet: true
+  when:
+    - secrets_mode == 'onepassword'
+    - "'cleanup' not in ansible_run_tags"
+  tags: [always]
+
+# Titles only, so a missing item fails with its name. The reads below run
+# under no_log and would otherwise fail with the error hidden.
+- name: Secrets - Require every referenced 1Password item
+  ansible.builtin.assert:
+    that:
+      - >-
+        secrets_1password_items.values()
+        | map('regex_replace', '^op://[^/]+/([^/]+)/.*$', '\\1')
+        | unique
+        | difference(
+            lookup('ansible.builtin.pipe',
+                   'op item list --format json --vault ' ~ (secrets_1password_vault_name | quote))
+            | from_json | map(attribute='title') | list
+          )
+        | length == 0
+    fail_msg: >-
+      A 1Password item referenced by secrets_1password_items is missing from the
+      {{ secrets_1password_vault_name }} vault. Run scripts/migrate-secrets-to-1password.py,
+      or create it by hand with the title and field the reference names.
+    quiet: true
+  when:
+    - secrets_mode == 'onepassword'
+    - "'cleanup' not in ansible_run_tags"
+  tags: [always]
+
+- name: Secrets - Read from 1Password
+  ansible.builtin.set_fact:
+    "{{ item.key }}": "{{ lookup('ansible.builtin.pipe', 'op read --no-newline ' ~ (item.value | quote)) }}"
+  loop: "{{ secrets_1password_items | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  no_log: true
+  when:
+    - secrets_mode == 'onepassword'
+    - "'cleanup' not in ansible_run_tags"
+  tags: [always]
+
 - name: Create needed directories in home directory
   ansible.builtin.file:
     state: directory

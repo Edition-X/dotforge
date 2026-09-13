@@ -105,10 +105,10 @@ def seed_source(root: Path) -> Path:
                 (catalogs / browser / f"{kind}.yml").write_bytes(vault.encrypt_text(rendered))
             else:
                 (catalogs / browser / f"{kind}.yml").write_text(rendered, encoding="utf-8")
-    for helper in ("validate-browser-catalog.py", "check-unencrypted-secrets.py"):
-        (source / "scripts" / helper).write_text(
-            (REPO / "scripts" / helper).read_text(encoding="utf-8"), encoding="utf-8"
-        )
+    # vault-pass too: the clone has no ansible.cfg, and the vault helper's
+    # fallback is that script, so the fixture catalogs decrypt the same way.
+    for helper in ("validate-browser-catalog.py", "check-unencrypted-secrets.py", "vault-pass"):
+        shutil.copy2(REPO / "scripts" / helper, source / "scripts" / helper)
     # The entry points import the package next to them, so a clone that is meant
     # to run its own code needs the package too.
     shutil.copytree(REPO / "lib" / "browsers", source / "lib" / "browsers")

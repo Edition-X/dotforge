@@ -6,11 +6,11 @@
     state: absent
     path: "{{ item }}"
   loop:
-    - "{{ ssh_dir }}/id_rsa"
-    - "{{ ssh_dir }}/id_ed25519"
+    # Public halves only: private keys live in 1Password, never in ~/.ssh.
     - "{{ ssh_dir }}/id_rsa.pub"
     - "{{ ssh_dir }}/id_ed25519.pub"
     - "{{ config_paths.ssh_config }}"
+    - "{{ config_paths.ssh_agent_config }}"
     # Legacy: a symlink to a vault-encrypted file, so it could never have been
     # used as a password file. The real one lives at
     # ~/.config/dotforge/vault-pass and is deliberately not removed here —

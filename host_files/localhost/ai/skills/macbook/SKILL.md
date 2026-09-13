@@ -20,7 +20,7 @@ routes through the repo, not through a one-off `brew install` or hand-edited dot
 | Shell alias | `host_files/localhost/aliases` |
 | Shell function | `host_files/localhost/functions` |
 | Env var (non-secret) | `roles/dotfiles/templates/env_vars.j2` |
-| Secret env var | vault (`host_vars/localhost/vault.yml`) + `roles/dotfiles/templates/env_secrets.j2` |
+| Secret env var | a 1Password item in the `dotforge` vault, referenced from `secrets_1password_items` in `group_vars/macbooks.yml`, rendered by `roles/dotfiles/templates/env_secrets.j2` |
 | zshrc, gitconfig, ghostty config, skhdrc, tmux/nvim conf, ssh config | matching file under `host_files/localhost/` (see `group_vars/macbooks.yml` `config_paths` for the exact dest each one deploys to) |
 | Claude Code hook | `ai_claude_hooks` (every profile) or `ai_claude_profiles[].hooks` (one profile) in `group_vars/macbooks.yml`, applied by `roles/ai_agents/tasks/claude_settings.yml` (merges into each profile's `settings.json`) |
 | Executable in `~/.local/bin` for a harness (`claude-work`, `oc-ticket`, `claude-edit-guard`) | `host_files/localhost/bin/<name>` plus the `ai_managed_bin` list in `group_vars/macbooks.yml`, linked by `roles/ai_agents/tasks/t3.yml` |
@@ -88,14 +88,18 @@ git checkout -b <type>/<kebab-description>
 
 ## 4. Secrets
 
-- Edit secrets only through `ansible-vault edit host_vars/localhost/vault.yml`
-  (`source venv/bin/activate; unset ANSIBLE_VAULT_PASSWORD_FILE` first).
+- Secret values live in 1Password (`dotforge` vault) and are read at apply time
+  through `secrets_1password_items`; the repo holds only `op://` references.
+  Ansible Vault still encrypts private *documents* (work skills, bookmark
+  catalogs, the SSH config); its password is the `ansible-vault` item, read by
+  `scripts/vault-pass`.
 - Any task that writes a secret carries `no_log: true`.
 - Run the pre-commit secret scan before committing; never echo a secret value in a
   command, a file, or chat.
 - If a request needs a secret that doesn't exist yet, stop and tell Dan exactly
-  which vault key to create and where it's consumed — do not guess a value or
-  invent a placeholder that could get committed.
+  which 1Password item and field to create (and add its `op://` reference to
+  `secrets_1password_items`) — do not guess a value or invent a placeholder
+  that could get committed.
 
 ## 5. Never
 

@@ -25,11 +25,36 @@ opencode_schema_version: "1.18.10"
 # only on purpose, per run: `-e browsers_managed=true`.
 browsers_managed: false
 
+# Secrets come from 1Password at apply time, never from this repository.
+# roles/common resolves every entry below into a fact once per play with
+# `op read` (tagged always, so scoped runs get them too), and consumers read
+# plain variables. `-e secrets_mode=vars` skips 1Password entirely; then the
+# variables must be supplied some other way, which is what the ai_agents test
+# does with a placeholder gateway token. scripts/migrate-secrets-to-1password.py
+# creates exactly these items.
+secrets_mode: onepassword
+secrets_1password_vault_name: dotforge
+secrets_1password_items:
+  linear_api_key: "op://dotforge/linear-api-key/credential"
+  todoist_api_key: "op://dotforge/todoist-api-key/credential"
+  grafana_service_account_token: "op://dotforge/grafana-service-account/credential"
+  grafana_url: "op://dotforge/grafana-service-account/url"
+  mcp_gateway_sunrise_token: "op://dotforge/mcp-gateway-sunrise/credential"
+
+# SSH private keys never touch this repository or ~/.ssh: the 1Password SSH
+# agent serves them, and ~/.ssh/config points IdentityAgent at its socket.
+# agent.toml limits the agent to these vaults (without the file it would only
+# offer keys from the built-in Personal vault).
+ssh_agent_socket: "{{ user_dir }}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+ssh_agent_vaults:
+  - dotforge
+
 # Project paths
 project_dir: "{{ user_dir }}/Projects/dotforge"
 host_files_dir: "{{ project_dir }}/host_files/{{ inventory_hostname }}"
 
-# SSH configuration
+# SSH configuration. Only the public halves are deployed; the private keys
+# live in 1Password (see ssh_agent_vaults).
 ssh_dir: "{{ user_dir }}/.ssh"
 ssh_keys:
   - id_rsa
@@ -48,6 +73,7 @@ config_paths:
   t3_user_data_dir: "{{ user_dir }}/.t3/userdata"
   t3_settings: "{{ user_dir }}/.t3/userdata/settings.json"
   ssh_config: "{{ ssh_dir }}/config"
+  ssh_agent_config: "{{ user_dir }}/.config/1Password/ssh/agent.toml"
   aliases: "{{ user_dir }}/.aliases"
   functions: "{{ user_dir }}/.functions"
   zshrc: "{{ user_dir }}/.zshrc"
@@ -85,7 +111,8 @@ ai_arcane_bin: "{{ config_paths.local_bin }}/arcane"
 # only ever touches these mcp_servers.* entries via scripts/codex-mcp-sync.py,
 # leaving every other section (other servers, [projects.*] trust levels,
 # plugins, marketplaces, desktop settings) untouched. The token is a Jinja
-# reference to the vault, resolved at runtime; it is never a literal here.
+# reference to the 1Password-backed fact, resolved at runtime; it is never a
+# literal here.
 ai_codex_mcp_servers:
   arcane:
     command: "{{ ai_arcane_bin }}"

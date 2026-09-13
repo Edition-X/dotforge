@@ -350,11 +350,11 @@
   ansible.builtin.assert:
     that: mcp_gateway_sunrise_token is defined
     fail_msg: >-
-      mcp_gateway_sunrise_token is missing from host_vars/localhost/vault.yml.
-      Generate one with `openssl rand -hex 32 | pbcopy`, then
-      `source venv/bin/activate; unset ANSIBLE_VAULT_PASSWORD_FILE;
-      ansible-vault edit host_vars/localhost/vault.yml` and paste it in as
-      `mcp_gateway_sunrise_token: <value>`. Re-run make mcp after.
+      mcp_gateway_sunrise_token is not set. It comes from 1Password
+      ({{ secrets_1password_items.mcp_gateway_sunrise_token }}): generate one
+      with `openssl rand -hex 32` and put it in that item's credential field,
+      or run with `-e secrets_mode=vars -e mcp_gateway_sunrise_token=...`.
+      Re-run make mcp after.
     success_msg: "mcp_gateway_sunrise_token present"
   tags: [mcp]
 

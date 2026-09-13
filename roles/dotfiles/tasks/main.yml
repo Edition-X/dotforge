@@ -79,6 +79,27 @@
   tags:
     - dot
 
+# The 1Password SSH agent only offers keys from the vaults this file names.
+- name: 1Password SSH agent - Config directory
+  ansible.builtin.file:
+    path: "{{ config_paths.ssh_agent_config | dirname }}"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0700'
+  tags:
+    - dot
+
+- name: 1Password SSH agent - Config file
+  ansible.builtin.template:
+    src: "1password-ssh-agent.toml.j2"
+    dest: "{{ config_paths.ssh_agent_config }}"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0600'
+  tags:
+    - dot
+
 - name: .env_secrets - Secret environment variables
   no_log: true
   ansible.builtin.template:
