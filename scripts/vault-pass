@@ -12,7 +12,9 @@
 #      ansible-lint can parse vaulted files without decrypting anything, and a
 #      machine mid-migration keeps working until that file is trashed.
 #   2. 1Password: `op read` of $DOTFORGE_VAULT_PASS_REF, default
-#      op://dotforge/ansible-vault/password. Needs the 1Password CLI with the
+#      op://dotforge/ansible-vault/password, in the account
+#      $DOTFORGE_OP_ACCOUNT (default my.1password.com, the personal one; the
+#      CLI also sees the work account). Needs the 1Password CLI with the
 #      desktop-app integration on (1Password > Settings > Developer >
 #      Integrate with 1Password CLI); the app prompts to unlock when needed.
 #
@@ -35,9 +37,11 @@ fi
 # waits on stdin for the answer, so a play would hang. Both calls read stdin
 # from /dev/null; `op account list` then returns at once, empty in that state,
 # and this fails with the fix instead of hanging.
+account="${DOTFORGE_OP_ACCOUNT:-my.1password.com}"
 if [[ -z "$(op account list 2>/dev/null </dev/null)" ]]; then
     echo "vault-pass: 1Password CLI has no account: turn on 1Password > Settings > Developer > 'Integrate with 1Password CLI'" >&2
     exit 1
 fi
 
-exec op read --no-newline "${DOTFORGE_VAULT_PASS_REF:-op://dotforge/ansible-vault/password}" </dev/null
+exec op --account "${account}" read --no-newline \
+    "${DOTFORGE_VAULT_PASS_REF:-op://dotforge/ansible-vault/password}" </dev/null
