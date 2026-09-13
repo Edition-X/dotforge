@@ -95,10 +95,16 @@ make packages   # Install missing packages
 make upgrade    # Install missing packages AND upgrade outdated ones
 make ai         # Shared AI harness and OpenCode configuration only
 make mcp        # Docker MCP Toolkit profile/secrets/features only
-make browsers   # Browser catalogs, policies and the capture service
+make browsers   # Disabled: browsers are managed by hand (see below)
 ```
 
 ### 🔖 Browser catalog capture
+
+> **Disabled.** Browsers are managed by hand. The `browsers` role is gated off
+> (`browsers_managed: false` in `group_vars/macbooks.yml`), so `make apply` never
+> installs browser policy, the root-owned helper or the capture launchd job, and
+> `make browsers` / `make browsers-authorize` refuse. The role, catalogs, scripts
+> and offline fixture tests below are kept for reference only.
 
 Bookmark additions are captured from bounded read-only snapshots into per-browser
 catalogs and published as a pull request. The catalogs are a record only — nothing is

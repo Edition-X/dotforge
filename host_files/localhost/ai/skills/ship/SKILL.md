@@ -33,9 +33,9 @@ Make the edit. Then, before any commit:
 2. `make ci` — lint, offline tests, syntax check. This is exactly what GitHub runs.
 3. If the change touches a role: `make check RUN_ARGS='--tags <tag>'`, read the diff,
    then `make <tag>` to apply it here, then `make <tag>` again and confirm `changed=0`.
-   Tags: `ai`, `browsers`, `dotfiles`, `mcp`, `neovim`, `packages`, `ssh`, `tmux`.
-4. Area verify from the `macbook` skill (brew list, new shell, drift script, mcp-test,
-   `make browser-test ...` when browsers changed).
+   Tags: `ai`, `dotfiles`, `mcp`, `neovim`, `packages`, `ssh`, `tmux`. (`browsers` is gated
+   off: browsers are managed by hand.)
+4. Area verify from the `macbook` skill (brew list, new shell, drift script, mcp-test).
 
 ## 3. Commit and push
 
