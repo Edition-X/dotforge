@@ -35,6 +35,9 @@ jobs:
       # `make` builds the venv from requirements.txt itself, so nothing is
       # installed twice. The vault password is a placeholder: no step here
       # decrypts anything, it only lets ansible-lint parse vaulted files.
+      # scripts/vault-pass (ansible.cfg's vault_password_file) prefers this
+      # file when it exists and only asks 1Password when it does not, so the
+      # runner never needs the 1Password CLI.
       - name: Provide a placeholder vault password
         run: |
           install -m 700 -d ~/.config/dotforge
