@@ -41,7 +41,7 @@ REPO = Path(__file__).resolve().parent.parent
 VAULT_YML = REPO / "host_vars" / "localhost" / "vault.yml"
 SSH_KEYS = ("id_ed25519", "id_rsa")
 
-# vault.yml key -> (item title, field id, field label, extra fields)
+# vault.yml key -> (item title, note shown on the item)
 CREDENTIALS = {
     "linear_api_key": ("linear-api-key", "Linear personal API key"),
     "todoist_api_key": ("todoist-api-key", "Todoist API token"),
@@ -51,9 +51,12 @@ CREDENTIALS = {
 
 
 def op(*args: str, stdin: str | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
+    # stdin is the JSON template or nothing at all: with the app integration
+    # off, `op` offers to add an account and waits on an inherited terminal.
     return subprocess.run(
         ["op", *args],
         input=stdin,
+        stdin=None if stdin is not None else subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=check,
@@ -97,7 +100,10 @@ def ensure_vault(name: str, dry_run: bool) -> None:
 
 
 def item_exists(vault: str, title: str) -> bool:
-    return op("item", "get", title, "--vault", vault, check=False).returncode == 0
+    # A listing, not `op item get <title>`: that errors when two items share a
+    # title, which would read as "absent" and create a third.
+    listing = json.loads(op("item", "list", "--vault", vault, "--format", "json").stdout or "[]")
+    return any(item.get("title") == title for item in listing)
 
 
 def create_item(vault: str, template: dict, dry_run: bool) -> None:

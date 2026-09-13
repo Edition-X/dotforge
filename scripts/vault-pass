@@ -31,4 +31,13 @@ if ! command -v op >/dev/null 2>&1; then
     exit 1
 fi
 
-exec op read --no-newline "${DOTFORGE_VAULT_PASS_REF:-op://dotforge/ansible-vault/password}"
+# With the desktop-app integration off, `op` offers to add an account and
+# waits on stdin for the answer, so a play would hang. Both calls read stdin
+# from /dev/null; `op account list` then returns at once, empty in that state,
+# and this fails with the fix instead of hanging.
+if [[ -z "$(op account list 2>/dev/null </dev/null)" ]]; then
+    echo "vault-pass: 1Password CLI has no account: turn on 1Password > Settings > Developer > 'Integrate with 1Password CLI'" >&2
+    exit 1
+fi
+
+exec op read --no-newline "${DOTFORGE_VAULT_PASS_REF:-op://dotforge/ansible-vault/password}" </dev/null
