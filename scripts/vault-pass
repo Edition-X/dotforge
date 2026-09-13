@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# Ansible Vault password source.
+#
+# ansible.cfg names this script as vault_password_file. Ansible and
+# ansible-vault run an executable password file and read the password from its
+# stdout, so the password never has to sit in a plaintext file on disk.
+#
+# Order:
+#   1. A file, when one exists: $DOTFORGE_VAULT_PASS_FILE, else
+#      ~/.config/dotforge/vault-pass. CI writes a placeholder there so
+#      ansible-lint can parse vaulted files without decrypting anything, and a
+#      machine mid-migration keeps working until that file is trashed.
+#   2. 1Password: `op read` of $DOTFORGE_VAULT_PASS_REF, default
+#      op://dotforge/ansible-vault/password. Needs the 1Password CLI with the
+#      desktop-app integration on (1Password > Settings > Developer >
+#      Integrate with 1Password CLI); the app prompts to unlock when needed.
+#
+# Prints nothing but the password on stdout. Diagnostics go to stderr.
+set -euo pipefail
+
+file="${DOTFORGE_VAULT_PASS_FILE:-${HOME}/.config/dotforge/vault-pass}"
+if [[ -f "${file}" ]]; then
+    cat "${file}"
+    exit 0
+fi
+
+if ! command -v op >/dev/null 2>&1; then
+    echo "vault-pass: no password file at ${file} and no 1Password CLI (op) on PATH" >&2
+    echo "vault-pass: brew install --cask 1password-cli, then turn on the CLI integration in 1Password" >&2
+    exit 1
+fi
+
+# With the desktop-app integration off, `op` offers to add an account and
+# waits on stdin for the answer, so a play would hang. Both calls read stdin
+# from /dev/null; `op account list` then returns at once, empty in that state,
+# and this fails with the fix instead of hanging.
+if [[ -z "$(op account list 2>/dev/null </dev/null)" ]]; then
+    echo "vault-pass: 1Password CLI has no account: turn on 1Password > Settings > Developer > 'Integrate with 1Password CLI'" >&2
+    exit 1
+fi
+
+exec op read --no-newline "${DOTFORGE_VAULT_PASS_REF:-op://dotforge/ansible-vault/password}" </dev/null

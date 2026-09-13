@@ -26,28 +26,33 @@ A powerful, automated configuration management system for MacBook Pro setup usin
 
 ## 🧭 First-time Setup
 
-The playbook decrypts secrets with an Ansible Vault password that is
-deliberately not in the repository. A fresh clone cannot run until you put it
-back:
+The playbook decrypts private files with an Ansible Vault password that lives
+in 1Password, not in the repository and not on disk. A fresh clone needs the
+1Password CLI talking to the desktop app:
 
 ```bash
-# 1. Restore the vault password (from your password manager).
-#    `read -rs` keeps it out of your shell history.
-install -m 700 -d ~/.config/dotforge
-read -rs -p 'Vault password: ' p && printf '%s' "$p" > ~/.config/dotforge/vault-pass
-chmod 600 ~/.config/dotforge/vault-pass && unset p
+# 1. 1Password CLI, then in the 1Password app:
+#    Settings > Developer > "Integrate with 1Password CLI"
+brew install --cask 1password-cli
+op vault list          # unlocks once; must list "dotforge"
 
 # 2. Build the venv and apply
 make apply
 ```
 
-`ansible.cfg` points `vault_password_file` at that absolute path, and nothing
-else competes with it. There used to be three mechanisms: this file (by a
-relative path, so it depended on the working directory), an
-`ANSIBLE_VAULT_PASSWORD_FILE` export from `~/.env_vars`, and a
-`~/.vault_pass.txt` symlink that pointed at a *vault-encrypted* file and so
-could never have worked. The Makefile had to unset the environment variable on
-every run to keep them from disagreeing.
+`ansible.cfg` names `scripts/vault-pass` as `vault_password_file`. Ansible runs
+an executable password file and reads stdout, and that script does
+`op read op://dotforge/ansible-vault/password`. It prefers a plain file at
+`~/.config/dotforge/vault-pass` when one exists: CI writes a placeholder there
+so ansible-lint can parse vaulted files without decrypting anything, and a
+machine that still has its old password file keeps working until the file is
+trashed. Nothing else competes with it; there used to be three mechanisms and
+the Makefile unset an environment variable on every run to keep them from
+disagreeing.
+
+Moving a machine's existing secrets into 1Password is one command,
+`venv/bin/python scripts/migrate-secrets-to-1password.py` (`--dry-run` first);
+it creates the items the playbook reads back and never prints a value.
 
 ## 🚀 Quick Start
 

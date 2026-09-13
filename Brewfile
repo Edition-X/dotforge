@@ -228,6 +228,9 @@ cask "cmux"
 cask "antigravity"
 
 ## Casks — developer tooling ##
+# 1Password CLI: the Ansible Vault password and (next) every secret the
+# playbook needs come from 1Password through `op`, never from a file.
+cask "1password-cli"
 # Terminal-based AI coding assistant
 cask "claude-code@latest"
 # Automated testing of webapps for Google Chrome

@@ -15,9 +15,13 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 skills_dir="${repo_root}/host_files/localhost/ai/skills"
-# The one password location, read from ansible.cfg so the two never disagree.
+# The one password source, read from ansible.cfg so the two never disagree.
+# Ansible resolves a relative value against ansible.cfg's directory, and runs
+# it when it is executable (scripts/vault-pass asks 1Password); ansible-vault
+# below does the same, so this only has to point at the same path.
 vault_password_file=$(sed -n 's/^vault_password_file[[:space:]]*=[[:space:]]*//p' "${repo_root}/ansible.cfg")
 vault_password_file="${vault_password_file/#\~/$HOME}"
+[[ "${vault_password_file}" == /* ]] || vault_password_file="${repo_root}/${vault_password_file}"
 # One scratch directory for every decrypted skill, removed on exit — a trap set
 # per file would replace the previous handler and orphan the earlier plaintext.
 scratch=$(mktemp -d)
