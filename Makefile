@@ -93,8 +93,10 @@ mcp-test:  ## MCP gateway smoke test
 # fixture tests below are kept for reference and still run under `make ci`;
 # none of them installs anything.
 .PHONY: browsers browsers-authorize
-browsers browsers-authorize:  ## Disabled: browsers are managed by hand
+browsers:  ## Disabled: browsers are managed by hand
 	@echo "browsers: disabled - managed by hand (browsers_managed=false in group_vars/macbooks.yml)"; exit 1
+browsers-authorize:  ## Disabled: browsers are managed by hand
+	@echo "browsers-authorize: disabled - managed by hand (browsers_managed=false in group_vars/macbooks.yml)"; exit 1
 
 .PHONY: validate-browser-catalog
 validate-browser-catalog: $(PYTHON_VIRTUAL_ENVIRONMENT)  ## Validate browser catalog schemas

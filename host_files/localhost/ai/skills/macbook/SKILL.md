@@ -28,9 +28,7 @@ routes through the repo, not through a one-off `brew install` or hand-edited dot
 | Codex MCP server | `ai_codex_mcp_servers` in `group_vars/macbooks.yml`, applied by `roles/ai_agents/tasks/codex_mcp.yml` |
 | OpenCode MCP server / config | `roles/ai_agents/templates/opencode.jsonc.j2` |
 | Docker MCP gateway server | `mcp_toolkit_servers` in `group_vars/macbooks.yml`, applied by `roles/mcp_toolkit/tasks/main.yml` |
-| Browser extension presence (Chrome, Edge, Brave, Firefox) | `host_files/localhost/browsers/<browser>/extensions.yml` `required:` list — vendor id + store `update_url`, `enforcement: report_only` |
-| Browser policy (mandatory only) | `host_files/localhost/browsers/<browser>/policies.yml` — never a bookmark or extension key, the role renders those |
-| Browser bookmarks | `host_files/localhost/browsers/<browser>/bookmarks.yml` is a **record** of the profile, captured by `make browser-capture RUN_ARGS='--enable-capture --isolated'`, never hand-edited and never pushed back into the browser as managed bookmarks. To change a bookmark, change it in the browser; the next capture records it |
+| Browser policy, extensions, bookmarks | **Not managed here.** Browsers are managed by hand: the `browsers` role is gated off (`browsers_managed: false`), `make browsers` refuses. Change it in the browser itself and say so; do not edit `host_files/localhost/browsers/` |
 | New skill | new directory `host_files/localhost/ai/skills/<name>/SKILL.md` — no role edit needed, `roles/ai_agents` discovers skill directories with `find` |
 
 Confirm the mapping against the real tasks before writing anything down — `group_vars/macbooks.yml`
@@ -53,10 +51,10 @@ git checkout -b <type>/<kebab-description>
 1. Edit the file(s) from the table above.
 2. `make lint` — ansible-lint + yamllint, must exit 0.
 3. `make check RUN_ARGS='--tags <tag>'` — dry run scoped to the area you touched
-   (`packages`, `dotfiles`, `ai`, `mcp`, `neovim`, `tmux`, `ssh`, `browsers`). Read the diff it
+   (`packages`, `dotfiles`, `ai`, `mcp`, `neovim`, `tmux`, `ssh`). Read the diff it
    reports. Stop and investigate if anything unexpected would change.
 4. `make <target>` — the matching apply target (`make packages`, `make dotfiles`,
-   `make ai`, `make mcp`, `make neovim`, `make tmux`, `make ssh`, `make browsers`). Only fall back to
+   `make ai`, `make mcp`, `make neovim`, `make tmux`, `make ssh`). Only fall back to
    `make apply` (every tag) when the change genuinely spans areas.
 5. Area-specific verify:
    - packages: `brew list | grep <name>`, `command -v <name>`
@@ -65,9 +63,6 @@ git checkout -b <type>/<kebab-description>
    - ai: `bash scripts/check-agent-config-drift.sh`, `claude mcp get <name>` for a
      new Claude MCP server, `make validate-opencode` for OpenCode changes
    - mcp: `make mcp-test`
-   - browsers: `make browser-test RUN_ARGS='--all-installed --isolated --policy --extensions --capture-read-only'`
-     (real browsers, GUI session; needs `make browsers-authorize` once), then check the
-     bookmark bar in one browser — no `Managed by dotforge` folder must appear
 6. Run the same `make <target>` again. Expect `changed=0` — a non-zero second run
    means the task isn't idempotent.
 7. `pre-commit run --all-files`.
