@@ -19,7 +19,10 @@ from pathlib import Path
 from browsers import REPO
 
 MARKER = b"$ANSIBLE_VAULT"
-DEFAULT_PASSWORD_FILE = "~/.config/dotforge/vault-pass"
+# Without an ansible.cfg (the automation smoke's synthetic clone has none) the
+# password comes from the repository's own script, which asks 1Password and
+# falls back to the legacy file itself.
+DEFAULT_PASSWORD_FILE = "scripts/vault-pass"
 
 
 class VaultUnavailable(RuntimeError):
@@ -40,7 +43,7 @@ def _password() -> bytes:
     """The vault password, from the executable or file ansible.cfg names."""
     source = password_path()
     if not source.is_file():
-        raise VaultUnavailable("vault password source is missing")
+        raise VaultUnavailable(f"vault password source is missing: {source}")
     if os.access(source, os.X_OK):
         # Same contract as Ansible's script vault secret: run it, take stdout.
         result = subprocess.run([str(source)], capture_output=True, check=False)
