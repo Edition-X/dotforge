@@ -10,7 +10,12 @@
   roles:
     - { role: common, tags: ['common'] }
     - { role: packages, tags: ['packages'] }
-    - { role: browsers, tags: ['browsers'] }
+    # Browsers are managed by hand now. The role, its catalogs, scripts and
+    # tests stay in the tree for reference, but nothing here installs policy,
+    # the privileged helper or the capture job unless browsers_managed is
+    # switched on deliberately (group_vars/macbooks.yml). `make browsers`
+    # refuses outright for the same reason.
+    - { role: browsers, tags: ['browsers'], when: 'browsers_managed | default(false) | bool' }
     - { role: ssh, tags: ['ssh', 'dot'] }
     - { role: dotfiles, tags: ['dotfiles', 'dot'] }
     - { role: mcp_toolkit, tags: ['mcp', 'dot'] }

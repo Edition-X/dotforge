@@ -19,6 +19,12 @@ osx_username: "{{ ansible_user_id }}"
 # this is only what is specific to the OpenCode install itself.
 opencode_schema_version: "1.18.10"
 
+# Browsers are managed by hand. The browsers role in site.yml is gated on
+# this and skipped when false, so an ordinary `make apply` never installs
+# browser policy, the root-owned helper or the capture launchd job. Flip it
+# only on purpose, per run: `-e browsers_managed=true`.
+browsers_managed: false
+
 # Project paths
 project_dir: "{{ user_dir }}/Projects/dotforge"
 host_files_dir: "{{ project_dir }}/host_files/{{ inventory_hostname }}"

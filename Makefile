@@ -67,7 +67,7 @@ check: $(PYTHON_VIRTUAL_ENVIRONMENT)  ## Dry run: show what apply would change
 # Role-specific targets. One pattern rule rather than a dozen copies of the
 # same line — adding a role meant copy-pasting a 100-character invocation, and
 # a typo in any copy was invisible.
-ROLE_TARGETS := ai browsers dotfiles mcp neovim packages ssh tmux
+ROLE_TARGETS := ai dotfiles mcp neovim packages ssh tmux
 .PHONY: $(ROLE_TARGETS)
 $(ROLE_TARGETS): $(PYTHON_VIRTUAL_ENVIRONMENT)
 	@$(VENV) $(PLAYBOOK) --tags $@ $(RUN_ARGS)
@@ -87,12 +87,14 @@ mcp-test:  ## MCP gateway smoke test
 	@./scripts/mcp-gateway-smoke.sh
 
 
-# One-time, interactive: installs the root-owned policy helper and a NOPASSWD
-# rule scoped to it, so every later apply — and the capture service — installs
-# managed preferences without a dialog. Asks for an administrator password once.
-.PHONY: browsers-authorize
-browsers-authorize: $(PYTHON_VIRTUAL_ENVIRONMENT)  ## One-time: authorize non-interactive policy installs
-	@$(VENV) $(PLAYBOOK) --tags browsers -e browsers_authorize=true
+# Browsers are managed by hand. The role is gated off in site.yml
+# (browsers_managed: false) and these two targets refuse rather than silently
+# running a play that skips every task. The catalogs, scripts and offline
+# fixture tests below are kept for reference and still run under `make ci`;
+# none of them installs anything.
+.PHONY: browsers browsers-authorize
+browsers browsers-authorize:  ## Disabled: browsers are managed by hand
+	@echo "browsers: disabled - managed by hand (browsers_managed=false in group_vars/macbooks.yml)"; exit 1
 
 .PHONY: validate-browser-catalog
 validate-browser-catalog: $(PYTHON_VIRTUAL_ENVIRONMENT)  ## Validate browser catalog schemas
