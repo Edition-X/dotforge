@@ -52,7 +52,9 @@ disagreeing.
 
 Moving a machine's existing secrets into 1Password is one command,
 `venv/bin/python scripts/migrate-secrets-to-1password.py` (`--dry-run` first);
-it creates the items the playbook reads back and never prints a value.
+it creates the items the playbook reads back and never prints a value. SSH
+keys are the exception: the CLI cannot import one usably, so the script stages
+them as 0600 files for the app's own importer and says where.
 
 ## 🚀 Quick Start
 
