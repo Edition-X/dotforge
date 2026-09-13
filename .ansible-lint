@@ -6,7 +6,6 @@ exclude_paths:
   - node_modules/
   - collections/
   - "*/vault.yml"
-  - host_vars/localhost/vault.yml
   - host_files/localhost/nvim/autoload/plugged/
   - host_files/localhost/nvim/pack/github/start/copilot.vim/
   # Vendored agent skills. Third-party YAML that happens to live in this repo,

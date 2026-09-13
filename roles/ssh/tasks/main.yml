@@ -1,13 +1,8 @@
 ---
-- name: SSH - Private keys
-  ansible.builtin.copy:
-    src: "{{ host_files_dir }}/{{ item }}"
-    dest: "{{ ssh_dir }}/{{ item }}"
-    owner: "{{ ansible_user_id }}"
-    group: "{{ ansible_user_gid }}"
-    mode: '0600'
-  with_items: "{{ ssh_keys }}"
-
+# Private keys are not deployed: they live in 1Password and the 1Password SSH
+# agent serves them (config.j2 points IdentityAgent at its socket, and the
+# dotfiles role writes the agent.toml that opens the dotforge vault to it).
+# Only the public halves land here, so IdentityFile can name the key to use.
 - name: SSH - Public keys
   ansible.builtin.copy:
     src: "{{ host_files_dir }}/{{ item }}.pub"

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Move this repository's vault-encrypted secrets into 1Password.
 
-One-off migration, run once by hand from the repo root with the venv active:
+One-off migration, run once by hand from the repo root with the venv active.
+Inputs are read from the working tree, or from git history once the encrypted
+files have been deleted from the repository, so it can run at any point:
 
     venv/bin/python scripts/migrate-secrets-to-1password.py --dry-run
     venv/bin/python scripts/migrate-secrets-to-1password.py
@@ -38,7 +40,7 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
-VAULT_YML = REPO / "host_vars" / "localhost" / "vault.yml"
+VAULT_YML = "host_vars/localhost/vault.yml"
 SSH_KEYS = ("id_ed25519", "id_rsa")
 
 # vault.yml key -> (item title, note shown on the item)
@@ -81,11 +83,30 @@ def vault_password() -> bytes:
     return result.stdout.strip(b"\r\n")
 
 
-def decrypt(path: Path, password: bytes) -> str:
+def ciphertext(relative: str) -> bytes | None:
+    """The vault-encrypted file, from the working tree or, once it has been
+    deleted from the repository, from the last commit that still carried it."""
+    path = REPO / relative
+    if path.is_file():
+        return path.read_bytes()
+    deleted_in = subprocess.run(
+        ["git", "-C", str(REPO), "rev-list", "-n", "1", "HEAD", "--", relative],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    if not deleted_in:
+        return None
+    shown = subprocess.run(
+        ["git", "-C", str(REPO), "show", f"{deleted_in}^:{relative}"],
+        capture_output=True, check=False,
+    )
+    return shown.stdout if shown.returncode == 0 else None
+
+
+def decrypt(data: bytes, password: bytes) -> str:
     from ansible.parsing.vault import VaultLib, VaultSecret
 
     lib = VaultLib([("default", VaultSecret(password))])
-    return lib.decrypt(path.read_bytes()).decode("utf-8")
+    return lib.decrypt(data).decode("utf-8")
 
 
 def ensure_vault(name: str, dry_run: bool) -> None:
@@ -168,7 +189,10 @@ def main() -> int:
 
     create_item(args.vault, password_item(password), args.dry_run)
 
-    secrets = yaml.safe_load(decrypt(VAULT_YML, password))
+    vault_yml = ciphertext(VAULT_YML)
+    if vault_yml is None:
+        sys.exit(f"{VAULT_YML} is neither in the working tree nor in git history")
+    secrets = yaml.safe_load(decrypt(vault_yml, password))
     grafana_url = secrets.get("grafana_url")
     for key, (title, note) in CREDENTIALS.items():
         if key not in secrets:
@@ -179,11 +203,11 @@ def main() -> int:
 
     if not args.skip_ssh:
         for name in SSH_KEYS:
-            path = REPO / "host_files" / "localhost" / name
-            if not path.is_file():
-                print(f"item {name}: {path.relative_to(REPO)} missing, skipped")
+            data = ciphertext(f"host_files/localhost/{name}")
+            if data is None:
+                print(f"item {name}: host_files/localhost/{name} missing, skipped")
                 continue
-            create_item(args.vault, ssh_key_item(name, decrypt(path, password)), args.dry_run)
+            create_item(args.vault, ssh_key_item(name, decrypt(data, password)), args.dry_run)
 
     print("done" if not args.dry_run else "dry run complete")
     return 0

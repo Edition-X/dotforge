@@ -177,12 +177,12 @@ one gateway, on this Mac, intended to serve Grafana, Notion and Linear over
 MCP Streamable HTTP to every AI harness. It manages:
 
 - **Features**: enables `tool-name-prefix`, disables `dynamic-tools`.
-- **Secrets**: sets `grafana.api_key` from the vault the first time it is
+- **Secrets**: sets `grafana.api_key` from 1Password the first time it is
   missing from `docker mcp secret ls`; never overwrites an existing value
   unless `mcp_toolkit_rotate_secrets=true` is passed explicitly.
 - **Profile membership**: adds `grafana`, `notion-remote` and `linear` to the
   `sunrise` profile (`docker mcp profile server add`), and sets
-  `grafana.url` from the vault.
+  `grafana.url` from 1Password.
 - **Tool allowlist**: restricts Grafana to a fixed read-only set of tools
   (dashboards, datasources, Prometheus/Loki/Pyroscope queries, alerting and
   on-call reads, Sift investigations) — no `create_*`/`update_*`/alert
@@ -194,7 +194,7 @@ MCP Streamable HTTP to every AI harness. It manages:
 Linear and Notion authenticate via OAuth-DCR, authorized once by hand
 (`docker mcp oauth authorize <provider>`) — the toolkit's alternative
 personal-access-token secret path was found not to work for Linear in this
-toolkit version, so no vault key is used for either. The role only verifies
+toolkit version, so no secret is held for either. The role only verifies
 `docker mcp oauth ls` shows both `authorized` and fails with the exact
 command to run if not.
 
@@ -217,7 +217,7 @@ make mcp RUN_ARGS='-e mcp_toolkit_rotate_secrets=true'   # force-rotate grafana.
 Every harness that can send a custom HTTP header points at the gateway
 through one `mcp-sunrise` entry instead of separate `grafana`/`notion`/
 `linear` registrations. The bearer token is `mcp_gateway_sunrise_token`
-(vault-managed) and is rendered with `no_log: true`; it never appears in a
+(from 1Password) and is rendered with `no_log: true`; it never appears in a
 repo file, only in the runtime config files below (each `0600`).
 
 - **OpenCode** (`~/.config/opencode/opencode.jsonc`, role-templated): a
@@ -511,8 +511,8 @@ Pre-commit checks include:
 - `inventory`: Contains the host groups `local` and `macbooks`
 - `group_vars/macbooks.yml`: Common variables for all MacBooks, including the
   `config_paths` map that every role deploys against
-- `host_vars/<hostname>/`: Host-specific variables. Use the **directory** form —
-  `vars.yml` for plain values and `vault.yml` for secrets. A sibling
+- `host_vars/<hostname>/`: Host-specific plain variables, if a host needs any.
+  Secrets never live here: they come from 1Password (see below). A sibling
   `host_vars/<hostname>.yml` file is silently ignored when the directory exists,
   so do not create both.
 - `host_files/<hostname>/`: The actual dotfiles that get linked or copied into

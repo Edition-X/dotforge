@@ -131,7 +131,7 @@ These are Dan's decisions. Stop with the PR open (or before pushing) and ask:
 
 - A change to repository visibility, branch rulesets, secrets, or GitHub settings.
 - Anything that rewrites history, force-pushes, or deletes a branch that is not the PR's.
-- A secret that does not exist yet in the vault, or any plaintext credential.
+- A secret that does not exist yet in 1Password, or any plaintext credential.
 - A `make apply` that would remove an app, key, or config that Dan did not name.
 - A review finding that changes what the PR does, not how — scope is Dan's call.
 
