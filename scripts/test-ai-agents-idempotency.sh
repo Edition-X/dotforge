@@ -53,6 +53,17 @@ args = ["mcp"]
 EOF
 printf '%s\n' 'pre-existing worker configuration' > "${test_home}/.codex/agents/worker.toml"
 
+# Fixture work-profile settings from an older apply: the retired edit-guard
+# hook plus an unrelated key. The hooks merge must drop the stale PreToolUse
+# entry (a recursive combine would keep it) and preserve the other key.
+mkdir -p "${test_home}/.claude-work"
+cat > "${test_home}/.claude-work/settings.json" <<'EOF'
+{
+  "hooks": {"PreToolUse": [{"matcher": "Edit", "hooks": [{"type": "command", "command": "/stale/claude-edit-guard"}]}]},
+  "theme": "dark"
+}
+EOF
+
 # The OpenCode config template embeds the gateway token, which normally comes
 # from the vault. This test checks structure and idempotency, not the token, so
 # it supplies its own placeholder rather than requiring the real vault password
@@ -110,7 +121,8 @@ for managed_bin in oc-ticket claude-edit-guard claude-dispatch-guard; do
     [[ -x "${test_home}/.local/bin/${managed_bin}" ]] || { printf 'managed executable missing or not executable: %s\n' "$managed_bin" >&2; exit 1; }
 done
 # No profile carries the Claude-plans / OpenCode-builds guards any more, and
-# the hooks merge replaces the object, so none may survive from an older apply.
+# the hooks merge replaces the object, so the stale hook seeded into the work
+# profile above must be gone while its unrelated key survives.
 for profile_dir in .claude .claude-work; do
     jq -e '(.hooks.PreToolUse // []) | length == 0' "${test_home}/${profile_dir}/settings.json" >/dev/null || {
         printf '%s settings still carry PreToolUse hooks\n' "$profile_dir" >&2
@@ -121,8 +133,8 @@ jq -e '.hooks.SessionStart | length == 1' "${test_home}/.claude-work/settings.js
     printf 'claude-work settings lost the shared SessionStart hook\n' >&2
     exit 1
 }
-jq -e '(.hooks.PreToolUse // []) | length == 0' "${test_home}/.claude/settings.json" >/dev/null || {
-    printf 'personal claude settings must not carry the edit guard hook\n' >&2
+jq -e '.theme == "dark"' "${test_home}/.claude-work/settings.json" >/dev/null || {
+    printf 'claude-work settings lost an unmanaged key during the hooks merge\n' >&2
     exit 1
 }
 jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.claude-work/settings.json" >/dev/null || {
