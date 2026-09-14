@@ -130,27 +130,6 @@ ai_codex_mcp_servers:
       Authorization: "Bearer {{ mcp_gateway_sunrise_token }}"
 ai_codex_mcp_remove: [linear, notion, grafana, figma]
 
-# Claude Code plugins shared by both profiles, so the Claude Code app
-# (personal, ~/.claude) and T3 Code (work, ~/.claude-work) carry the same
-# skills. Plugins are per CLAUDE_CONFIG_DIR, so each profile installs its own
-# copy. Managed by roles/ai_agents/tasks/claude_plugins.yml: each marketplace
-# is added and each plugin installed when missing, and enabledPlugins is
-# merged into settings.json. The company plugins were chosen from the
-# marketplace's 18 by actual use: the rest are PM/report tooling, or
-# (`sunrise-model-routing`) conflict with the routing policy under
-# host_files/localhost/ai/routing/.
-ai_claude_marketplaces: &ai_claude_marketplaces
-  - name: claude-skills-plugins
-    source: Sunrise-Robotics/claude-skills-plugins
-  - name: caveman
-    source: JuliusBrussee/caveman
-ai_claude_plugins: &ai_claude_plugins
-  - grafana-usage-report@claude-skills-plugins
-  - sunrise-writing@claude-skills-plugins
-  - marketplace-plugin-kit@claude-skills-plugins
-  - codebase-analysis@claude-skills-plugins
-  - caveman@caveman
-
 # Claude Code profiles that receive managed MCP registrations and hooks.
 # config_dir holds settings.json, CLAUDE.md and skills. MCP state lives in
 # .claude.json: $HOME/.claude.json for the personal profile, and
@@ -167,8 +146,16 @@ ai_claude_profiles:
       - CLAUDE_CONFIG_DIR
       - "HOME={{ user_dir }}"
       - claude
-    marketplaces: *ai_claude_marketplaces
-    plugins: *ai_claude_plugins
+    # Claude Code plugins, per profile (plugins are per CLAUDE_CONFIG_DIR).
+    # Managed by roles/ai_agents/tasks/claude_plugins.yml: each marketplace
+    # is added and each plugin installed when missing, and enabledPlugins is
+    # merged into settings.json. Personal carries only what is not work
+    # material; skills under host_files/localhost/ai/skills still reach both.
+    marketplaces:
+      - name: caveman
+        source: JuliusBrussee/caveman
+    plugins:
+      - caveman@caveman
   - name: work
     config_dir: "{{ config_paths.claude_work_config }}"
     agents_dir: "{{ config_paths.claude_work_config }}/agents"
@@ -182,8 +169,21 @@ ai_claude_profiles:
     # no longer hooked here; the `build` skill still hands a ticket to
     # OpenCode, but only when Dan asks for that by name. To re-enable the
     # split, restore the PreToolUse hooks from PR #8.
-    marketplaces: *ai_claude_marketplaces
-    plugins: *ai_claude_plugins
+    # Company plugins live here only, so personal Claude carries no work
+    # material. Chosen from the Sunrise marketplace's 18 by actual use: the
+    # rest are PM/report tooling, or (`sunrise-model-routing`) conflict with
+    # the routing policy under host_files/localhost/ai/routing/.
+    marketplaces:
+      - name: caveman
+        source: JuliusBrussee/caveman
+      - name: claude-skills-plugins
+        source: Sunrise-Robotics/claude-skills-plugins
+    plugins:
+      - caveman@caveman
+      - grafana-usage-report@claude-skills-plugins
+      - sunrise-writing@claude-skills-plugins
+      - marketplace-plugin-kit@claude-skills-plugins
+      - codebase-analysis@claude-skills-plugins
 
 # Managed Claude Code hooks shared by every profile. Together with a profile's
 # own `hooks` (none today), this REPLACES the `hooks` object in that profile's
