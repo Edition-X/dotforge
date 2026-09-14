@@ -76,17 +76,18 @@ OpenCode orchestrator keeps the full set, so driving OpenCode directly still
 routes "install jq" through `macbook`. Codex has no per-agent skill permission
 and is unchanged.
 
-## Claude Code plugins (both profiles)
+## Claude Code plugins (per profile)
 
-Both Claude profiles — personal (`~/.claude`, the Claude Code app) and work
-(`~/.claude-work`, what T3 Code launches) — carry the same Claude Code plugins,
-declared once as `ai_claude_marketplaces` and `ai_claude_plugins` in
-`group_vars/macbooks.yml` and referenced from each `ai_claude_profiles` entry.
-Plugins are per `CLAUDE_CONFIG_DIR`, so each profile installs its own copy.
+Each Claude profile declares its own `marketplaces` and `plugins` in
+`ai_claude_profiles`. Plugins are per `CLAUDE_CONFIG_DIR`, so each profile
+installs its own copy. Personal (`~/.claude`, the Claude Code app) carries
+`caveman` only; work (`~/.claude-work`, what T3 Code launches) carries
+`caveman` plus the Sunrise company plugins, so personal Claude holds no work
+material. Skills under `skills/` still deploy to both.
 `roles/ai_agents/tasks/claude_plugins.yml` adds each marketplace and installs
 each plugin when missing, and `claude_settings.yml` enables the declared
 plugins in `enabledPlugins` (additively: retiring one is
-`claude plugin uninstall <name>` in each profile plus removing it from the list). `grafana-usage-report` moved there from `skills/` because the
+`claude plugin uninstall <name>` in that profile plus removing it from the list). `grafana-usage-report` moved there from `skills/` because the
 two copies were byte-identical and the plugin carries the eval suite. Check a
 plugin's projected token cost with `claude-work plugin details <name>` before
 declaring a new one.

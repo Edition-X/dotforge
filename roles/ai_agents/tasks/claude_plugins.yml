@@ -1,8 +1,8 @@
 ---
 # Claude Code plugins for the profiles that declare them
 # (ai_claude_profiles[].marketplaces / .plugins). Plugins are per
-# CLAUDE_CONFIG_DIR, so each profile installs its own copy; today both
-# declare the same shared list (ai_claude_marketplaces / ai_claude_plugins).
+# CLAUDE_CONFIG_DIR, so each profile installs its own copy: caveman in both,
+# the Sunrise company plugins in the work profile only.
 #
 # The CLI is the writer: `claude plugin marketplace add` clones the source
 # under <config_dir>/plugins/marketplaces/ and records it in
