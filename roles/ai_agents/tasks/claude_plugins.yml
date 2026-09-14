@@ -1,8 +1,8 @@
 ---
-# Company Claude Code plugins for the profiles that declare them
+# Claude Code plugins for the profiles that declare them
 # (ai_claude_profiles[].marketplaces / .plugins). Plugins are per
-# CLAUDE_CONFIG_DIR, so the work profile T3 launches gets them and the
-# personal one does not unless it declares its own.
+# CLAUDE_CONFIG_DIR, so each profile installs its own copy; today both
+# declare the same shared list (ai_claude_marketplaces / ai_claude_plugins).
 #
 # The CLI is the writer: `claude plugin marketplace add` clones the source
 # under <config_dir>/plugins/marketplaces/ and records it in

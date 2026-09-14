@@ -1,8 +1,9 @@
 ---
 # Merges managed hooks into each Claude profile's settings.json while
 # preserving every other key Dan has set by hand. A profile's own `hooks`
-# (ai_claude_profiles[].hooks) are added on top of the shared ai_claude_hooks,
-# so the work profile can carry the edit guard without the personal one.
+# (ai_claude_profiles[].hooks) are added on top of the shared ai_claude_hooks.
+# The managed set replaces the whole `hooks` object, so a hook removed from
+# group_vars is removed from settings.json as well.
 
 - name: Claude settings - Check settings file
   ansible.builtin.stat:
@@ -29,7 +30,7 @@
     ai_agents_claude_settings_desired: >-
       {{ ai_agents_claude_settings_desired | default({}) | combine({
            item.item.item.name: (
-             _existing | combine({'hooks': _hooks}, recursive=True)
+             _existing | combine({'hooks': _hooks})
                        | combine({'permissions': {'allow':
                            _existing_allow + (ai_claude_permission_allow | difference(_existing_allow))
                          }}, recursive=True)
@@ -43,7 +44,7 @@
   vars:
     _existing: "{{ (item.content | b64decode | from_json) if (item.content is defined) else {} }}"
     # Plugins this repo declares for the profile are enabled. The merge is
-    # additive: anything Dan installed by hand (the personal profile's caveman)
+    # additive: anything Dan installed by hand in either profile
     # is left as it is, and retiring a declared plugin is
     # `claude-work plugin uninstall <name>` plus removing it here.
     _existing_plugins: "{{ _existing.enabledPlugins | default({}) }}"
@@ -54,7 +55,7 @@
     # so it reorders this list on every run and the settings task never
     # reaches "no changes" on a second apply.
     _existing_allow: "{{ (_existing.permissions | default({})).allow | default([]) }}"
-    # Shared hooks plus this profile's own (the work profile's edit guard).
+    # Shared hooks plus this profile's own.
     _hooks: "{{ ai_claude_hooks | combine(item.item.item.hooks | default({})) }}"
   loop: "{{ ai_agents_claude_settings_raw.results }}"
   loop_control:

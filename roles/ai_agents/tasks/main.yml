@@ -210,6 +210,7 @@
     label: "{{ item.1.path }}"
   when:
     - item.1.path | basename not in ai_agents_skills
+    - item.1.path | basename not in ai_external_skills
   register: ai_agents_unmanaged_skill_links
   tags: [ai]
 
@@ -225,25 +226,19 @@
     - not item.stat.exists
   tags: [ai]
 
-# Skills that used to be linked out to another repo (the paperclip skills,
-# retired 2026-09-12: that project's last memory is from April) are plain
-# links into a directory that still exists, so the dangling-link pruner above
-# never sees them. Only links are removed, deliberately: a real directory of
-# the same name would be something Dan put there by hand.
-- name: AI agents - Remove retired externally owned skill links
+# Linked to the repo that owns them, so edits in Projects/paperclip take effect
+# for every harness without a re-apply.
+- name: Harness - Externally owned skills
   ansible.builtin.file:
-    path: "{{ item.0.skills }}/{{ item.1 }}"
-    state: absent
-  loop: "{{ ai_harnesses | product(ai_agents_retired_external_skills) | list }}"
-  vars:
-    ai_agents_retired_external_skills:
-      - paperclip
-      - paperclip-create-agent
-      - paperclip-create-plugin
-      - para-memory-files
+    src: "{{ ai_external_skills_src }}/{{ item.1 }}"
+    dest: "{{ item.0.skills }}/{{ item.1 }}"
+    state: link
+    force: true
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+  loop: "{{ ai_harnesses | product(ai_external_skills) | list }}"
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"
-  when: (item.0.skills ~ '/' ~ item.1) is link
   tags: [ai]
 
 - name: OpenCode - Backup directory

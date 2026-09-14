@@ -76,23 +76,27 @@ OpenCode orchestrator keeps the full set, so driving OpenCode directly still
 routes "install jq" through `macbook`. Codex has no per-agent skill permission
 and is unchanged.
 
-## Company plugins (work profile)
+## Claude Code plugins (both profiles)
 
-The work profile (`~/.claude-work`, what T3 Code launches) also carries Claude
-Code plugins from the company marketplace, declared per profile as
-`marketplaces` and `plugins` in `ai_claude_profiles`. Plugins are per
-`CLAUDE_CONFIG_DIR`, so the personal profile does not get them.
-`roles/ai_agents/tasks/claude_plugins.yml` adds the marketplace and installs
+Both Claude profiles — personal (`~/.claude`, the Claude Code app) and work
+(`~/.claude-work`, what T3 Code launches) — carry the same Claude Code plugins,
+declared once as `ai_claude_marketplaces` and `ai_claude_plugins` in
+`group_vars/macbooks.yml` and referenced from each `ai_claude_profiles` entry.
+Plugins are per `CLAUDE_CONFIG_DIR`, so each profile installs its own copy.
+`roles/ai_agents/tasks/claude_plugins.yml` adds each marketplace and installs
 each plugin when missing, and `claude_settings.yml` enables the declared
 plugins in `enabledPlugins` (additively: retiring one is
-`claude-work plugin uninstall <name>` plus removing it from the list). `grafana-usage-report` moved there from `skills/` because the
+`claude plugin uninstall <name>` in each profile plus removing it from the list). `grafana-usage-report` moved there from `skills/` because the
 two copies were byte-identical and the plugin carries the eval suite. Check a
 plugin's projected token cost with `claude-work plugin details <name>` before
 declaring a new one.
 
-Retired 2026-09-12: the paperclip skills (that project's last activity was
-April) and the unused `pdf`, `figma` and `notion-knowledge-capture` skills;
-`create-linear-ticket` and `fetch-linear-context` were folded into `linear`.
+The paperclip skills are not here at all: they live in `Projects/paperclip` and
+are linked straight from it (`ai_external_skills`), so that repo stays their
+source of truth. They, `pdf`, `figma` and `notion-knowledge-capture` were
+retired on 2026-09-12 and restored on 2026-09-14 when T3 Code became the
+primary harness; `create-linear-ticket` and `fetch-linear-context` stay folded
+into `linear`.
 
 ## Lead-worker routing
 
@@ -117,17 +121,14 @@ full procedure.
 | Claude Code (personal, `~/.claude`) | Root/default profile, selected at Opus 5 medium | Native subagents under `~/.claude/agents/*.md` | Full native support; no custom `orchestrator` agent — the root profile *is* the lead. |
 | Claude Code (work, `~/.claude-work`) | Same as personal | Native subagents under `~/.claude-work/agents/*.md`, byte-identical to personal | Same policy, isolated auth/state; this is what T3 Code's Claude provider runs. |
 | Codex CLI (`~/.codex`) | Root CLI, `config.toml` top-level `model`/`model_reasoning_effort` pinned to lead tier | Native subagents under `~/.codex/agents/*.toml` | Full native support; `agents.default_subagent_model`/`default_subagent_reasoning_effort` in `config.toml` default new subagent threads to the worker tier. |
-| T3 Code (Claude provider) | Inherited: same root profile as `claude-work`, planner and reviewer | **Bridged to OpenCode**: `build` skill → `oc-ticket --role worker\|rescue\|verifier` (see "Claude plans, OpenCode builds" below); the native `worker`/`rescue` subagents are denied by the dispatch guard and remain a fallback only after `claude-edit-guard off` | No duplicate T3 agent definitions, and no live canary row (see below). T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
+| T3 Code (Claude provider) | Inherited: same root profile as `claude-work`; primary harness, plans and implements | Native subagents under `~/.claude-work/agents/*.md`; OpenCode bridge (`build` skill → `oc-ticket`) only on explicit request (see "Claude plans, OpenCode builds" below) | No duplicate T3 agent definitions, and no live canary row (see below). T3 launches `~/.local/bin/claude-work`, which points `CLAUDE_CONFIG_DIR` at `~/.claude-work`; see `roles/ai_agents/tasks/t3.yml`. |
 | T3 Code (Codex provider) | Inherited: same `~/.codex` as the CLI | Inherited: same `~/.codex/agents/*.toml` | No separate T3 entry needed, and no live canary row (see below); T3's Codex provider reads the same app-owned `config.toml`. |
 | Forge 2.13.21 | N/A — Forge-owned built-in agents (Forge, Muse, Sage) | N/A | Shared `AGENTS.md` instructions and skills only. Forge 2.13.21 exposes no supported custom-agent authoring surface (`forge agent` only lists the three built-ins, no create/config subcommand), so it cannot host a native Luna worker. Do not claim parity with the other four harnesses. |
 
-### Claude plans, OpenCode builds
+### Claude plans, OpenCode builds (opt-in)
 
-Claude has no orchestrator agent of its own, and the first week of lead-worker
-routing showed the consequence: the T3 Claude root dispatched Claude's generic
-`general-purpose` agent 36 times against 8 `worker` dispatches and, in its two
-largest threads, implemented everything itself. So Claude's lead role is now
-bridged to OpenCode's builder instead of to a Claude subagent:
+T3 Code is the primary harness and Claude implements in it directly. The bridge
+to OpenCode's builder is kept for when Dan asks for it by name:
 
 - `workflow.yml` `bridges` declares the one bridge (`claude` → `opencode` via
   `oc-ticket`, roles worker/rescue/verifier, resume for the single correction);
@@ -137,17 +138,14 @@ bridged to OpenCode's builder instead of to a Claude subagent:
   handoff, and exits 0 only on `COMPLETE`. OpenCode's worker, verifier and rescue are
   rendered `mode: all` so `--agent` can address them; a headless run never prompts
   (an `ask` permission is auto-rejected and reported as `BLOCKED_AUTHORITY`).
-- `skills/build` is the lead procedure Claude follows: plan mode, one self-contained
-  ticket file per ticket, dispatch, review the real diff, one correction to the same
-  OpenCode session, rescue on a repeated fingerprint, report.
-- `host_files/localhost/bin/claude-edit-guard` is a `PreToolUse` hook on the work
-  profile only (`ai_claude_profiles[].hooks`): a session may edit up to three source
-  files directly (a quick task); docs, plans, scratch and this repo never count; the
-  fourth is denied with a pointer at `build`. `claude-edit-guard off` lifts it for a
-  repo for twelve hours when Dan asks Claude to do the work itself. The personal
-  `claude` profile carries no guard.
-- Whichever model Dan picks in T3's composer plans and reviews; the OpenCode worker
-  tier is what builds.
+- `skills/build` is the procedure: plan mode, one self-contained ticket file per
+  ticket, dispatch, review the real diff, one correction to the same OpenCode
+  session, rescue on a repeated fingerprint, report. Its description only triggers
+  on an explicit OpenCode request.
+- `claude-edit-guard` and `claude-dispatch-guard` (`host_files/localhost/bin`) still
+  deploy to `~/.local/bin` and keep their offline tests, but no profile hooks them.
+  Re-enabling the enforced split means adding them back as `PreToolUse` hooks under
+  `ai_claude_profiles[].hooks`.
 
 `scripts/harness-usage-report.py` prints the numbers this design is judged by
 (sessions per harness, dispatches by agent, models actually used, step-cap hits,

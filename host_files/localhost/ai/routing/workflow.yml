@@ -85,8 +85,9 @@ roles:
 # subagent, through the `oc-ticket` bridge (host_files/localhost/bin). The
 # bridge may only address the roles listed here, must resume the same session
 # for the one permitted correction, and returns the same handoff contract as
-# every in-harness dispatch. The `build` skill is the procedure; the
-# claude-edit-guard hook on the work profile is the enforcement.
+# every in-harness dispatch. The `build` skill is the procedure. It is opt-in:
+# T3 Code is the primary harness and implements directly unless Dan asks for
+# OpenCode, and no guard hook enforces the bridge.
 bridges:
   - from: claude
     to: opencode
