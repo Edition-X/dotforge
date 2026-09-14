@@ -165,6 +165,52 @@
   changed_when: true
   tags: [ai, claude]
 
+# Apple Reminders/Calendar MCP: same idempotent inspect / remove-stale /
+# register pattern as arcane and 1password. stdio, no arguments; macOS
+# prompts for Reminders/Calendar access on first tool call from the server.
+- name: Claude MCP - Inspect apple-events registration
+  ansible.builtin.command:
+    argv: "{{ item.claude_argv + ['mcp', 'get', 'apple-events'] }}"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_claude_mcp_apple_events_current
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  when: ai_agents_claude_binary.rc == 0
+  tags: [ai, claude]
+
+- name: Claude MCP - Remove stale apple-events registration
+  ansible.builtin.command:
+    argv: "{{ item.item.claude_argv + ['mcp', 'remove', '--scope', 'user', 'apple-events'] }}"
+  loop: "{{ ai_agents_claude_mcp_apple_events_current.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('skipped') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - item.rc == 0
+    - '("Command: " ~ ai_apple_events_mcp_bin) not in item.stdout'
+  changed_when: true
+  tags: [ai, claude]
+
+- name: Claude MCP - Register apple-events
+  ansible.builtin.command:
+    argv: >-
+      {{ item.item.claude_argv +
+         ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', 'apple-events',
+          '--', ai_apple_events_mcp_bin] }}
+  loop: "{{ ai_agents_claude_mcp_apple_events_current.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('skipped') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - 'item.rc != 0 or ("Command: " ~ ai_apple_events_mcp_bin) not in item.stdout'
+  changed_when: true
+  tags: [ai, claude]
+
 # The gateway replaces these direct, per-server registrations. Only the
 # personal profile ever had them, but both profiles are checked so this
 # stays correct if that changes.
