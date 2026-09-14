@@ -88,7 +88,8 @@
     path: "{{ item.0.skills }}/{{ item.1 }}"
   loop: >-
     {{ ai_harnesses | product(
-         cleanup_ai_skills.files | map(attribute='path') | map('basename') | list
+         (cleanup_ai_skills.files | map(attribute='path') | map('basename') | list)
+         + ai_external_skills
        ) | list }}
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"

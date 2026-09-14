@@ -53,6 +53,17 @@ args = ["mcp"]
 EOF
 printf '%s\n' 'pre-existing worker configuration' > "${test_home}/.codex/agents/worker.toml"
 
+# Fixture work-profile settings from an older apply: the retired edit-guard
+# hook plus an unrelated key. The hooks merge must drop the stale PreToolUse
+# entry (a recursive combine would keep it) and preserve the other key.
+mkdir -p "${test_home}/.claude-work"
+cat > "${test_home}/.claude-work/settings.json" <<'EOF'
+{
+  "hooks": {"PreToolUse": [{"matcher": "Edit", "hooks": [{"type": "command", "command": "/stale/claude-edit-guard"}]}]},
+  "theme": "dark"
+}
+EOF
+
 # The OpenCode config template embeds the gateway token, which normally comes
 # from the vault. This test checks structure and idempotency, not the token, so
 # it supplies its own placeholder rather than requiring the real vault password
@@ -61,7 +72,7 @@ run_playbook() {
     ansible-playbook \
         -i "${repo_root}/inventory-tests" \
         "${repo_root}/tests/ai_agents.yml" \
-        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_claude_plugins_manage\":false,\"ai_encrypted_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
+        -e "{\"user_dir\":\"${test_home}\",\"project_dir\":\"${repo_root}\",\"host_files_dir\":\"${repo_root}/host_files/localhost\",\"ai_backup_dir\":\"${backup_dir}\",\"ansible_python_interpreter\":\"${ansible_python_interpreter}\",\"ai_claude_plugins_manage\":false,\"ai_external_skills\":[],\"ai_encrypted_skills\":[],\"ai_agents_prune_unused\":false,\"mcp_gateway_sunrise_token\":\"placeholder-for-tests\"}"
 }
 
 first_output="${tmp_root}/first-run.log"
@@ -109,22 +120,21 @@ jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.cl
 for managed_bin in oc-ticket claude-edit-guard claude-dispatch-guard; do
     [[ -x "${test_home}/.local/bin/${managed_bin}" ]] || { printf 'managed executable missing or not executable: %s\n' "$managed_bin" >&2; exit 1; }
 done
-# The edit guard is a work-profile hook only: T3 launches claude-work, and the
-# personal profile stays a general-purpose CLI.
-jq -e '.hooks.PreToolUse[0].hooks[0].command | endswith("/claude-edit-guard")' "${test_home}/.claude-work/settings.json" >/dev/null || {
-    printf 'claude-work settings lack the claude-edit-guard PreToolUse hook\n' >&2
-    exit 1
-}
-jq -e '[.hooks.PreToolUse[] | select(.matcher == "Agent") | .hooks[0].command | endswith("/claude-dispatch-guard")] == [true]' "${test_home}/.claude-work/settings.json" >/dev/null || {
-    printf 'claude-work settings lack the claude-dispatch-guard Agent hook\n' >&2
-    exit 1
-}
+# No profile carries the Claude-plans / OpenCode-builds guards any more, and
+# the hooks merge replaces the object, so the stale hook seeded into the work
+# profile above must be gone while its unrelated key survives.
+for profile_dir in .claude .claude-work; do
+    jq -e '(.hooks.PreToolUse // []) | length == 0' "${test_home}/${profile_dir}/settings.json" >/dev/null || {
+        printf '%s settings still carry PreToolUse hooks\n' "$profile_dir" >&2
+        exit 1
+    }
+done
 jq -e '.hooks.SessionStart | length == 1' "${test_home}/.claude-work/settings.json" >/dev/null || {
     printf 'claude-work settings lost the shared SessionStart hook\n' >&2
     exit 1
 }
-jq -e '(.hooks.PreToolUse // []) | length == 0' "${test_home}/.claude/settings.json" >/dev/null || {
-    printf 'personal claude settings must not carry the edit guard hook\n' >&2
+jq -e '.theme == "dark"' "${test_home}/.claude-work/settings.json" >/dev/null || {
+    printf 'claude-work settings lost an unmanaged key during the hooks merge\n' >&2
     exit 1
 }
 jq -e '.model == "claude-opus-5" and .effortLevel == "medium"' "${test_home}/.claude-work/settings.json" >/dev/null || {

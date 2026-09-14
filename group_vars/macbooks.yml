@@ -130,6 +130,27 @@ ai_codex_mcp_servers:
       Authorization: "Bearer {{ mcp_gateway_sunrise_token }}"
 ai_codex_mcp_remove: [linear, notion, grafana, figma]
 
+# Claude Code plugins shared by both profiles, so the Claude Code app
+# (personal, ~/.claude) and T3 Code (work, ~/.claude-work) carry the same
+# skills. Plugins are per CLAUDE_CONFIG_DIR, so each profile installs its own
+# copy. Managed by roles/ai_agents/tasks/claude_plugins.yml: each marketplace
+# is added and each plugin installed when missing, and enabledPlugins is
+# merged into settings.json. The company plugins were chosen from the
+# marketplace's 18 by actual use: the rest are PM/report tooling, or
+# (`sunrise-model-routing`) conflict with the routing policy under
+# host_files/localhost/ai/routing/.
+ai_claude_marketplaces: &ai_claude_marketplaces
+  - name: claude-skills-plugins
+    source: Sunrise-Robotics/claude-skills-plugins
+  - name: caveman
+    source: JuliusBrussee/caveman
+ai_claude_plugins: &ai_claude_plugins
+  - grafana-usage-report@claude-skills-plugins
+  - sunrise-writing@claude-skills-plugins
+  - marketplace-plugin-kit@claude-skills-plugins
+  - codebase-analysis@claude-skills-plugins
+  - caveman@caveman
+
 # Claude Code profiles that receive managed MCP registrations and hooks.
 # config_dir holds settings.json, CLAUDE.md and skills. MCP state lives in
 # .claude.json: $HOME/.claude.json for the personal profile, and
@@ -146,6 +167,8 @@ ai_claude_profiles:
       - CLAUDE_CONFIG_DIR
       - "HOME={{ user_dir }}"
       - claude
+    marketplaces: *ai_claude_marketplaces
+    plugins: *ai_claude_plugins
   - name: work
     config_dir: "{{ config_paths.claude_work_config }}"
     agents_dir: "{{ config_paths.claude_work_config }}/agents"
@@ -153,46 +176,19 @@ ai_claude_profiles:
       - env
       - "CLAUDE_CONFIG_DIR={{ config_paths.claude_work_config }}"
       - claude
-    # The work profile is what T3 Code launches, and T3 is the planner and
-    # reviewer half of the Claude-plans / OpenCode-builds split. The edit
-    # guard gives a session a small budget of direct source edits (a quick
-    # task) and then denies with a pointer at the `build` skill. The dispatch
-    # guard closes the other route around the bridge: in the first week of
-    # the split, claude-work dispatched `general-purpose` subagents 36 times
-    # against 2 bridged builds, so implementation-shaped Agent calls are
-    # denied with the same pointer. Personal `claude` stays a general-purpose
-    # CLI and carries neither guard.
-    hooks:
-      PreToolUse:
-        - matcher: "Edit|Write|MultiEdit|NotebookEdit"
-          hooks:
-            - type: command
-              command: "{{ config_paths.local_bin }}/claude-edit-guard"
-              timeout: 10
-        - matcher: "Agent"
-          hooks:
-            - type: command
-              command: "{{ config_paths.local_bin }}/claude-dispatch-guard"
-              timeout: 10
-    # Company Claude Code plugins, installed into this profile only (plugins
-    # are per CLAUDE_CONFIG_DIR, and T3 launches this one). Managed by
-    # roles/ai_agents/tasks/claude_plugins.yml: the marketplace is added and
-    # each plugin installed when missing, and enabledPlugins is merged into
-    # settings.json. Chosen from the marketplace's 18 by actual use: the
-    # rest are PM/report tooling, or (`sunrise-model-routing`) conflict with
-    # the routing policy under host_files/localhost/ai/routing/.
-    marketplaces:
-      - name: claude-skills-plugins
-        source: Sunrise-Robotics/claude-skills-plugins
-    plugins:
-      - grafana-usage-report@claude-skills-plugins
-      - sunrise-writing@claude-skills-plugins
-      - marketplace-plugin-kit@claude-skills-plugins
-      - codebase-analysis@claude-skills-plugins
+    # The work profile is what T3 Code launches, and T3 is the primary
+    # harness: Claude plans and implements in it directly. The Claude-plans /
+    # OpenCode-builds guards (claude-edit-guard, claude-dispatch-guard) are
+    # no longer hooked here; the `build` skill still hands a ticket to
+    # OpenCode, but only when Dan asks for that by name. To re-enable the
+    # split, restore the PreToolUse hooks from PR #8.
+    marketplaces: *ai_claude_marketplaces
+    plugins: *ai_claude_plugins
 
 # Managed Claude Code hooks shared by every profile. Together with a profile's
-# own `hooks` above, this REPLACES the `hooks` object in that profile's
-# settings.json; all other settings keys are preserved.
+# own `hooks` (none today), this REPLACES the `hooks` object in that profile's
+# settings.json, so a hook dropped here is removed from settings.json too; all
+# other settings keys are preserved.
 ai_claude_hooks:
   SessionStart:
     - matcher: "startup|resume|clear|compact"
@@ -203,9 +199,9 @@ ai_claude_hooks:
 
 # Executables from host_files/localhost/bin linked into ~/.local/bin by
 # roles/ai_agents/tasks/t3.yml. claude-work is T3's Claude provider binary;
-# claude-edit-guard and claude-dispatch-guard are the work-profile PreToolUse
-# hooks; oc-ticket is the bridge Claude uses to hand a ticket to an OpenCode
-# worker/rescue/verifier.
+# oc-ticket is the bridge the `build` skill uses to hand a ticket to an
+# OpenCode worker/rescue/verifier when Dan asks for it. claude-edit-guard and
+# claude-dispatch-guard stay linked but are not hooked into any profile.
 ai_managed_bin:
   - claude-work
   - claude-edit-guard
@@ -238,6 +234,16 @@ ai_harnesses:
     dir: "{{ user_dir }}/.config/opencode"
     instructions: "{{ user_dir }}/.config/opencode/AGENTS.md"
     skills: "{{ user_dir }}/.config/opencode/skills"
+
+# Skills owned by another repo. Linked to that repo rather than vendored here,
+# so the owning repo stays the single source of truth and edits there take
+# effect without a re-apply.
+ai_external_skills_src: "{{ user_dir }}/Projects/paperclip/skills"
+ai_external_skills:
+  - paperclip
+  - paperclip-create-agent
+  - paperclip-create-plugin
+  - para-memory-files
 
 # Skills that are lead procedures: they plan, dispatch, review, push, merge
 # or apply to this Mac. Every skill still deploys to every harness (the
