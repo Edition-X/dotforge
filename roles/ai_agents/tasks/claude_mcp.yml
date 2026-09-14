@@ -120,6 +120,51 @@
   no_log: true
   tags: [ai, claude]
 
+# 1Password MCP: same idempotent inspect / remove-stale / register pattern
+# as arcane. stdio, no arguments, auth handled by the desktop app.
+- name: Claude MCP - Inspect 1password registration
+  ansible.builtin.command:
+    argv: "{{ item.claude_argv + ['mcp', 'get', '1password'] }}"
+  loop: "{{ ai_claude_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ai_agents_claude_mcp_onepassword_current
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  when: ai_agents_claude_binary.rc == 0
+  tags: [ai, claude]
+
+- name: Claude MCP - Remove stale 1password registration
+  ansible.builtin.command:
+    argv: "{{ item.item.claude_argv + ['mcp', 'remove', '--scope', 'user', '1password'] }}"
+  loop: "{{ ai_agents_claude_mcp_onepassword_current.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('skipped') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - item.rc == 0
+    - '("Command: " ~ ai_onepassword_mcp_bin) not in item.stdout'
+  changed_when: true
+  tags: [ai, claude]
+
+- name: Claude MCP - Register 1password
+  ansible.builtin.command:
+    argv: >-
+      {{ item.item.claude_argv +
+         ['mcp', 'add', '--scope', 'user', '--transport', 'stdio', '1password',
+          '--', ai_onepassword_mcp_bin] }}
+  loop: "{{ ai_agents_claude_mcp_onepassword_current.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('skipped') }}"
+  when:
+    - ai_agents_claude_binary.rc == 0
+    - item.skipped is not defined
+    - 'item.rc != 0 or ("Command: " ~ ai_onepassword_mcp_bin) not in item.stdout'
+  changed_when: true
+  tags: [ai, claude]
+
 # The gateway replaces these direct, per-server registrations. Only the
 # personal profile ever had them, but both profiles are checked so this
 # stays correct if that changes.
