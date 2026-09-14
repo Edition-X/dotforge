@@ -17,9 +17,9 @@ f3  : open -b "com.microsoft.edgemac"         # Microsoft Edge
 f4  : open -b "org.mozilla.firefox"           # Firefox
 f5  : open -b "com.tinyspeck.slackmacgap"     # Slack
 f6  : open -b "md.obsidian"                   # Obsidian
-f7  : open -b "org.openvpn.client.app"        # OpenVPN Connect
-f8  : open -b "com.spotify.client"            # Spotify
-f9  : open -b "com.openai.chat"               # ChatGPT Classic
+f7  : open -b "com.linear"                    # Linear
+f8  : open -b "com.apple.Music"               # Apple Music
+f9  : open -b "com.openai.codex"              # ChatGPT
 f10 : open -b "com.anthropic.claudefordesktop" # Claude (desktop app)
 
 # Switch appearance manually. Turn Auto off first so scheduled appearance
