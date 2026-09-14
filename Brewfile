@@ -321,6 +321,10 @@ uv "mlx-audio", with: ["misaki", "numpy<2", "spacy<4"]
 npm "@openai/codex"
 npm "clawdhub"
 
+# Apple Reminders/Calendar MCP server (EventKit via a bundled Swift binary).
+# First MCP tool call triggers the macOS Reminders/Calendar permission prompt.
+npm "mcp-server-apple-events"
+
 # Language servers for OpenCode's LSP integration
 npm "pyright"
 npm "yaml-language-server"
