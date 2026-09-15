@@ -488,6 +488,12 @@ mcp_toolkit_grafana_read_tools:
   - list_pyroscope_label_values
   - list_pyroscope_profile_types
   - get_assertions
+  # Tempo has no dedicated tool in mcp-grafana; grafana_api_request is the only
+  # way to run TraceQL (POST /api/ds/query with datasource grafanacloud-traces).
+  # Write scope is bounded by the service-account token, not by this list.
+  # run_panel_query would be the read-only alternative but the catalog image
+  # (mcp/grafana, 2026-07-08) does not ship it yet.
+  - grafana_api_request
 mcp_gateway_host: 127.0.0.1
 # One gateway process per profile. sunrise is work; a later personal profile
 # gets its own port (8081), label, token and harness entry.

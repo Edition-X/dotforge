@@ -14,16 +14,19 @@ report a step you skipped as done.
 
 ## 1. Branch
 
+Always work in a fresh git worktree. `~/Projects/dotforge` may hold Dan's work in
+progress on `main`; never switch its branch, stash, or reset its tree.
+
 ```bash
-cd ~/Projects/dotforge
-git status --short            # must be clean, or only the files you are about to commit
-git checkout main && git pull --ff-only
-git checkout -b <type>/<kebab-description>   # feat/ fix/ chore/ docs/ refactor/
+cd ~/Projects/dotforge && git fetch origin
+git worktree add ~/Projects/dotforge-<kebab-description> -b <type>/<kebab-description> origin/main
+cd ~/Projects/dotforge-<kebab-description>   # feat/ fix/ chore/ docs/ refactor/
+git status --short                           # must be clean
 ```
 
-If a branch already exists for this work (another skill cut it), stay on it and rebase
-it on `main` first: `git rebase main`. Never rebase a branch that is already pushed and
-has a PR — add commits instead.
+If a worktree already exists for this work (another skill cut it), stay in it and rebase
+its branch on `origin/main` first: `git rebase origin/main`. Never rebase a branch that is
+already pushed and has a PR — add commits instead. `git worktree list` shows what exists.
 
 ## 2. Change and verify
 
@@ -112,14 +115,22 @@ never force-push.
 
 ## 6. Deploy and verify on this Mac
 
+Deployed symlinks resolve through `host_files_dir`, which is pinned to
+`~/Projects/dotforge/host_files`, so the main checkout must hold merged `main` before
+the apply. Fast-forward it in place; never switch its branch, stash, or reset it.
+
 ```bash
-git checkout main && git pull --ff-only
+git -C ~/Projects/dotforge pull --ff-only origin main   # stop and tell Dan if this refuses
+cd ~/Projects/dotforge
 make <tag>            # or make apply when the change spans roles
 make <tag>            # expect changed=0
 ```
 
-Then the area verify from step 2.4 once more, against `main`. If it fails, the fix is a
-new branch through this same skill — do not patch the machine by hand.
+Then the area verify from step 2.4 once more, against merged `main`. If it fails, the
+fix is a new worktree through this same skill — do not patch the machine by hand.
+
+Finally remove the worktree: `git -C ~/Projects/dotforge worktree remove
+~/Projects/dotforge-<kebab-description>` (the merged branch was deleted by the PR).
 
 Save an Arcane memory (`decision`, `bug`, `pattern` or `context`) if the change carries
 one. Report: PR URL, merge commit, what was applied here, and the command Dan can run to
