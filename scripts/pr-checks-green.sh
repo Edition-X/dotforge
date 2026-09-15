@@ -17,12 +17,10 @@ set -euo pipefail
 number="${1:?pull request number}"
 timeout="${2:-1800}"
 repo="${3:-}"
-repo_flag=()
-[[ -n "$repo" ]] && repo_flag=(-R "$repo")
 deadline=$(( $(date +%s) + timeout ))
 
 while :; do
-    rollup=$(gh pr view "$number" "${repo_flag[@]}" --json statusCheckRollup --jq '.statusCheckRollup[] | "\(.name // .context)\t\(.status // "COMPLETED")\t\(.conclusion // .state // "")"')
+    rollup=$(gh pr view "$number" ${repo:+-R "$repo"} --json statusCheckRollup --jq '.statusCheckRollup[] | "\(.name // .context)\t\(.status // "COMPLETED")\t\(.conclusion // .state // "")"')
     if [[ -z "$rollup" ]]; then
         echo "pr $number: no checks reported yet"
     else

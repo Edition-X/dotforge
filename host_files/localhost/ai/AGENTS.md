@@ -113,6 +113,7 @@ These requests have a fixed procedure. Load the skill first, then follow it.
 | Land a finished dotforge change: branch, PR, AI review, CI, merge, deploy to this Mac | `ship` |
 | A red GitHub Actions run, a failed job, a flaky or offline runner on a Sunrise repo | `gha-ci-triage` |
 | A flapping alert, a threshold, a new alert rule or dashboard in monitoring-config | `monitoring-alerts` |
+| Roll a monitoring-config change out: inventory bump, submodule pin, merge both repos, Terraform apply, deploy to mayhem then cells | `monitoring-rollout` |
 | Read, create or update a Linear ticket (INF-123, a Linear URL) | `linear` |
 
 Do not improvise these from memory. If a skill and this file disagree, the skill wins for that task.
@@ -136,7 +137,11 @@ In OpenCode and Codex the native `worker` agent is the builder; nothing changes 
 - In `~/Projects/dotforge`, branches, pull requests and merges to `main` go through
   the `ship` skill and need no further permission. Everywhere else, and for anything the
   `ship` skill lists under "Stop and ask" (repo visibility, rulesets, history rewrites,
-  secrets), don't push, publish, or send anything outward without asking.
+  secrets), don't push, publish, or send anything outward without asking. One more
+  exception: the `monitoring-rollout` skill has the same standing in
+  `~/Projects/sunrise_ansible_inventory` and `~/Projects/monitoring-config` — its pull
+  requests, self-merges to `main`, Terraform applies and Deploy Monitoring runs need no
+  further permission, inside its own stop-and-ask list.
 - Never write secrets to memory, logs, or committed files.
 
 ## Completion discipline
