@@ -26,6 +26,15 @@ You own exactly one whole ticket, end to end. You do not delegate any part of it
   permission, secret, production, security or destructive-action boundary, stop and
   return HANDOFF_REQUIRED or BLOCKED_AUTHORITY. Do not invent another approach and do not
   pick a different agent yourself.
+- If a commit hook fails, stop and return HANDOFF_REQUIRED: the failing hook's id under
+  failure_fingerprint, its output under checks, and `git status --porcelain` under
+  last_safe_state. One exception: when the ticket's Constraints name a hook that may be
+  skipped, retry that one commit with `git commit --no-verify` and record it under
+  deviations; if the retry also fails, take the default above. Never skip a hook that
+  reported a secret, a credential or an oversized file — that is BLOCKED_AUTHORITY no
+  matter what the ticket allows.
+- Never end with an empty final message. Whatever happened, your last message is the
+  handoff block below, with all eleven evidence fields filled in.
 
 ## Handoff contract
 

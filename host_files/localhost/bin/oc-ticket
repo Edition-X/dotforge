@@ -70,8 +70,9 @@ ROLES = ("worker", "rescue", "verifier")
 DEFAULT_MESSAGES = {
     "worker": (
         "Implement the attached ticket exactly as written: its branch, allowed files, "
-        "verification commands and commit message. Return the structured handoff block "
-        "(status plus all eleven evidence fields) as your final message."
+        "verification commands and commit message. Follow your prompt's commit-hook rule. "
+        "Return the structured handoff block (status plus all eleven evidence fields) as "
+        "your final message, and never end with an empty one."
     ),
     "rescue": (
         "You are the rescue dispatch for the attached ticket after a repeated similar "
@@ -103,6 +104,10 @@ HEADING_RE = re.compile(r"^#+\s.*\bticket\b", re.IGNORECASE)
 HEADING_SHAPE_RE = re.compile(r"^#+\s*\*{0,2}\s*ticket\s+\S+.*:\s*\S+", re.IGNORECASE)
 HANDOFF_REQUEST_RE = re.compile(r"\breturn\b.*\bhandoff\b", re.IGNORECASE)
 COMMIT_SHAPE_RE = re.compile(r"^[a-z]+(\([a-z0-9._/-]+\))?!?: .+")
+# A template choice the lead never resolved, e.g. `<a | b>`. Worth a warning wherever it
+# appears: the worker reads the ticket literally and a left-in choice reads as permission
+# for both sides of it.
+UNRESOLVED_CHOICE_RE = re.compile(r"<[^<>\n]*\|[^<>\n]*>")
 # Roles whose ticket must carry the build skill's full template. A rescue
 # ticket is an evidence trail and a verifier ticket names what to re-check;
 # both are linted for information only.
@@ -164,6 +169,9 @@ def lint_ticket_text(text: str) -> dict[str, object]:
         subject = commit[0].strip().strip("`")
         if not COMMIT_SHAPE_RE.match(subject):
             warnings.append("commit message is not Conventional Commits shaped")
+
+    if UNRESOLVED_CHOICE_RE.search(text):
+        warnings.append("ticket still carries an unresolved `<a | b>` template choice")
 
     if len(lines) > 200:
         warnings.append("ticket is over 200 lines")

@@ -258,6 +258,15 @@ class LintTests(unittest.TestCase):
         self.assertEqual(result["missing"], [])
         self.assertEqual(result["warnings"], ["heading is not `# Ticket <ID>: <goal>` shaped"])
 
+    def test_unresolved_template_choice_warns(self):
+        text = GOOD_TICKET.replace(
+            "Constraints:", "Constraints: commit hooks: <may be skipped | must pass>;", 1,
+        )
+        code, result = self.run_lint(text)
+        self.assertEqual(code, 0, result)
+        self.assertTrue(result["ok"])
+        self.assertIn("ticket still carries an unresolved `<a | b>` template choice", result["warnings"])
+
     def test_incidental_handoff_word_is_not_a_handoff_request(self):
         text = GOOD_TICKET.replace(
             "Return the handoff block with all eleven evidence fields as your final message.",
