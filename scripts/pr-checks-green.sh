@@ -7,15 +7,22 @@
 # merge chained on it once landed a red pull request. This reads the rollup
 # itself and refuses anything that is not COMPLETED + SUCCESS/NEUTRAL/SKIPPED.
 #
-# Usage: scripts/pr-checks-green.sh <pr-number> [timeout-seconds]
+# Usage: scripts/pr-checks-green.sh <pr-number> [timeout-seconds] [owner/repo]
+#
+# The third argument targets another repository (the monitoring-rollout skill
+# gates sunrise_ansible_inventory and monitoring-config PRs with it); without it
+# gh resolves the repository from the current directory as usual.
 set -euo pipefail
 
 number="${1:?pull request number}"
 timeout="${2:-1800}"
+repo="${3:-}"
+repo_flag=()
+[[ -n "$repo" ]] && repo_flag=(-R "$repo")
 deadline=$(( $(date +%s) + timeout ))
 
 while :; do
-    rollup=$(gh pr view "$number" --json statusCheckRollup --jq '.statusCheckRollup[] | "\(.name // .context)\t\(.status // "COMPLETED")\t\(.conclusion // .state // "")"')
+    rollup=$(gh pr view "$number" "${repo_flag[@]}" --json statusCheckRollup --jq '.statusCheckRollup[] | "\(.name // .context)\t\(.status // "COMPLETED")\t\(.conclusion // .state // "")"')
     if [[ -z "$rollup" ]]; then
         echo "pr $number: no checks reported yet"
     else

@@ -258,6 +258,7 @@ ai_external_skills:
 # skills perform. Codex has no per-agent skill permission; it is unchanged.
 ai_lead_only_skills:
   - build
+  - monitoring-rollout
   - ship
   - macbook
   - arcane-dev
@@ -276,6 +277,7 @@ ai_lead_only_skills:
 # check-unencrypted-secrets.py refuses a plaintext commit of any path here.
 ai_encrypted_skills:
   - sunrise-cells
+  - monitoring-rollout
   - sunrise-devcontainer-rollout
   - gha-ci-triage
   - monitoring-alerts
