@@ -44,7 +44,8 @@ Change: <what to build, precisely>.
 Acceptance criteria: <bullet list>.
 Verification: `<command>` must exit 0 (one line per command).
 Commit message: `<type>(<scope>): <subject>`
-Constraints: never push; never read `.env`; do not create or move files outside the repo.
+Constraints: never push; never read `.env`; do not create or move files outside the repo;
+commit hooks: <`--no-verify` allowed once on hook failure | must pass>.
 Return the handoff block with all eleven evidence fields as your final message.
 ```
 

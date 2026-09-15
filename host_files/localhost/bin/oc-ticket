@@ -71,7 +71,10 @@ DEFAULT_MESSAGES = {
     "worker": (
         "Implement the attached ticket exactly as written: its branch, allowed files, "
         "verification commands and commit message. Return the structured handoff block "
-        "(status plus all eleven evidence fields) as your final message."
+        "(status plus all eleven evidence fields) as your final message. If the commit "
+        "hook fails, retry once with --no-verify only when the ticket's Constraints allow "
+        "it; otherwise return HANDOFF_REQUIRED with `git status --porcelain` output in "
+        "last_safe_state. Never end with an empty final message."
     ),
     "rescue": (
         "You are the rescue dispatch for the attached ticket after a repeated similar "

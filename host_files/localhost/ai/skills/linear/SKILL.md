@@ -73,6 +73,27 @@ Description:
 - Add appropriate hardware-specific labels and runner group scoping.
 - Onboard the first target workflow/repo safely.
 
+## State, estimate and closing conventions
+
+- Estimate: 1 point unless the user names another.
+- State: `In Progress` while working, `In Review` from the moment a PR is open.
+- Linear flips a ticket to `Done` on its own when any linked PR merges. That includes
+  rehearsal PRs into `sim_integration` and seed or fixture PRs that carry the ticket key
+  in the branch name. After every merge, read the state again and set it back to
+  `In Review` or `In Progress` when work remains. Do not treat an auto `Done` as a signal
+  that the work is finished.
+- Closing comment, posted when the work is really done, in this shape:
+
+  ```markdown
+  **Root cause:** <one or two sentences>
+  **Fix:** <what changed, PR links>
+  **Verification:** <what was run or observed, run ids or URLs>
+  **Follow-ups:** <ticket keys, or "none">
+  ```
+
+- Follow-up tickets: create them with the same defaults and link them to the parent with
+  `relatedTo`, not `blocks` or `blockedBy`, unless the user asks for a blocking relation.
+
 ## Update / comment
 
 1. Read the issue first (get_issue / list_comments) to confirm current state before changing anything.
