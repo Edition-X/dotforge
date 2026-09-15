@@ -44,10 +44,14 @@ Change: <what to build, precisely>.
 Acceptance criteria: <bullet list>.
 Verification: `<command>` must exit 0 (one line per command).
 Commit message: `<type>(<scope>): <subject>`
-Constraints: never push; never read `.env`; do not create or move files outside the repo;
-commit hooks: <`--no-verify` allowed once on hook failure | must pass>.
+Constraints: never push; never read `.env`; do not create or move files outside the repo; commit hooks must pass.
 Return the handoff block with all eleven evidence fields as your final message.
 ```
+
+When a repository hook is known to reject an edit the ticket requires (the changelog hook
+on a `CHANGELOG.md` rollback, say), name that one hook in Constraints instead: `commit
+hooks: <hook id> may be skipped with --no-verify`. The worker stops on any other hook, and
+on a secret or credential finding whatever the ticket says.
 
 ## 3. Dispatch
 

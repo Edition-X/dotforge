@@ -20,6 +20,8 @@ When acting for Dan Kelly, apply these unless the user explicitly overrides them
 - Team/type: `INF` (Digital Infrastructure)
 - Assignee: `Dan Kelly`
 - Cycle: current active cycle for the INF team
+- Estimate: 1 point
+- State: `In Progress` once work starts, `In Review` from the moment a PR is open
 - Description style: concise, action-oriented, implementation-focused — not verbose
 
 Known Sunrise IDs (use directly, skip lookup):
@@ -58,9 +60,9 @@ Only fall back to broader search (team, user, or cycle lookups) if:
    - one-sentence summary
    - 2-5 bullets for the required work, only if needed
    - no long background section or context dump unless requested
-3. Apply the Sunrise defaults above (team INF, assignee Dan Kelly, current active cycle) unless the user names a different team, assignee, or cycle — then follow the user instead.
+3. Apply the Sunrise defaults above (team INF, assignee Dan Kelly, current active cycle, estimate 1) unless the user names different values — then follow the user instead.
 4. If scope is ambiguous, ask only the minimum clarifying question before creating.
-5. Use the Linear create_issue tool (or an equivalent save/create tool) with all resolved fields (team, assignee, cycle, title, description).
+5. Use the Linear create_issue tool (or an equivalent save/create tool) with all resolved fields (team, assignee, cycle, estimate, title, description).
 
 Example shape:
 
@@ -73,37 +75,39 @@ Description:
 - Add appropriate hardware-specific labels and runner group scoping.
 - Onboard the first target workflow/repo safely.
 
-## State, estimate and closing conventions
-
-- Estimate: 1 point unless the user names another.
-- State: `In Progress` while working, `In Review` from the moment a PR is open.
-- Linear flips a ticket to `Done` on its own when any linked PR merges. That includes
-  rehearsal PRs into `sim_integration` and seed or fixture PRs that carry the ticket key
-  in the branch name. After every merge, read the state again and set it back to
-  `In Review` or `In Progress` when work remains. Do not treat an auto `Done` as a signal
-  that the work is finished.
-- Closing comment, posted when the work is really done, in this shape:
-
-  ```markdown
-  **Root cause:** <one or two sentences>
-  **Fix:** <what changed, PR links>
-  **Verification:** <what was run or observed, run ids or URLs>
-  **Follow-ups:** <ticket keys, or "none">
-  ```
-
-- Follow-up tickets: create them with the same defaults and link them to the parent with
-  `relatedTo`, not `blocks` or `blockedBy`, unless the user asks for a blocking relation.
-
 ## Update / comment
 
 1. Read the issue first (get_issue / list_comments) to confirm current state before changing anything.
-2. Apply the requested change with the Linear update_issue tool (status, labels, assignee, cycle, description) or add a comment with the Linear create_comment tool.
+2. Apply the requested change with the Linear update_issue tool (status, labels, assignee, cycle, estimate, description) or add a comment with the Linear create_comment tool.
 3. Keep updates and comments concise and specific — state what changed and why.
 4. Batch related changes together; explain the grouping logic before applying bulk updates.
-5. Summarize the result: what changed, remaining gaps, and any proposed next actions.
+5. Move the state with the work: `In Review` as soon as a PR for the ticket is open.
+6. After any PR linked to a ticket you are working merges, read the ticket's state again.
+   Linear moves it to `Done` on its own, and it counts every linked PR — a rehearsal PR into
+   `sim_integration`, a seed or fixture PR, any branch carrying the ticket key. When work
+   remains, put the state back per the rule above and say so. An automatic `Done` is not
+   evidence that the ticket is finished.
+7. Summarize the result: what changed, remaining gaps, and any proposed next actions.
+
+## Close a ticket
+
+Post one closing comment when the work is really done, in this shape:
+
+```markdown
+**Root cause:** <one or two sentences>
+**Fix:** <what changed, PR links>
+**Verification:** <what was run or observed, run ids or URLs>
+**Follow-ups:** <ticket keys, or "none">
+```
+
+Create each follow-up as its own ticket with the same defaults, and link it to the parent
+with `relatedTo` — not `blocks`, `blockedBy`, or a parent/sub-issue relation — unless the
+user asks for a blocking one.
 
 ## Never
 
 - Delete issues, projects, labels, or comments.
+- Reopen a ticket that someone else closed, including one Linear closed automatically on a
+  merge, unless it is a ticket you are working or the user asks.
 - Apply bulk edits across many issues without the user confirming the batch first.
 - Change the status, assignee, or content of another person's issue without the user's explicit go-ahead.
