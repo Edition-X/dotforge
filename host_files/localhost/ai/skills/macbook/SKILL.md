@@ -42,11 +42,20 @@ no branch, no commit for a zero-diff change.
 
 Run these in order. Do not skip the verify step or the second dry run.
 
+Always work in a fresh git worktree. `~/Projects/dotforge` may hold Dan's work in
+progress on `main`; never switch its branch or touch its tree.
+
 ```bash
-cd ~/Projects/dotforge
-git checkout main && git pull --ff-only
-git checkout -b <type>/<kebab-description>
+cd ~/Projects/dotforge && git fetch origin
+git worktree add ~/Projects/dotforge-<kebab-description> -b <type>/<kebab-description> origin/main
+cd ~/Projects/dotforge-<kebab-description>
 ```
+
+Run `make lint` and `make check` from that worktree. Deployed symlinks resolve through
+`host_files_dir` (`~/Projects/dotforge/host_files`), so the apply step in the `ship`
+skill fast-forwards the main checkout to merged `main` first and runs `make <target>`
+there. Remove the worktree after the change has merged and deployed:
+`git -C ~/Projects/dotforge worktree remove ~/Projects/dotforge-<kebab-description>`.
 
 1. Edit the file(s) from the table above.
 2. `make lint` — ansible-lint + yamllint, must exit 0.
