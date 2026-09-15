@@ -35,8 +35,17 @@ export MCP_GATEWAY_AUTH_TOKEN
 # session and never reaps them, so every harness session leaked a Grafana
 # container. Per-call containers (docker run --rm) cost ~1 s per call and
 # leave nothing behind.
+# --block-secrets=false: the scanner (pkg/secretsscan, 88 fixed rules, no
+# allowlist) rejects any tool response matching e.g. the jwt-token rule.
+# Linear attachment download URLs carry a JWT signature, so get_issue and
+# list_comments on any ticket with an attachment failed with "a secret is
+# being returned by the linear__get_issue tool" and the harness got nothing.
+# Server credentials never pass through this path: the gateway injects them
+# into the server container from the Docker Desktop secret store, and the
+# harnesses only see loopback plus the bearer token in their own config.
 exec {{ mcp_toolkit_docker_bin }} mcp gateway run \
   --profile {{ mcp_toolkit_profile }} \
   --transport streaming \
   --host {{ mcp_gateway_host }} \
-  --port {{ mcp_gateway_port }}
+  --port {{ mcp_gateway_port }} \
+  --block-secrets=false
