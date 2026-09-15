@@ -36,6 +36,29 @@ import yaml
 
 VAULT_MARKER = "$ANSIBLE_VAULT"
 
+
+def encrypted_skills() -> list[str]:
+    """The skills roles/ai_agents deploys as decrypted copies, from the one list.
+
+    Read next to this script, not from the working directory: the browser
+    automation runs this gate inside a throwaway clone whose cwd is not the
+    repository root, and a checkout without the file (a fixture repository) has
+    no skills to protect.
+    """
+    candidates = (
+        Path(__file__).resolve().parents[1] / "group_vars" / "macbooks.yml",
+        Path("group_vars/macbooks.yml"),
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            document = yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}
+            skills = document.get("ai_encrypted_skills") or []
+            if not skills:
+                raise SystemExit(f"{candidate}: ai_encrypted_skills is missing or empty")
+            return [str(skill) for skill in skills]
+    return []
+
+
 # Paths that are meaningless unless encrypted.
 MUST_ENCRYPT = (
     re.compile(r"^host_files/[^/]+/id_rsa$"),
@@ -44,8 +67,14 @@ MUST_ENCRYPT = (
     re.compile(r"^host_vars/[^/]+/vault\.yml$"),
     # Personal bookmark URLs. The repository is public; these are not.
     re.compile(r"^host_files/[^/]+/browsers/[^/]+/bookmarks\.yml$"),
-    # Work skills that name an employer's customers, sites and hosts.
-    re.compile(r"^host_files/[^/]+/ai/skills/(?:sunrise-cells|sunrise-devcontainer-rollout|gha-ci-triage|monitoring-alerts)/SKILL\.md$"),
+    # Work skills that name an employer's customers, sites and hosts. The list
+    # is ai_encrypted_skills in group_vars/macbooks.yml, so adding a skill there
+    # is enough for both the deploy role and this check.
+    re.compile(
+        r"^host_files/[^/]+/ai/skills/(?:"
+        + ("|".join(re.escape(skill) for skill in encrypted_skills()) or r"(?!)")
+        + r")/SKILL\.md$"
+    ),
     # The SSH client config names an employer's fleet domain and host patterns.
     # ansible.builtin.template decrypts a vault-encrypted template on the way.
     re.compile(r"^roles/ssh/templates/config\.j2$"),
